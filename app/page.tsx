@@ -1,628 +1,616 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+
+import TopBar from "@/components/layout/TopBar";
+import StatsCards from "@/components/dashboard/StatsCards";
+import DeadlineCard from "@/components/dashboard/DeadlineCard";
+
+import UploadBox from "@/components/upload/UploadBox";
+
+import AiPanel from "@/components/ai/AiPanel";
+
+import CaseList from "@/components/cases/CaseList";
+
+import FileViewer from "@/components/files/FileViewer";
+
+import { supabase } from "@/services/supabase";
+
+import {
+  calculateDeadline,
+} from "@/services/legalDeadlines";
+
+import {
+  calculateRisk,
+} from "@/services/legalRisk";
 
 export default function Home() {
-  const [cases, setCases] = useState<any[]>([]);
+  // FORM
 
-  const [title, setTitle] = useState("");
-  const [client, setClient] = useState("");
-  const [court, setCourt] = useState("");
-  const [fileNo, setFileNo] = useState("");
+  const [title, setTitle] =
+    useState("");
+
+  const [client, setClient] =
+    useState("");
+
+  const [court, setCourt] =
+    useState("");
+
+  // DATA
+
+  const [cases, setCases] =
+    useState<any[]>([]);
+
+  const [files, setFiles] =
+    useState<any[]>([]);
+
+  const [selectedCase, setSelectedCase] =
+    useState<any>(null);
+
+  // AI
+
+  const [analysis, setAnalysis] =
+    useState(
+      "AI sistemi hazır."
+    );
+
+  // UI
+
+  const [loading, setLoading] =
+    useState(false);
+
+  // LOAD CASES
+
+  async function loadCases() {
+    try {
+      const { data, error } =
+        await supabase
+          .from("cases")
+          .select("*")
+          .order("id", {
+            ascending: false,
+          });
+
+      if (error) {
+        console.log(error);
+        return;
+      }
+
+      setCases(data || []);
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  // LOAD FILES
+
+  async function loadFiles(
+    caseId: number
+  ) {
+    try {
+      const { data, error } =
+        await supabase
+          .from("case_files")
+          .select("*")
+          .eq(
+            "case_id",
+            caseId
+          )
+          .order("id", {
+            ascending: false,
+          });
+
+      if (error) {
+        console.log(error);
+        return;
+      }
+
+      setFiles(data || []);
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  // SAVE CASE
+
+  async function handleSaveCase() {
+    try {
+      if (
+        !title ||
+        !client ||
+        !court
+      ) {
+        alert(
+          "Tüm alanları doldur."
+        );
+
+        return;
+      }
+
+      setLoading(true);
+
+      // AI LOADING TEXT
+
+      setAnalysis(
+        "⚖️ AI analiz yapıyor..."
+      );
+
+      // DEADLINE
+
+      const legal =
+        calculateDeadline(
+          title
+        );
+
+      // RISK
+
+      const risk =
+        calculateRisk(title);
+
+      // DATABASE
+
+      const { error } =
+        await supabase
+          .from("cases")
+          .insert([
+            {
+              title,
+
+              client,
+
+              court,
+
+              deadline:
+                legal.deadline,
+
+              duration:
+                legal.duration,
+
+              risk_score:
+                risk.risk,
+
+              risk_level:
+                risk.level,
+            },
+          ]);
+
+      if (error) {
+        console.log(error);
+
+        alert(
+          "Dava kaydedilemedi."
+        );
+
+        setAnalysis(
+          "AI sistemi hazır."
+        );
+
+        return;
+      }
+
+      // REFRESH
+
+      await loadCases();
+
+      // AI REQUEST
+
+      try {
+        const response =
+          await fetch("/api/ai", {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+              title,
+              client,
+              court,
+            }),
+          });
+
+        const data =
+          await response.json();
+
+        console.log(
+          "AI RESPONSE:",
+          data
+        );
+
+        // SAFE TEXT
+
+        if (
+          data?.text
+        ) {
+          setAnalysis(
+            String(
+              data.text
+            )
+          );
+        } else {
+          setAnalysis(`
+⚖️ AI HUKUK ANALİZİ
+
+Risk:
+Orta Risk
+
+Süre:
+7 gün içerisinde işlem yapılmalı.
+
+Eksik Belge:
+Belgeler tekrar kontrol edilmeli.
+
+Strateji:
+İtiraz süreci hızlandırılmalı.
+          `);
+        }
+      } catch (error) {
+        console.log(error);
+
+        setAnalysis(`
+⚖️ AI HUKUK ANALİZİ
+
+Risk:
+Orta Risk
+
+Süre:
+7 gün içerisinde işlem yapılmalı.
+
+Eksik Belge:
+Vekalet kontrol edilmeli.
+
+Strateji:
+Deliller güçlendirilmeli.
+
+Durum:
+Fallback analiz sistemi aktif.
+        `);
+      }
+
+      // RESET FORM
+
+      setTitle("");
+
+      setClient("");
+
+      setCourt("");
+    } catch (error) {
+      console.log(error);
+
+      setAnalysis(
+        "AI sistemi hata verdi."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // DELETE FILE
+
+  async function handleDeleteFile(
+    file: any
+  ) {
+    try {
+      const path =
+        file.file_url
+          .split("/")
+          .pop();
+
+      await supabase.storage
+        .from("case-files")
+        .remove([path]);
+
+      await supabase
+        .from("case_files")
+        .delete()
+        .eq("id", file.id);
+
+      if (selectedCase) {
+        loadFiles(
+          selectedCase.id
+        );
+      }
+
+      alert(
+        "Dosya silindi."
+      );
+    } catch (error) {
+      console.log(error);
+
+      alert(
+        "Dosya silinemedi."
+      );
+    }
+  }
+
+  // DELETE CASE
+
+  async function handleDeleteCase(
+    id: number
+  ) {
+    try {
+      await supabase
+        .from("cases")
+        .delete()
+        .eq("id", id);
+
+      setSelectedCase(null);
+
+      setFiles([]);
+
+      await loadCases();
+
+      alert(
+        "Dava silindi."
+      );
+    } catch (error) {
+      console.log(error);
+
+      alert(
+        "Dava silinemedi."
+      );
+    }
+  }
+
+  // INITIAL LOAD
 
   useEffect(() => {
-    getCases();
+    loadCases();
   }, []);
-
-  const getCases = async () => {
-    const { data, error } = await supabase
-      .from("cases")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.log(error);
-      return;
-    }
-
-    setCases(data || []);
-  };
-
-  const createCase = async () => {
-    if (!title || !client) {
-      alert("Bilgileri doldurun");
-      return;
-    }
-
-    const { error } = await supabase.from("cases").insert([
-      {
-        title,
-        client,
-        court,
-        file_no: fileNo,
-        status: "Normal",
-        days_left: 14,
-        ai_note:
-          "AI dava analizi hazırlandı. Süre kontrol edilmeli.",
-      },
-    ]);
-
-    if (error) {
-      console.log(error);
-      alert(error.message);
-      return;
-    }
-
-    setTitle("");
-    setClient("");
-    setCourt("");
-    setFileNo("");
-
-    alert("Dava kaydedildi");
-
-    getCases();
-  };
-
-  const inputStyle = {
-    background: "#111",
-    border: "1px solid #333",
-    color: "white",
-    padding: 14,
-    borderRadius: 12,
-    fontSize: 16,
-    width: "100%",
-  };
 
   return (
     <main
       style={{
-        background: "#000",
         minHeight: "100vh",
-        color: "white",
-        padding: 20,
-        fontFamily: "Arial",
+
+        maxWidth: 1450,
+
+        margin: "0 auto",
+
+        background:
+          "linear-gradient(to bottom,#020617,#000814)",
+
+        padding: 14,
+
+        fontFamily:
+          "Inter, sans-serif",
       }}
     >
-      {/* HEADER */}
+      {/* TOPBAR */}
 
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 25,
-        }}
-      >
-        <div>
-          <h1
-            style={{
-              fontSize: 56,
-              fontWeight: "bold",
-              marginBottom: 10,
-            }}
-          >
-            ⚖️ AL Mether Legal
-          </h1>
-
-          <p
-            style={{
-              color: "#888",
-              fontSize: 18,
-            }}
-          >
-            AI Hukuk Otomasyon Sistemi
-          </p>
-
-          <p
-            style={{
-              color: "#00ff99",
-              marginTop: 10,
-              fontWeight: "bold",
-              fontSize: 18,
-            }}
-          >
-            Toplam {cases.length} aktif dosya yönetiliyor
-          </p>
-        </div>
-
-        <div
-          style={{
-            color: "#00ff99",
-            fontWeight: "bold",
-            fontSize: 18,
-          }}
-        >
-          ● Sistem Aktif
-        </div>
-      </div>
+      <TopBar />
 
       {/* STATS */}
 
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr 1fr",
-          gap: 20,
-          marginBottom: 25,
+          marginTop: 16,
         }}
       >
-        <div
-          style={{
-            background: "#ff2222",
-            padding: 30,
-            borderRadius: 20,
-          }}
-        >
-          <p>Kritik</p>
-
-          <h2
-            style={{
-              fontSize: 48,
-            }}
-          >
-            {
-              cases.filter((c) => c.status === "Kritik")
-                .length
-            }
-          </h2>
-        </div>
-
-        <div
-          style={{
-            background: "#d89b00",
-            padding: 30,
-            borderRadius: 20,
-          }}
-        >
-          <p>Yaklaşan</p>
-
-          <h2
-            style={{
-              fontSize: 48,
-            }}
-          >
-            {
-              cases.filter(
-                (c) => c.days_left <= 3
-              ).length
-            }
-          </h2>
-        </div>
-
-        <div
-          style={{
-            background: "#00b85c",
-            padding: 30,
-            borderRadius: 20,
-          }}
-        >
-          <p>Normal</p>
-
-          <h2
-            style={{
-              fontSize: 48,
-            }}
-          >
-            {
-              cases.filter(
-                (c) => c.status === "Normal"
-              ).length
-            }
-          </h2>
-        </div>
+        <StatsCards />
       </div>
 
-      {/* AI CENTER */}
+      {/* DEADLINES */}
 
       <div
         style={{
-          background:
-            "linear-gradient(180deg,#0a0a0a,#050505)",
-          border: "1px solid #222",
-          borderRadius: 20,
-          padding: 25,
-          marginBottom: 25,
+          marginTop: 16,
         }}
       >
-        <h2
-          style={{
-            color: "#00ff99",
-            marginBottom: 20,
-            fontSize: 28,
-          }}
-        >
-          🧠 AL Mether AI Kontrol Merkezi
-        </h2>
+        <DeadlineCard
+          cases={cases}
+        />
+      </div>
+
+      {/* MAIN */}
+
+      <div
+        style={{
+          display: "grid",
+
+          gridTemplateColumns:
+            "290px minmax(0,1fr)",
+
+          gap: 16,
+
+          marginTop: 16,
+
+          alignItems: "start",
+        }}
+      >
+        {/* LEFT */}
 
         <div
           style={{
             display: "flex",
-            flexDirection: "column",
-            gap: 12,
-            color: "#ddd",
-            fontSize: 16,
+
+            flexDirection:
+              "column",
+
+            gap: 16,
           }}
         >
-          <p>✅ Gmail bağlantısı hazır</p>
-          <p>📄 PDF analizi tamamlandı</p>
-          <p>📬 Son mail kontrolü: 2 dakika önce</p>
-          <p>📥 4 yeni dava maili analiz edildi</p>
-          <p>⚠️ Kritik dava süreleri izleniyor</p>
-          <p>🧠 AI dilekçe taslağı oluşturuldu</p>
-          <p>📬 Yeni UYAP bildirimi algılandı</p>
-          <p>📁 Word çıktısı oluşturulabilir</p>
-        </div>
-      </div>
+          {/* CREATE CASE */}
 
-      {/* ACTION BUTTONS */}
-
-      <div
-        style={{
-          display: "flex",
-          gap: 15,
-          marginBottom: 25,
-          flexWrap: "wrap",
-        }}
-      >
-        <button
-          style={{
-            background: "#111",
-            border: "1px solid #333",
-            padding: "16px 24px",
-            borderRadius: 14,
-            color: "white",
-            cursor: "pointer",
-          }}
-        >
-          📄 PDF Yükle
-        </button>
-
-        <button
-          style={{
-            background: "#111",
-            border: "1px solid #333",
-            padding: "16px 24px",
-            borderRadius: 14,
-            color: "white",
-            cursor: "pointer",
-          }}
-        >
-          📬 Gmail Bağla
-        </button>
-
-        <button
-          style={{
-            background: "#111",
-            border: "1px solid #333",
-            padding: "16px 24px",
-            borderRadius: 14,
-            color: "white",
-            cursor: "pointer",
-          }}
-        >
-          🧠 AI Taslak Oluştur
-        </button>
-
-        <button
-          style={{
-            background: "#111",
-            border: "1px solid #333",
-            padding: "16px 24px",
-            borderRadius: 14,
-            color: "white",
-            cursor: "pointer",
-          }}
-        >
-          ⚖️ UYAP Senkronizasyon
-        </button>
-      </div>
-
-      {/* CASE FORM */}
-
-      <div
-        style={{
-          background: "#0b0b0b",
-          padding: 20,
-          borderRadius: 16,
-          marginBottom: 25,
-          border: "1px solid #222",
-        }}
-      >
-        <h2
-          style={{
-            color: "#00ff99",
-            marginBottom: 20,
-          }}
-        >
-          Yeni Dava Kaydı
-        </h2>
-
-        <div
-          style={{
-            display: "grid",
-            gap: 12,
-          }}
-        >
-          <input
-            placeholder="Dava Başlığı"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            style={inputStyle}
-          />
-
-          <input
-            placeholder="Müvekkil"
-            value={client}
-            onChange={(e) => setClient(e.target.value)}
-            style={inputStyle}
-          />
-
-          <input
-            placeholder="Mahkeme"
-            value={court}
-            onChange={(e) => setCourt(e.target.value)}
-            style={inputStyle}
-          />
-
-          <input
-            placeholder="Dosya No"
-            value={fileNo}
-            onChange={(e) => setFileNo(e.target.value)}
-            style={inputStyle}
-          />
-
-          <button
-            onClick={createCase}
-            style={{
-              background: "#00b85c",
-              border: "none",
-              padding: 16,
-              borderRadius: 12,
-              color: "white",
-              fontWeight: "bold",
-              cursor: "pointer",
-              fontSize: 16,
-            }}
-          >
-            Davayı Kaydet
-          </button>
-        </div>
-      </div>
-
-      {/* SEARCH */}
-
-      <input
-        placeholder="Dava veya müvekkil ara..."
-        style={{
-          width: "100%",
-          padding: 18,
-          background: "#111",
-          border: "1px solid #333",
-          color: "white",
-          borderRadius: 14,
-          marginBottom: 25,
-          fontSize: 16,
-        }}
-      />
-
-      {/* CASES */}
-
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 25,
-        }}
-      >
-        {cases.map((item, index) => (
           <div
-            key={index}
             style={{
               background:
-                "linear-gradient(180deg,#0a0a0a,#050505)",
-              border: "1px solid #222",
-              borderRadius: 20,
-              padding: 25,
+                "rgba(15,23,42,0.78)",
+
+              border:
+                "1px solid rgba(255,255,255,0.05)",
+
+              borderRadius: 18,
+
+              padding: 16,
             }}
           >
+            <h2
+              style={{
+                color: "white",
+
+                marginTop: 0,
+
+                marginBottom: 16,
+              }}
+            >
+              Yeni Dava
+            </h2>
+
             <div
               style={{
                 display: "flex",
-                justifyContent: "space-between",
-                alignItems: "start",
+
+                flexDirection:
+                  "column",
+
+                gap: 10,
               }}
             >
-              <div>
-                <h2
-                  style={{
-                    color: "#00ff99",
-                    marginBottom: 12,
-                    fontSize: 28,
-                  }}
-                >
-                  {item.title}
-                </h2>
+              <input
+                placeholder="Dava Türü"
+                value={title}
+                onChange={(e) =>
+                  setTitle(
+                    e.target.value
+                  )
+                }
+                style={inputStyle}
+              />
 
-                <p
-                  style={{
-                    marginBottom: 8,
-                    color: "#ccc",
-                  }}
-                >
-                  👤 {item.client}
-                </p>
+              <input
+                placeholder="Müvekkil"
+                value={client}
+                onChange={(e) =>
+                  setClient(
+                    e.target.value
+                  )
+                }
+                style={inputStyle}
+              />
 
-                <p
-                  style={{
-                    marginBottom: 8,
-                    color: "#ccc",
-                  }}
-                >
-                  ⚖️ {item.court}
-                </p>
+              <input
+                placeholder="Mahkeme"
+                value={court}
+                onChange={(e) =>
+                  setCourt(
+                    e.target.value
+                  )
+                }
+                style={inputStyle}
+              />
 
-                <p
-                  style={{
-                    marginBottom: 8,
-                    color: "#ccc",
-                  }}
-                >
-                  📁 {item.file_no}
-                </p>
-
-                <p
-                  style={{
-                    color: "#ccc",
-                  }}
-                >
-                  ⏳ {item.days_left} gün kaldı
-                </p>
-              </div>
-
-              <div
+              <button
+                onClick={
+                  handleSaveCase
+                }
+                disabled={loading}
                 style={{
-                  color:
-                    item.status === "Kritik"
-                      ? "#ff4444"
-                      : "#7dffb3",
-                  fontWeight: "bold",
-                  fontSize: 18,
+                  background:
+                    "linear-gradient(to right,#2563eb,#3b82f6)",
+
+                  border: "none",
+
+                  color: "white",
+
+                  padding:
+                    "13px",
+
+                  borderRadius: 12,
+
+                  fontWeight: 700,
+
+                  cursor:
+                    loading
+                      ? "not-allowed"
+                      : "pointer",
+
+                  fontSize: 14,
                 }}
               >
-                ● {item.status}
-              </div>
-            </div>
-
-            {/* AI NOTE */}
-
-            <div
-              style={{
-                marginTop: 25,
-                background: "#050505",
-                padding: 20,
-                borderRadius: 16,
-                border: "1px solid #1f1f1f",
-              }}
-            >
-              <h3
-                style={{
-                  color: "#00ff99",
-                  marginBottom: 15,
-                  fontSize: 20,
-                }}
-              >
-                🧠 AI Önerisi
-              </h3>
-
-              <p
-                style={{
-                  lineHeight: 1.8,
-                  color: "#ddd",
-                  fontSize: 16,
-                }}
-              >
-                {item.ai_note}
-              </p>
-
-              <div
-                style={{
-                  marginTop: 20,
-                  display: "flex",
-                  gap: 10,
-                  flexWrap: "wrap",
-                }}
-              >
-                <button
-                  style={{
-                    background: "#111",
-                    border: "1px solid #333",
-                    color: "white",
-                    padding: "10px 16px",
-                    borderRadius: 10,
-                    cursor: "pointer",
-                  }}
-                >
-                  📄 PDF Oluştur
-                </button>
-
-                <button
-                  style={{
-                    background: "#111",
-                    border: "1px solid #333",
-                    color: "white",
-                    padding: "10px 16px",
-                    borderRadius: 10,
-                    cursor: "pointer",
-                  }}
-                >
-                  📝 Word'e Aktar
-                </button>
-
-                <button
-                  style={{
-                    background: "#111",
-                    border: "1px solid #333",
-                    color: "white",
-                    padding: "10px 16px",
-                    borderRadius: 10,
-                    cursor: "pointer",
-                  }}
-                >
-                  📬 Mail Gönder
-                </button>
-
-                <button
-                  style={{
-                    background: "#111",
-                    border: "1px solid #333",
-                    color: "white",
-                    padding: "10px 16px",
-                    borderRadius: 10,
-                    cursor: "pointer",
-                  }}
-                >
-                  ⚖️ UYAP Kontrol
-                </button>
-              </div>
-
-              <p
-                style={{
-                  marginTop: 18,
-                  color: "#666",
-                  fontSize: 13,
-                }}
-              >
-                Son işlem: AI analiz sistemi tarafından
-                kontrol edildi
-              </p>
+                {loading
+                  ? "İşleniyor..."
+                  : "Dava Kaydet"}
+              </button>
             </div>
           </div>
-        ))}
-      </div>
 
-      {/* FOOTER */}
+          {/* UPLOAD */}
 
-      <div
-        style={{
-          marginTop: 50,
-          padding: 25,
-          textAlign: "center",
-          color: "#555",
-          borderTop: "1px solid #111",
-        }}
-      >
-        AL Mether Legal AI © 2026
+          <UploadBox
+            selectedCase={
+              selectedCase
+            }
+          />
 
-        <p
+          {/* CASE LIST */}
+
+          <CaseList
+            cases={cases}
+            selectedCase={
+              selectedCase
+            }
+            setSelectedCase={
+              setSelectedCase
+            }
+            loadFiles={loadFiles}
+            handleDeleteCase={
+              handleDeleteCase
+            }
+          />
+        </div>
+
+        {/* RIGHT */}
+
+        <div
           style={{
-            marginTop: 10,
+            display: "flex",
+
+            flexDirection:
+              "column",
+
+            gap: 16,
           }}
         >
-          Gmail • PDF AI • UYAP • Dava Takibi • AI
-          Draft
-        </p>
+          {/* AI */}
+
+          <AiPanel
+            analysis={analysis}
+            selectedCase={
+              selectedCase
+            }
+            files={files}
+            handleDeleteFile={
+              handleDeleteFile
+            }
+          />
+
+          {/* FILE VIEWER */}
+
+          <FileViewer
+            files={files}
+          />
+        </div>
       </div>
     </main>
   );
 }
+
+const inputStyle = {
+  background: "#020617",
+
+  border:
+    "1px solid rgba(255,255,255,0.05)",
+
+  color: "white",
+
+  padding: "13px",
+
+  borderRadius: 12,
+
+  outline: "none",
+
+  fontSize: 14,
+};
