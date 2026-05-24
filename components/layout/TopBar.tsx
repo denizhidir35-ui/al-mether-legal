@@ -4,6 +4,16 @@ export default function TopBar() {
   return (
     <div
       style={{
+        background:
+          "linear-gradient(90deg,#020617,#0f172a)",
+
+        border:
+          "1px solid rgba(255,255,255,0.05)",
+
+        borderRadius: 24,
+
+        padding: "22px 28px",
+
         display: "flex",
 
         justifyContent:
@@ -11,16 +21,7 @@ export default function TopBar() {
 
         alignItems: "center",
 
-        background:
-          "rgba(15,23,42,0.75)",
-
-        border:
-          "1px solid rgba(255,255,255,0.05)",
-
-        borderRadius: 24,
-
-        padding:
-          "22px 26px",
+        marginBottom: 20,
       }}
     >
       {/* LEFT */}
@@ -29,31 +30,25 @@ export default function TopBar() {
         style={{
           display: "flex",
 
-          alignItems:
-            "center",
+          alignItems: "center",
 
           gap: 16,
         }}
       >
-        <img
-          src="/scale.svg"
-          alt="logo"
+        <div
           style={{
-            width: 54,
-
-            height: 54,
-
-            filter:
-              "drop-shadow(0 0 18px rgba(255,209,102,0.35))",
+            fontSize: 42,
           }}
-        />
+        >
+          ⚖️
+        </div>
 
         <div>
           <h1
             style={{
-              color: "white",
-
               margin: 0,
+
+              color: "white",
 
               fontSize: 28,
 
@@ -65,15 +60,18 @@ export default function TopBar() {
 
           <p
             style={{
-              color:
-                "#94a3b8",
+              margin: 0,
 
               marginTop: 6,
+
+              color:
+                "#94a3b8",
 
               fontSize: 14,
             }}
           >
-            AI Hukuk Operasyon Sistemi
+            AI Hukuk Operasyon
+            Sistemi
           </p>
         </div>
       </div>
@@ -84,10 +82,9 @@ export default function TopBar() {
         style={{
           display: "flex",
 
-          alignItems:
-            "center",
+          alignItems: "center",
 
-          gap: 10,
+          gap: 12,
         }}
       >
         <div
@@ -98,9 +95,9 @@ export default function TopBar() {
             color: "white",
 
             padding:
-              "10px 14px",
+              "10px 16px",
 
-            borderRadius: 12,
+            borderRadius: 14,
 
             fontSize: 13,
 
@@ -118,9 +115,9 @@ export default function TopBar() {
             color: "#22c55e",
 
             padding:
-              "10px 14px",
+              "10px 16px",
 
-            borderRadius: 12,
+            borderRadius: 14,
 
             fontSize: 13,
 
@@ -129,29 +126,6 @@ export default function TopBar() {
         >
           Sistem Aktif
         </div>
-
-        <button
-          style={{
-            background:
-              "#ef4444",
-
-            color: "white",
-
-            border: "none",
-
-            padding:
-              "10px 18px",
-
-            borderRadius: 12,
-
-            cursor:
-              "pointer",
-
-            fontWeight: 700,
-          }}
-        >
-          Çıkış Yap
-        </button>
       </div>
     </div>
   );
