@@ -1,10 +1,9 @@
-"use client";
-
 import "./globals.css";
 
-import {
-  SessionProvider,
-} from "next-auth/react";
+export const metadata = {
+  title: "AL Mether Legal",
+  description: "AI Hukuk Operasyon Sistemi",
+};
 
 export default function RootLayout({
   children,
@@ -13,10 +12,17 @@ export default function RootLayout({
 }) {
   return (
     <html lang="tr">
-      <body>
-        <SessionProvider>
-          {children}
-        </SessionProvider>
+      <body
+        style={{
+          margin: 0,
+          padding: 0,
+          background: "#020617",
+          color: "white",
+          fontFamily:
+            "Arial, Helvetica, sans-serif",
+        }}
+      >
+        {children}
       </body>
     </html>
   );
