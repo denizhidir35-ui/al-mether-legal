@@ -1,117 +1,59 @@
-import { NextResponse } from "next/server";
+import { NextResponse }
+from "next/server";
+
+import {
+  analyzeLegalCase
+} from "@/lib/legal-rules";
+
+import {
+  calculateDeadline
+} from "@/lib/deadline-engine";
+
+import {
+  getNotifications
+} from "@/lib/notification-engine";
+
+import {
+  createCalendarEvent
+} from "@/lib/calendar-engine";
 
 export async function POST(
   req: Request
 ) {
+
   try {
+
     const body =
       await req.json();
 
-    const title =
-      String(
+    const analysis =
+      analyzeLegalCase(
         body.title || ""
-      ).toLowerCase();
+      );
 
-    let risk =
-      "Orta Risk";
+    const days =
+      Number(
+        analysis.duration
+          .replace(" gün", "")
+      );
 
-    let duration =
-      "14 gün";
+    const deadline =
+      calculateDeadline(
+        days
+      );
 
-    let strategy =
-      "Standart savunma hazırlanmalı.";
+    const notifications =
+      getNotifications(
+        deadline.days
+      );
 
-    let evidence =
-      "Yazılı belgeler güçlendirilmeli.";
+    const calendar =
+      createCalendarEvent(
+        body.title || "Dava",
+        deadline.days
+      );
 
-    let level =
-      "Normal";
-
-    // İCRA
-
-    if (
-      title.includes("icra")
-    ) {
-      risk =
-        "Yüksek Risk";
-
-      duration =
-        "7 gün";
-
-      level =
-        "Kritik";
-
-      strategy =
-        "İtiraz süreci hızlandırılmalı.";
-
-      evidence =
-        "Ödeme kayıtları ve tebligatlar incelenmeli.";
-    }
-
-    // CEZA
-
-    if (
-      title.includes("ceza")
-    ) {
-      risk =
-        "Kritik Risk";
-
-      duration =
-        "7 gün";
-
-      level =
-        "Çok Kritik";
-
-      strategy =
-        "Savunma delilleri hızla hazırlanmalı.";
-
-      evidence =
-        "Tanık, kamera ve HTS kayıtları değerlendirilmeli.";
-    }
-
-    // HACİZ
-
-    if (
-      title.includes("haciz")
-    ) {
-      risk =
-        "Yüksek Risk";
-
-      duration =
-        "3 gün";
-
-      level =
-        "Acil";
-
-      strategy =
-        "Haciz işlemlerine hızlı itiraz edilmeli.";
-
-      evidence =
-        "Borç belgeleri detaylı incelenmeli.";
-    }
-
-    // İŞ
-
-    if (
-      title.includes("iş")
-    ) {
-      risk =
-        "Orta Risk";
-
-      duration =
-        "14 gün";
-
-      level =
-        "Normal";
-
-      strategy =
-        "İşçi alacak hesapları kontrol edilmeli.";
-
-      evidence =
-        "SGK kayıtları ve maaş bordroları incelenmeli.";
-    }
-
-    const analysis = `
+    const text = `
 ⚖️ AL METHER LEGAL AI ANALİZİ
 
 ━━━━━━━━━━━━━━━━━━
@@ -128,36 +70,57 @@ ${body.court}
 ━━━━━━━━━━━━━━━━━━
 
 ⚠️ Risk Durumu:
-${risk}
+${analysis.risk}
 
 🚨 Öncelik:
-${level}
+${deadline.level}
 
 ⏳ Kritik Süre:
-${duration}
+${analysis.duration}
+
+📅 Deadline Motoru:
+${deadline.days} gün
+
+🔔 Bildirimler:
+${notifications.join("\n")}
+
+📅 Takvim Deadline:
+${calendar.deadline.toLocaleDateString("tr-TR")}
 
 📂 Delil Önerileri:
-${evidence}
+${analysis.evidence}
 
 🧠 Hukuki Strateji:
-${strategy}
+${analysis.strategy}
 
 📋 Hukuki Not:
 Dosya detayları ayrıca analiz edilmelidir.
 
 🤖 Sistem:
-AL Mether Yerel Hukuk Motoru Aktif.
+AL Mether Legal Engine Aktif.
 
 ━━━━━━━━━━━━━━━━━━
 `;
 
     return NextResponse.json({
-      text: analysis,
+
+      text,
+
+      deadline,
+
+      notifications,
+
+      analysis,
+
+      calendar,
     });
+
   } catch (error) {
+
     console.log(error);
 
     return NextResponse.json({
+
       text:
         "AI sistemi hata verdi.",
     });
