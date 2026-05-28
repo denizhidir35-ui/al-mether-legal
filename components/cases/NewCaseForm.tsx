@@ -1,10 +1,10 @@
+"use client";
+
 type Props = {
-  onAdd: (
-    item: any
-  ) => void;
+  onAdd: (item: any) => void;
 };
 
-export default function CaseForm({
+export default function NewCaseForm({
   onAdd,
 }: Props) {
 
@@ -69,125 +69,76 @@ export default function CaseForm({
   }
 
   return (
+
     <form
       onSubmit={submitForm}
       style={{
+
         background:
-          "rgba(255,255,255,0.04)",
+          "rgba(15,23,42,0.65)",
 
         border:
           "1px solid rgba(255,255,255,0.08)",
 
-        borderRadius: 30,
+        borderRadius: 28,
 
-        padding: 30,
-
-        marginBottom: 24,
+        padding: 24,
       }}
     >
 
       <h2
         style={{
-          fontSize: 28,
-
-          marginBottom: 24,
-
           color: "white",
+          marginBottom: 20,
         }}
       >
-        Yeni Dava
+        📂 Yeni Dava
       </h2>
 
       <div
         style={{
           display: "grid",
-
-          gap: 16,
+          gap: 14,
         }}
       >
 
         <input
           name="title"
-
-          placeholder=
-            "Dava Başlığı"
-
+          placeholder="Dava Başlığı"
           required
-
-          style={
-            inputStyle
-          }
+          style={inputStyle}
         />
 
         <input
           name="client"
-
-          placeholder=
-            "Müvekkil"
-
+          placeholder="Müvekkil"
           required
-
-          style={
-            inputStyle
-          }
+          style={inputStyle}
         />
 
         <input
           name="court"
-
-          placeholder=
-            "Mahkeme"
-
+          placeholder="Mahkeme"
           required
-
-          style={
-            inputStyle
-          }
+          style={inputStyle}
         />
 
         <input
           name="deadline"
-
           type="date"
-
           required
-
-          style={
-            inputStyle
-          }
+          style={inputStyle}
         />
 
         <button
-          style={{
-            background:
-              "#10b981",
-
-            border:
-              "none",
-
-            padding:
-              "16px 20px",
-
-            borderRadius:
-              18,
-
-            color:
-              "white",
-
-            fontWeight:
-              700,
-
-            cursor:
-              "pointer",
-
-            fontSize:
-              16,
-          }}
+          type="submit"
+          style={buttonStyle}
         >
-          Dava Kaydet
+          💾 Dava Kaydet
         </button>
 
       </div>
+
     </form>
   );
 }
@@ -209,4 +160,22 @@ const inputStyle = {
   fontSize: 14,
 
   outline: "none",
+};
+
+const buttonStyle = {
+
+  background:
+    "#10b981",
+
+  border: "none",
+
+  borderRadius: 16,
+
+  padding: 14,
+
+  color: "white",
+
+  fontWeight: 700,
+
+  cursor: "pointer",
 };
