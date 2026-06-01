@@ -7,6 +7,13 @@ export async function POST(
     const body =
       await req.json();
 
+    console.log(
+      "REFRESH TOKEN:",
+      process.env.GOOGLE_REFRESH_TOKEN
+        ? "VAR"
+        : "YOK"
+    );
+
     const oauth2Client =
       new google.auth.OAuth2(
         process.env.GOOGLE_CLIENT_ID,
@@ -25,37 +32,73 @@ export async function POST(
         auth: oauth2Client,
       });
 
-    await calendar.events.insert({
-      calendarId:
-        "primary",
+    const startDate =
+      new Date(body.date);
 
-      requestBody: {
-        summary:
-          body.title,
+    const endDate =
+      new Date(body.date);
 
-        description:
-          body.client,
+    endDate.setHours(
+      endDate.getHours() + 1
+    );
 
-        start: {
-          dateTime:
-            body.date,
+    const event =
+      await calendar.events.insert({
+        calendarId:
+          "primary",
+
+        requestBody: {
+          summary:
+            body.title ||
+            "AL Mether Deadline",
+
+          description:
+            body.client ||
+            "",
+
+          start: {
+            dateTime:
+              startDate.toISOString(),
+            timeZone:
+              "Europe/Istanbul",
+          },
+
+          end: {
+            dateTime:
+              endDate.toISOString(),
+            timeZone:
+              "Europe/Istanbul",
+          },
         },
-
-        end: {
-          dateTime:
-            body.date,
-        },
-      },
-    });
+      });
 
     return Response.json({
       success: true,
+      eventId:
+        event.data.id,
+      eventLink:
+        event.data.htmlLink,
     });
-  } catch (error) {
-    console.log(error);
+  } catch (error: any) {
+    console.error(
+      "CALENDAR FULL ERROR:",
+      error
+    );
 
-    return Response.json({
-      success: false,
-    });
+    console.error(
+      "GOOGLE RESPONSE:",
+      error?.response?.data
+    );
+
+    return Response.json(
+      {
+        success: false,
+        error:
+          error?.response?.data ||
+          error?.message ||
+          String(error),
+      },
+      { status: 500 }
+    );
   }
 }
