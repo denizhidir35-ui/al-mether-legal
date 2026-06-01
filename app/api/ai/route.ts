@@ -1,128 +1,151 @@
-import { NextResponse }
-from "next/server";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { supabase } from "@/lib/supabase";
 
-import {
-  analyzeLegalCase
-} from "@/lib/legal-rules";
-
-import {
-  calculateDeadline
-} from "@/lib/deadline-engine";
-
-import {
-  getNotifications
-} from "@/lib/notification-engine";
-
-import {
-  createCalendarEvent
-} from "@/lib/calendar-engine";
+const genAI = new GoogleGenerativeAI(
+  process.env.GEMINI_API_KEY!
+);
 
 export async function POST(
   req: Request
 ) {
-
   try {
+    const {
+      subject,
+      body,
+    } = await req.json();
 
-    const body =
-      await req.json();
-
-    const analysis =
-      analyzeLegalCase(
-        body.title || ""
+    if (!body) {
+      return Response.json(
+        {
+          error:
+            "Mail içeriği bulunamadı",
+        },
+        { status: 400 }
       );
+    }
 
-    const days =
-      Number(
-        analysis.duration
-          .replace(" gün", "")
-      );
+    const model =
+      genAI.getGenerativeModel({
+        model: "gemini-2.5-flash",
+      });
 
-    const deadline =
-      calculateDeadline(
-        days
-      );
+    const prompt = `
+Sen AL Mether Legal isimli profesyonel hukuk operasyon yapay zekasısın.
 
-    const notifications =
-      getNotifications(
-        deadline.days
-      );
+Aşağıdaki maili analiz et.
 
-    const calendar =
-      createCalendarEvent(
-        body.title || "Dava",
-        deadline.days
-      );
+SADECE JSON döndür.
 
-    const text = `
-⚖️ AL METHER LEGAL AI ANALİZİ
+{
+  "davaTuru":"",
+  "risk":"",
+  "sonTarih":"",
+  "confidence":0,
+  "ozet":"",
+  "yapilacaklar":[]
+}
 
-━━━━━━━━━━━━━━━━━━
+Kurallar:
 
-📌 Dava Türü:
-${body.title}
+- confidence 0-100 arası sayı olmalı
+- risk mutlaka Düşük / Orta / Yüksek olmalı
+- davaTuru boş bırakma
+- sonTarih bulunamazsa boş bırak
+- JSON dışında hiçbir şey yazma
 
-👤 Müvekkil:
-${body.client}
+MAIL KONUSU:
+${subject}
 
-🏛️ Mahkeme:
-${body.court}
-
-━━━━━━━━━━━━━━━━━━
-
-⚠️ Risk Durumu:
-${analysis.risk}
-
-🚨 Öncelik:
-${deadline.level}
-
-⏳ Kritik Süre:
-${analysis.duration}
-
-📅 Deadline Motoru:
-${deadline.days} gün
-
-🔔 Bildirimler:
-${notifications.join("\n")}
-
-📅 Takvim Deadline:
-${calendar.deadline.toLocaleDateString("tr-TR")}
-
-📂 Delil Önerileri:
-${analysis.evidence}
-
-🧠 Hukuki Strateji:
-${analysis.strategy}
-
-📋 Hukuki Not:
-Dosya detayları ayrıca analiz edilmelidir.
-
-🤖 Sistem:
-AL Mether Legal Engine Aktif.
-
-━━━━━━━━━━━━━━━━━━
+MAIL ICERIGI:
+${body}
 `;
 
-    return NextResponse.json({
+    const result =
+      await model.generateContent(
+        prompt
+      );
 
-      text,
+    let response =
+      result.response.text();
 
-      deadline,
+    response = response
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
 
-      notifications,
+    let analysis;
 
-      analysis,
+    try {
+      analysis =
+        JSON.parse(response);
+    } catch {
+      return Response.json(
+        {
+          error:
+            "JSON parse hatası",
+          raw: response,
+        },
+        { status: 500 }
+      );
+    }
 
-      calendar,
-    });
+    // UETS 5 GÜN KURALI
 
-  } catch (error) {
+    const { error } =
+   await supabase
+    .from("deadlines")
+    .insert([
+      {
+        title:
+          subject ||
+          analysis.davaTuru,
 
-    console.log(error);
+        risk:
+          analysis.risk,
 
-    return NextResponse.json({
+        deadline_date:
+          analysis.sonTarih || null,
 
-      text:
-        "AI sistemi hata verdi.",
-    });
+        source_mail:
+          subject,
+
+        confidence:
+          analysis.confidence || 0,
+
+        calendar_created:
+          false,
+
+        reminder_created:
+          false,
+
+        status:
+          "pending",
+      },
+    ]);
+
+if (error) {
+  console.error(
+    "SUPABASE HATASI:",
+    error
+  );
+}
+
+    return Response.json(
+      analysis
+    );
+  } catch (error: any) {
+    console.error(
+      "AI HATASI:",
+      error
+    );
+
+    return Response.json(
+      {
+        error:
+          error.message ||
+          "AI analizi başarısız",
+      },
+      { status: 500 }
+    );
   }
 }

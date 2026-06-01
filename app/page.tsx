@@ -1,379 +1,117 @@
 "use client";
 
-import NewCaseForm
-from "@/components/cases/NewCaseForm";
+import { useState } from "react";
 
-import FileList
-from "@/components/dashboard/FileList";
-
-import { useState }
-from "react";
-
-import TopBar
-from "@/components/layout/TopBar";
-
-import AiPanel
-from "@/components/ai/AiPanel";
-
-import DeadlineList
-from "@/components/dashboard/DeadlineList";
-
-import ActivityFeed
-from "@/components/dashboard/ActivityFeed";
-
-import RecentCases
-from "@/components/dashboard/RecentCases";
-
-import CaseForm
-from "@/components/ai/CaseForm";
+import TopBar from "@/components/layout/TopBar";
+import MailInbox, {
+  Mail,
+} from "@/components/mail/MailInbox";
+import MailDetail from "@/components/mail/MailDetail";
+import DeadlineList from "@/components/dashboard/DeadlineList";
 
 export default function Home() {
-
-  const [analysis, setAnalysis] =
-    useState(`
-⚖️ AL METHER LEGAL AI ANALİZİ
-
-Sistem hazır.
-Yeni analiz başlatın.
-`);
-
-const [cases, setCases] =
-  useState<any[]>([]);
+  const [selectedMail, setSelectedMail] =
+    useState<Mail | null>(null);
 
   return (
-
     <main
       style={{
-
         minHeight: "100vh",
-
         background:
           "linear-gradient(to bottom right,#020617,#000814,#0f172a)",
-
         color: "white",
-
-        padding: "20px",
-
+        padding: 16,
         fontFamily:
           "Inter, Arial, sans-serif",
       }}
     >
-
       <TopBar />
 
-      {/* HERO */}
+      <section
+        style={{
+          marginTop: 12,
+          marginBottom: 16,
+        }}
+      >
+        <h1
+          style={{
+            fontSize: 28,
+            fontWeight: 800,
+            marginBottom: 6,
+          }}
+        >
+          📨 AL Mether Legal
+        </h1>
+
+        <p
+          style={{
+            color: "#94a3b8",
+            fontSize: 14,
+          }}
+        >
+          Gelen hukuk maillerini analiz eder,
+          kritik tarihleri çıkarır,
+          takvime ekler ve sizi
+          zamanında uyarır.
+        </p>
+      </section>
 
       <section
         style={{
-
-          marginTop: 30,
-
-          marginBottom: 30,
-
-          display: "flex",
-
-          justifyContent:
-            "space-between",
-
-          alignItems:
-            "center",
-
-          flexWrap: "wrap",
-
+          display: "grid",
+          gridTemplateColumns:
+            "380px 1fr 320px",
           gap: 20,
+          alignItems: "start",
         }}
       >
+        {/* SOL - MAIL LISTESI */}
 
         <div>
-
-          <h1
-            style={{
-
-              fontSize:
-                "clamp(28px,5vw,42px)",
-
-              fontWeight: 800,
-
-              marginBottom: 10,
-            }}
-          >
-            ⚖️ AI Mether Legal
-          </h1>
-
-          <p
-            style={{
-
-              color: "#94a3b8",
-
-              fontSize: 18,
-
-              maxWidth: 700,
-
-              lineHeight: 1.6,
-            }}
-          >
-            Hukuki süreçleri analiz eden,
-            deadline takibi yapan ve
-            kritik dosyaları yöneten
-            yeni nesil hukuk motoru.
-          </p>
+          <MailInbox
+            onSelectMail={
+              setSelectedMail
+            }
+          />
         </div>
 
-        <div
-          style={{
+        {/* ORTA - MAIL DETAY */}
 
-            padding:
-              "14px 20px",
-
-            borderRadius: 20,
-
-            background:
-              "rgba(15,23,42,0.7)",
-
-            border:
-              "1px solid rgba(255,255,255,0.08)",
-
-            backdropFilter:
-              "blur(10px)",
-          }}
-        >
-          🟢 Sistem Aktif
-        </div>
-      </section>
-
-      {/* DASHBOARD CARDS */}
-
-      <section
-        style={{
-
-          display: "grid",
-
-          gridTemplateColumns:
-            "repeat(auto-fit,minmax(220px,1fr))",
-
-          gap: 20,
-
-          marginBottom: 30,
-        }}
-      >
-
-        <div
-          style={cardStyle}
-        >
-          <h3 style={cardTitle}>
-            🔴 Kritik Dosya
-          </h3>
-
-          <p style={cardValue}>
-            12
-          </p>
+        <div>
+          <MailDetail
+            title={
+              selectedMail?.subject ??
+              "Bir mail seçin"
+            }
+            sender={
+              selectedMail?.sender ??
+              "-"
+            }
+            body={
+              selectedMail?.body ??
+              "Soldaki listeden bir mail seçin."
+            }
+            deadline={
+              selectedMail?.deadline ??
+              "-"
+            }
+            type={
+              selectedMail?.type ??
+              "Analiz Bekliyor"
+            }
+            risk={
+              selectedMail?.risk ??
+              "Analiz Bekliyor"
+            }
+          />
         </div>
 
-        <div
-          style={cardStyle}
-        >
-          <h3 style={cardTitle}>
-            🟡 Yaklaşan
-          </h3>
+        {/* SAĞ - DEADLINE */}
 
-          <p style={cardValue}>
-            28
-          </p>
-        </div>
-
-        <div
-          style={cardStyle}
-        >
-          <h3 style={cardTitle}>
-            ⚖️ Aktif Dava
-          </h3>
-
-          <p style={cardValue}>
-            146
-          </p>
-        </div>
-
-        <div
-          style={cardStyle}
-        >
-          <h3 style={cardTitle}>
-            📅 Bugünkü Takvim
-          </h3>
-
-          <p style={cardValue}>
-            9
-          </p>
-        </div>
-      </section>
-
-      {/* MAIN GRID */}
-
-      <section
-        style={{
-
-          display: "grid",
-
-          gridTemplateColumns:
-            "repeat(auto-fit,minmax(340px,1fr))",
-
-          gap: 24,
-
-          alignItems:
-            "start",
-        }}
-      >
-
-        {/* LEFT */}
-
-        <div
-          style={{
-
-            display: "flex",
-
-            flexDirection:
-              "column",
-
-            gap: 24,
-          }}
-        >
-
-          {/* AI PANEL */}
-
-          <div
-            style={{
-
-              background:
-                "rgba(15,23,42,0.65)",
-
-              border:
-                "1px solid rgba(255,255,255,0.08)",
-
-              borderRadius: 28,
-
-              padding: 22,
-
-              backdropFilter:
-                "blur(12px)",
-
-              boxShadow:
-                "0 10px 40px rgba(0,0,0,0.35)",
-            }}
-          >
-
-            <div
-              style={{
-
-                marginBottom: 20,
-              }}
-            >
-
-              <h2
-                style={{
-
-                  fontSize: 28,
-
-                  marginBottom: 8,
-
-                  fontWeight: 700,
-                }}
-              >
-                🤖 AI Hukuk Analizi
-              </h2>
-
-              <p
-                style={{
-
-                  color: "#94a3b8",
-
-                  marginBottom: 24,
-                }}
-              >
-                Gerçek zamanlı dava
-                analizi ve kritik süre
-                yönetimi.
-              </p>
-
-              <CaseForm
-                onResult={setAnalysis}
-              />
-            </div>
-
-            <AiPanel
-              analysis={analysis}
-            />
-          </div>
-
-          {/* ACTIVITY */}
-
-          <ActivityFeed />
-
-<NewCaseForm
-  onAdd={(item) =>
-    setCases((prev) => [
-      item,
-      ...prev,
-    ])
-  }
-/>
-
-          <FileList />
-
-        </div>
-
-        {/* RIGHT */}
-
-        <div
-          style={{
-
-            display: "flex",
-
-            flexDirection:
-              "column",
-
-            gap: 24,
-          }}
-        >
-
+        <div>
           <DeadlineList />
-
         </div>
-
       </section>
     </main>
   );
 }
-
-const cardStyle = {
-
-  background:
-    "rgba(15,23,42,0.65)",
-
-  border:
-    "1px solid rgba(255,255,255,0.08)",
-
-  borderRadius: 24,
-
-  padding: 24,
-
-  backdropFilter:
-    "blur(10px)",
-
-  boxShadow:
-    "0 10px 30px rgba(0,0,0,0.25)",
-};
-
-const cardTitle = {
-
-  color: "#94a3b8",
-
-  marginBottom: 12,
-
-  fontSize: 15,
-};
-
-const cardValue = {
-
-  fontSize: 34,
-
-  fontWeight: 800,
-};

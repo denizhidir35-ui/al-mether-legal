@@ -1,4 +1,5 @@
 import "./globals.css";
+import AuthProvider from "@/components/providers/AuthProvider";
 
 export const metadata = {
   title: "AL Mether Legal",
@@ -22,7 +23,9 @@ export default function RootLayout({
             "Arial, Helvetica, sans-serif",
         }}
       >
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
