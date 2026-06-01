@@ -26,46 +26,9 @@ export default function MailDetail({
   const [loading, setLoading] =
     useState(false);
 
-    async function addToCalendar() {
-  try {
-    const response =
-      await fetch(
-        "/api/calendar",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            title,
-            client: sender,
-            date:
-              new Date().toISOString(),
-          }),
-        }
-      );
-
-    const data =
-      await response.json();
-
-    if (data.success) {
-      alert(
-        "Takvime eklendi ✅"
-      );
-    } else {
-      alert(
-        "Takvim hatası ❌"
-      );
-    }
-  } catch (error) {
-    console.error(error);
-
-    alert(
-      "Takvim hatası ❌"
-    );
+  async function addToCalendar() {
+    alert("Takvime eklenecek ✅");
   }
-}
 
   async function runAIAnalysis() {
     try {
@@ -371,4 +334,4 @@ const secondaryBtn = {
   color: "white",
   fontWeight: 700,
   cursor: "pointer",
-}
+};
