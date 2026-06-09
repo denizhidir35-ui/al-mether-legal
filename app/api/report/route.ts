@@ -1,73 +1,93 @@
-import { NextResponse }
-from "next/server";
+import { NextResponse } from "next/server";
 
-export async function POST(
-  req: Request
-) {
-
+export async function POST(req: Request) {
   try {
-
-    const body =
-      await req.json();
+    const body = await req.json();
 
     const report = `
 ⚖️ AL METHER LEGAL RAPORU
 
-━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📌 Dava Türü:
-${body.title}
+📌 Dava Türü
+${body.title || "-"}
 
-👤 Müvekkil:
-${body.client}
+👤 Müvekkil
+${body.client || "-"}
 
-🏛️ Mahkeme:
-${body.court}
+🏛️ Mahkeme
+${body.court || "-"}
 
-━━━━━━━━━━━━━━━━━━
+📂 Dosya No
+${body.fileNo || "-"}
 
-⚠️ Risk Durumu:
-${body.risk}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🚨 Öncelik:
-${body.level}
+🚨 Risk Seviyesi
+${body.risk || "-"}
 
-⏳ Kritik Süre:
-${body.duration}
+🎯 Güven Skoru
+${body.confidence || 0}%
 
-🔔 Bildirimler:
-⏰ Son gün yaklaşıyor
-🚨 Kritik takip gerekli
+⏳ Son Tarih
+${body.deadline || "-"}
 
-📂 Delil Önerileri:
-${body.evidence}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🧠 Hukuki Strateji:
-${body.strategy}
+📝 Hukuki Özet
 
-📋 Hukuki Not:
-PDF export sistemi hazırlanıyor.
+${body.summary || "-"}
 
-🤖 Sistem:
-AL Mether Legal Engine Aktif.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-━━━━━━━━━━━━━━━━━━
+✅ Yapılması Gerekenler
+
+${
+  Array.isArray(body.todos)
+    ? body.todos.map((x: string) => `• ${x}`).join("\n")
+    : "-"
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📂 Delil Önerileri
+
+${body.evidence || "-"}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚖️ Hukuki Strateji
+
+${body.strategy || "-"}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🤖 AL Mether Legal
+
+Bu rapor yapay zeka destekli analiz sonucu
+otomatik oluşturulmuştur.
+
+Oluşturulma Tarihi:
+${new Date().toLocaleString("tr-TR")}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `;
 
     return NextResponse.json({
-
       success: true,
-
       report,
     });
-
   } catch (error) {
+    console.error("REPORT ERROR:", error);
 
-    console.log(error);
-
-    return NextResponse.json({
-
-      success: false,
-    });
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Rapor oluşturulamadı",
+      },
+      {
+        status: 500,
+      }
+    );
   }
 }
