@@ -114,10 +114,10 @@ async function generateWithFallback(
   prompt: string
 ) {
   const models = [
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
-  ];
+  "gemini-1.5-flash",
+  "gemini-2.0-flash",
+  "gemini-2.5-flash",
+];
 
   let lastError: unknown = null;
 
