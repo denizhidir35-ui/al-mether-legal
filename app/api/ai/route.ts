@@ -24,20 +24,14 @@ function cleanDate(value: unknown) {
     return trimmed;
   }
 
-  if (/^\d{2}\.\d{2}\.\d{4}$/.test(trimmed)) {
+  if (/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(trimmed)) {
     const [day, month, year] = trimmed.split(".");
-    return `${year}-${month}-${day}`;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
   }
 
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(trimmed)) {
     const [day, month, year] = trimmed.split("/");
-    return `${year}-${month}-${day}`;
-  }
-
-  const date = new Date(trimmed);
-
-  if (!Number.isNaN(date.getTime())) {
-    return date.toISOString().slice(0, 10);
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
   }
 
   return "";
@@ -48,9 +42,7 @@ function normalizeConfidence(value: unknown) {
 
   if (Number.isNaN(num)) return 0;
 
-  if (num <= 1) {
-    return Math.round(num * 100);
-  }
+  if (num <= 1) return Math.round(num * 100);
 
   return Math.round(num);
 }
@@ -58,38 +50,47 @@ function normalizeConfidence(value: unknown) {
 function extractDateFromText(text: string) {
   if (!text) return "";
 
-  const allDates: string[] = [];
+  const dates: string[] = [];
 
-  const isoMatches = text.match(/\b\d{4}-\d{2}-\d{2}\b/g) || [];
-  for (const date of isoMatches) {
-    allDates.push(date);
+  const normalized = text
+    .replace(/\*/g, " ")
+    .replace(/>/g, " ")
+    .replace(/</g, " ")
+    .replace(/\s+/g, " ");
+
+  const isoMatches =
+    normalized.match(/\b\d{4}-\d{1,2}-\d{1,2}\b/g) || [];
+
+  for (const raw of isoMatches) {
+    const [year, month, day] = raw.split("-");
+    dates.push(`${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`);
   }
 
-  const dotMatches = text.match(/\b\d{1,2}\.\d{1,2}\.\d{4}\b/g) || [];
+  const dotMatches =
+    normalized.match(/\b\d{1,2}\.\d{1,2}\.\d{4}\b/g) || [];
+
   for (const raw of dotMatches) {
     const [day, month, year] = raw.split(".");
-    const cleanDay = day.padStart(2, "0");
-    const cleanMonth = month.padStart(2, "0");
-    allDates.push(`${year}-${cleanMonth}-${cleanDay}`);
+    dates.push(`${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`);
   }
 
-  const slashMatches = text.match(/\b\d{1,2}\/\d{1,2}\/\d{4}\b/g) || [];
+  const slashMatches =
+    normalized.match(/\b\d{1,2}\/\d{1,2}\/\d{4}\b/g) || [];
+
   for (const raw of slashMatches) {
     const [day, month, year] = raw.split("/");
-    const cleanDay = day.padStart(2, "0");
-    const cleanMonth = month.padStart(2, "0");
-    allDates.push(`${year}-${cleanMonth}-${cleanDay}`);
+    dates.push(`${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`);
   }
 
-  const validDates = allDates
+  const uniqueValidDates = Array.from(new Set(dates))
     .map((date) => ({
-      raw: date,
+      date,
       time: new Date(`${date}T00:00:00`).getTime(),
     }))
     .filter((item) => !Number.isNaN(item.time))
     .sort((a, b) => b.time - a.time);
 
-  return validDates[0]?.raw || "";
+  return uniqueValidDates[0]?.date || "";
 }
 
 function fallbackAnalysis(message: string): AIAnalysis {
@@ -114,10 +115,10 @@ async function generateWithFallback(
   prompt: string
 ) {
   const models = [
-  "gemini-1.5-flash",
-  "gemini-2.0-flash",
-  "gemini-2.5-flash",
-];
+    "gemini-1.5-flash",
+    "gemini-2.0-flash",
+    "gemini-2.5-flash",
+  ];
 
   let lastError: unknown = null;
 
@@ -168,37 +169,22 @@ export async function POST(req: Request) {
     const prompt = `
 Sen AL Mether Legal isimli hukuk operasyon yapay zekasısın.
 
-Aşağıdaki mailden mümkün olan HER bilgiyi çıkart.
+Aşağıdaki mailden hukuki bilgileri çıkar.
 
-Özellikle:
-- Mahkeme adı
-- Dosya numarası
-- Dava türü
-- Tebligat bilgisi
-- Kurum
-- Son tarih
-- Risk seviyesi
-- Yapılması gereken işlemler
-
-ÇOK ÖNEMLİ TARİH KURALI:
-- sonTarih kesinlikle YYYY-MM-DD formatında olmalı.
-- Mailde "tebliğ edilmiş sayılacaktır", "son gün", "son tarih", "süre sonu", "cevap süresi" gibi tarih varsa bunu sonTarih alanına yaz.
-- Örnek: 2026-06-15
-- Tarih bulunamazsa sonTarih boş string olsun: ""
-- "15 gün içinde", "2 hafta içinde" gibi ifade varsa bugünden hesaplama yap.
+ÖNEMLİ:
+- sonTarih alanı MUTLAKA YYYY-MM-DD formatında olmalı.
+- Mailde "tebliğ edilmiş sayılır", "tebliğ edilmiş sayılacaktır", "son gün", "süre sonu", "cevap süresi", "itiraz süresi" gibi bir tarih varsa bunu sonTarih yap.
+- Örnek: 06.06.2026 görürsen "2026-06-06" döndür.
+- Tarih bulunamazsa sonTarih boş string olsun: "".
 - Bugünün tarihi: ${today}
 
 Kurallar:
 - Sadece JSON döndür.
-- Açıklama yazma.
 - Markdown yazma.
-- Risk sadece şunlardan biri olsun:
-Düşük
-Orta
-Yüksek
+- Açıklama yazma.
+- Risk sadece: Düşük, Orta, Yüksek
 
 JSON ŞEMASI:
-
 {
   "davaTuru":"",
   "mahkeme":"",
@@ -225,11 +211,14 @@ ${body}
     } catch (error) {
       console.error("AI TÜM MODELLER BAŞARISIZ:", error);
 
-      return Response.json(
-        fallbackAnalysis(
+      const fallbackDate = extractDateFromText(`${subject || ""} ${body || ""}`);
+
+      return Response.json({
+        ...fallbackAnalysis(
           "AI servisi şu anda yoğun veya geçici olarak kullanılamıyor."
-        )
-      );
+        ),
+        sonTarih: fallbackDate,
+      });
     }
 
     response = response
@@ -249,21 +238,17 @@ ${body}
       );
     }
 
-    const combinedText = `
-${analysis.sonTarih || ""}
-${analysis.ozet || ""}
-${subject || ""}
-${body || ""}
-`;
-
     const detectedDate =
-      cleanDate(analysis.sonTarih) || extractDateFromText(combinedText);
+      cleanDate(analysis.sonTarih) ||
+      extractDateFromText(
+        `${analysis.ozet || ""} ${subject || ""} ${body || ""}`
+      );
 
     analysis = {
-      davaTuru: analysis.davaTuru || "-",
-      mahkeme: analysis.mahkeme || "-",
-      dosyaNo: analysis.dosyaNo || "-",
-      kurum: analysis.kurum || "-",
+      davaTuru: analysis.davaTuru || "Tespit Edilemedi",
+      mahkeme: analysis.mahkeme || "Tespit Edilemedi",
+      dosyaNo: analysis.dosyaNo || "Tespit Edilemedi",
+      kurum: analysis.kurum || "Tespit Edilemedi",
       risk: analysis.risk || "Orta",
       sonTarih: detectedDate,
       confidence: normalizeConfidence(analysis.confidence),
