@@ -136,6 +136,7 @@ export default function Home() {
       deadline={selectedMail?.deadline ?? "-"}
       type={selectedMail?.type ?? "Analiz Bekliyor"}
       risk={selectedMail?.risk ?? "Analiz Bekliyor"}
+      attachments={selectedMail?.attachments ?? []}
     />
   );
 

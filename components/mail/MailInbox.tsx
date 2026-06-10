@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export type Mail = {
   id: string;
@@ -10,11 +10,20 @@ export type Mail = {
   deadline: string;
   type: string;
   risk: string;
+  hasAttachment?: boolean;
+  attachments?: {
+    filename: string;
+    mimeType?: string;
+    size?: number;
+    attachmentId?: string;
+  }[];
 };
 
 type Props = {
   onSelectMail?: (mail: Mail) => void;
 };
+
+type FilterType = "all" | "waiting" | "attachment";
 
 export default function MailInbox({ onSelectMail }: Props) {
   const [mails, setMails] = useState<Mail[]>([]);
@@ -22,9 +31,34 @@ export default function MailInbox({ onSelectMail }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<FilterType>("all");
+
   useEffect(() => {
     loadMails();
   }, []);
+
+  const filteredMails = useMemo(() => {
+    const term = search.trim().toLowerCase();
+
+    return mails.filter((mail) => {
+      const matchesSearch =
+        !term ||
+        mail.subject.toLowerCase().includes(term) ||
+        mail.sender.toLowerCase().includes(term) ||
+        mail.body.toLowerCase().includes(term) ||
+        mail.deadline.toLowerCase().includes(term) ||
+        mail.type.toLowerCase().includes(term) ||
+        mail.risk.toLowerCase().includes(term);
+
+      const matchesFilter =
+        filter === "all" ||
+        (filter === "waiting" && mail.risk === "Analiz Bekliyor") ||
+        (filter === "attachment" && mail.hasAttachment);
+
+      return matchesSearch && matchesFilter;
+    });
+  }, [mails, search, filter]);
 
   async function loadMails() {
     try {
@@ -46,11 +80,15 @@ export default function MailInbox({ onSelectMail }: Props) {
         (mail: any) => ({
           id: mail.id,
           subject: mail.subject || "Konu Yok",
-          sender: mail.from || "Bilinmeyen",
+          sender: mail.from || mail.sender || "Bilinmeyen",
           body: mail.body || mail.snippet || "",
-          deadline: "-",
-          type: "Analiz Bekliyor",
-          risk: "Analiz Bekliyor",
+          deadline: mail.deadline || "-",
+          type: mail.type || "Analiz Bekliyor",
+          risk: mail.risk || "Analiz Bekliyor",
+          hasAttachment:
+            Boolean(mail.hasAttachment) ||
+            Boolean(mail.has_attachment) ||
+            (Array.isArray(mail.attachments) && mail.attachments.length > 0),
         })
       );
 
@@ -70,6 +108,11 @@ export default function MailInbox({ onSelectMail }: Props) {
     onSelectMail?.(mail);
   }
 
+  function clearSearch() {
+    setSearch("");
+    setFilter("all");
+  }
+
   return (
     <aside style={containerStyle}>
       <div style={headerStyle}>
@@ -86,15 +129,50 @@ export default function MailInbox({ onSelectMail }: Props) {
       <div style={statsRow}>
         <div style={statBox}>
           <span style={statValue}>{mails.length}</span>
-          <span style={statLabel}>Mail</span>
+          <span style={statLabel}>Toplam</span>
         </div>
 
         <div style={statBox}>
-          <span style={statValue}>
-            {mails.filter((m) => m.risk === "Analiz Bekliyor").length}
-          </span>
-          <span style={statLabel}>Bekleyen</span>
+          <span style={statValue}>{filteredMails.length}</span>
+          <span style={statLabel}>Sonuç</span>
         </div>
+      </div>
+
+      <div style={searchWrap}>
+        <span style={searchIcon}>🔍</span>
+
+        <input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Konu, gönderen, içerik ara..."
+          style={searchInput}
+        />
+
+        {(search || filter !== "all") && (
+          <button onClick={clearSearch} style={clearBtn}>
+            Temizle
+          </button>
+        )}
+      </div>
+
+      <div style={filterRow}>
+        <FilterButton
+          active={filter === "all"}
+          label="Tümü"
+          onClick={() => setFilter("all")}
+        />
+
+        <FilterButton
+          active={filter === "waiting"}
+          label="Bekleyen"
+          onClick={() => setFilter("waiting")}
+        />
+
+        <FilterButton
+          active={filter === "attachment"}
+          label="📎 Ekli"
+          onClick={() => setFilter("attachment")}
+        />
       </div>
 
       {loading && <div style={emptyState}>Mailler yükleniyor...</div>}
@@ -110,10 +188,14 @@ export default function MailInbox({ onSelectMail }: Props) {
         <div style={emptyState}>Gelen kutusunda mail bulunamadı.</div>
       )}
 
+      {!loading && !error && mails.length > 0 && filteredMails.length === 0 && (
+        <div style={emptyState}>Aramanızla eşleşen mail bulunamadı.</div>
+      )}
+
       <div style={listStyle}>
         {!loading &&
           !error &&
-          mails.map((mail) => {
+          filteredMails.map((mail) => {
             const selected = selectedId === mail.id;
 
             return (
@@ -132,7 +214,11 @@ export default function MailInbox({ onSelectMail }: Props) {
               >
                 <div style={mailTopRow}>
                   <div style={mailSubject}>{mail.subject}</div>
-                  <span style={gmailBadge}>Gmail</span>
+
+                  <div style={badgeGroup}>
+                    {mail.hasAttachment && <span style={attachBadge}>📎</span>}
+                    <span style={gmailBadge}>Gmail</span>
+                  </div>
                 </div>
 
                 <div style={senderStyle}>{mail.sender}</div>
@@ -140,7 +226,7 @@ export default function MailInbox({ onSelectMail }: Props) {
                 <div style={bodyPreview}>{mail.body || "İçerik yok"}</div>
 
                 <div style={footerRow}>
-                  <span style={statusBadge}>Analiz Bekliyor</span>
+                  <span style={statusBadge}>{mail.risk}</span>
                   <span style={arrowStyle}>→</span>
                 </div>
               </button>
@@ -148,6 +234,34 @@ export default function MailInbox({ onSelectMail }: Props) {
           })}
       </div>
     </aside>
+  );
+}
+
+function FilterButton({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        ...filterBtn,
+        background: active
+          ? "rgba(59,130,246,0.18)"
+          : "rgba(255,255,255,0.04)",
+        border: active
+          ? "1px solid rgba(96,165,250,0.35)"
+          : "1px solid rgba(255,255,255,0.07)",
+        color: active ? "#93c5fd" : "#94a3b8",
+      }}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -197,7 +311,7 @@ const statsRow = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
   gap: 10,
-  marginBottom: 14,
+  marginBottom: 12,
 };
 
 const statBox = {
@@ -219,11 +333,63 @@ const statLabel = {
   fontSize: 12,
 };
 
+const searchWrap = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  background: "rgba(255,255,255,0.04)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  borderRadius: 16,
+  padding: "10px 12px",
+  marginBottom: 10,
+};
+
+const searchIcon = {
+  color: "#94a3b8",
+  flexShrink: 0,
+};
+
+const searchInput = {
+  flex: 1,
+  minWidth: 0,
+  background: "transparent",
+  border: "none",
+  outline: "none",
+  color: "white",
+  fontSize: 13,
+};
+
+const clearBtn = {
+  border: "none",
+  background: "rgba(239,68,68,0.13)",
+  color: "#fecaca",
+  borderRadius: 999,
+  padding: "5px 8px",
+  fontSize: 11,
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const filterRow = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap" as const,
+  marginBottom: 14,
+};
+
+const filterBtn = {
+  borderRadius: 999,
+  padding: "7px 10px",
+  fontSize: 11,
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
 const listStyle = {
   display: "flex",
   flexDirection: "column" as const,
   gap: 10,
-  maxHeight: "calc(100vh - 250px)",
+  maxHeight: "calc(100vh - 330px)",
   overflowY: "auto" as const,
   paddingRight: 2,
 };
@@ -249,6 +415,23 @@ const mailSubject = {
   fontWeight: 900,
   fontSize: 14,
   lineHeight: 1.35,
+};
+
+const badgeGroup = {
+  display: "flex",
+  gap: 5,
+  alignItems: "center",
+  flexShrink: 0,
+};
+
+const attachBadge = {
+  color: "#facc15",
+  background: "rgba(250,204,21,0.12)",
+  border: "1px solid rgba(250,204,21,0.22)",
+  padding: "3px 6px",
+  borderRadius: 999,
+  fontSize: 10,
+  fontWeight: 900,
 };
 
 const gmailBadge = {

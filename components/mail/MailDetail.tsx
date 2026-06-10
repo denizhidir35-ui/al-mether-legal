@@ -2,6 +2,13 @@
 
 import { useEffect, useState } from "react";
 
+type Attachment = {
+  filename: string;
+  mimeType?: string;
+  size?: number;
+  attachmentId?: string;
+};
+
 type Props = {
   title?: string;
   sender?: string;
@@ -9,6 +16,7 @@ type Props = {
   deadline?: string;
   type?: string;
   risk?: string;
+  attachments?: Attachment[];
 };
 
 export default function MailDetail({
@@ -18,6 +26,7 @@ export default function MailDetail({
   deadline = "-",
   type = "Analiz Bekliyor",
   risk = "Analiz Bekliyor",
+  attachments = [],
 }: Props) {
   const [analysis, setAnalysis] = useState("");
   const [loading, setLoading] = useState(false);
@@ -32,7 +41,6 @@ export default function MailDetail({
   const [confidence, setConfidence] = useState("-");
   const [summary, setSummary] = useState("-");
   const [todos, setTodos] = useState<string[]>([]);
-
   const [autoCalendarSuccess, setAutoCalendarSuccess] = useState(false);
   const [autoCalendarError, setAutoCalendarError] = useState("");
   const [calendarEventLink, setCalendarEventLink] = useState("");
@@ -72,9 +80,7 @@ export default function MailDetail({
     try {
       const res = await fetch("/api/calendar", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: params.eventTitle,
           date: params.eventDate,
@@ -134,9 +140,7 @@ export default function MailDetail({
 
       const res = await fetch("/api/report", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: caseType,
           client: sender,
@@ -207,9 +211,7 @@ ${data.report}
 
       const res = await fetch("/api/ai", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           subject: title,
           body,
@@ -310,6 +312,30 @@ ${data.report}
         <div style={mailBodyStyle}>{body}</div>
       </div>
 
+      <div style={sectionBox}>
+        <div style={sectionTitle}>📎 Mail Ekleri</div>
+
+        {attachments.length === 0 ? (
+          <p style={mutedText}>Bu mailde ek bulunamadı.</p>
+        ) : (
+          <div style={attachmentList}>
+            {attachments.map((file, index) => (
+              <div key={`${file.filename}-${index}`} style={attachmentItem}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={attachmentName}>{file.filename}</div>
+                  <div style={attachmentMeta}>
+                    {file.mimeType || "Dosya"} ·{" "}
+                    {file.size ? `${Math.round(file.size / 1024)} KB` : "-"}
+                  </div>
+                </div>
+
+                <button style={attachmentBtn}>📄 Analiz Et</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div style={analysisBox}>
         <div style={analysisHeader}>
           <div>
@@ -335,10 +361,7 @@ ${data.report}
                   href={calendarEventLink}
                   target="_blank"
                   rel="noreferrer"
-                  style={{
-                    color: "#86efac",
-                    textDecoration: "underline",
-                  }}
+                  style={{ color: "#86efac", textDecoration: "underline" }}
                 >
                   Google Calendar’da aç
                 </a>
@@ -551,6 +574,49 @@ const mailBodyStyle = {
   whiteSpace: "pre-wrap" as const,
   maxHeight: 260,
   overflowY: "auto" as const,
+};
+
+const attachmentList = {
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: 10,
+};
+
+const attachmentItem = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 12,
+  alignItems: "center",
+  background: "rgba(2,6,23,0.35)",
+  border: "1px solid rgba(255,255,255,0.06)",
+  borderRadius: 14,
+  padding: 12,
+};
+
+const attachmentName = {
+  color: "white",
+  fontWeight: 800,
+  fontSize: 13,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
+};
+
+const attachmentMeta = {
+  color: "#94a3b8",
+  fontSize: 11,
+  marginTop: 4,
+};
+
+const attachmentBtn = {
+  background: "rgba(59,130,246,0.14)",
+  border: "1px solid rgba(59,130,246,0.25)",
+  color: "#93c5fd",
+  borderRadius: 12,
+  padding: "8px 10px",
+  fontWeight: 900,
+  cursor: "pointer",
+  whiteSpace: "nowrap" as const,
 };
 
 const analysisBox = {
