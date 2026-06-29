@@ -1,9 +1,24 @@
+﻿import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import AuthProvider from "@/components/providers/AuthProvider";
+import Providers from "./providers";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "AL Mether Legal",
-  description: "AI Hukuk Operasyon Sistemi",
+  description: "Avukatın hukuki süre kaçırmasını engelleyen sistem.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    title: "AL Mether Legal",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#050816",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -13,19 +28,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="tr">
-      <body
-        style={{
-          margin: 0,
-          padding: 0,
-          background: "#020617",
-          color: "white",
-          fontFamily:
-            "Arial, Helvetica, sans-serif",
-        }}
-      >
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+      <body>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

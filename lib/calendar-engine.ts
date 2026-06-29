@@ -1,3 +1,143 @@
+﻿import { LegalEvent } from "./legal-event";
+
+export class CalendarEngine {
+
+  createEvent(event: LegalEvent) {
+
+    return {
+
+      ...event,
+
+      createdAt: new Date(),
+
+      updatedAt: new Date(),
+
+    };
+
+  }
+
+  updateEvent(
+    event: LegalEvent
+  ) {
+
+    return {
+
+      ...event,
+
+      updatedAt: new Date(),
+
+    };
+
+  }
+
+  deleteEvent(
+    id: string
+  ) {
+
+    return {
+
+      success: true,
+
+      id,
+
+    };
+
+  }
+
+  completeEvent(
+    event: LegalEvent
+  ) {
+
+    return {
+
+      ...event,
+
+      status: "completed",
+
+      updatedAt: new Date(),
+
+    };
+
+  }
+
+  getToday(
+    events: LegalEvent[]
+  ) {
+
+    const today =
+      new Date();
+
+    today.setHours(
+      0,
+      0,
+      0,
+      0
+    );
+
+    return events.filter(
+      (event) => {
+
+        const date =
+          new Date(
+            event.startDate
+          );
+
+        date.setHours(
+          0,
+          0,
+          0,
+          0
+        );
+
+        return (
+          date.getTime() ===
+          today.getTime()
+        );
+
+      }
+    );
+
+  }
+
+  getUpcoming(
+    events: LegalEvent[]
+  ) {
+
+    const now =
+      new Date();
+
+    return events.filter(
+      (event) =>
+        event.startDate >=
+        now
+    );
+
+  }
+
+  getCritical(
+    events: LegalEvent[]
+  ) {
+
+    return events.filter(
+      (event) =>
+        event.priority ===
+        "critical"
+    );
+
+  }
+
+}
+
+export const
+calendarEngine =
+new CalendarEngine();
+
+/*
+----------------------------------------
+GERİYE DÖNÜK UYUMLULUK
+----------------------------------------
+*/
+
 export function createCalendarEvent(
   title: string,
   days: number
@@ -6,55 +146,20 @@ export function createCalendarEvent(
   const now =
     new Date();
 
-  const deadlineDate =
+  const deadline =
     new Date();
 
-  deadlineDate.setDate(
-    now.getDate() + days
-  );
-
-  const notifyThreeDays =
-    new Date(
-      deadlineDate
-    );
-
-  notifyThreeDays.setDate(
-    deadlineDate.getDate() - 3
-  );
-
-  const notifyOneDay =
-    new Date(
-      deadlineDate
-    );
-
-  notifyOneDay.setDate(
-    deadlineDate.getDate() - 1
+  deadline.setDate(
+    now.getDate() +
+      days
   );
 
   return {
 
     title,
 
-    deadline:
-      deadlineDate,
+    deadline,
 
-    notifications: [
-
-      {
-        type:
-          "3_days_before",
-
-        date:
-          notifyThreeDays,
-      },
-
-      {
-        type:
-          "1_day_before",
-
-        date:
-          notifyOneDay,
-      },
-    ],
   };
+
 }

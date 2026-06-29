@@ -1,5 +1,12 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+
+import { AIGateway } from "@/lib/core/ai";
+import { CoreEvents } from "@/lib/core/events";
+import { CalendarEngine } from "@/lib/calendar/CalendarEngine";
+import { CalendarStore } from "@/lib/calendar/CalendarStore";
+import { ReminderEngine } from "@/lib/calendar/ReminderEngine";
+import type { LegalEvent } from "@/lib/calendar/LegalEvent";
 
 type AIAnalysis = {
   davaTuru: string;
@@ -17,12 +24,9 @@ function cleanDate(value: unknown) {
   if (!value || typeof value !== "string") return "";
 
   const trimmed = value.trim();
-
   if (!trimmed || trimmed === "-") return "";
 
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    return trimmed;
-  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
 
   if (/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(trimmed)) {
     const [day, month, year] = trimmed.split(".");
@@ -37,251 +41,255 @@ function cleanDate(value: unknown) {
   return "";
 }
 
-function normalizeConfidence(value: unknown) {
-  const num = Number(value || 0);
+function safeString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
 
+function safeStringArray(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item) => typeof item === "string").map((item) => item.trim());
+}
+
+function safeConfidence(value: unknown) {
+  const num = Number(value);
   if (Number.isNaN(num)) return 0;
-
-  if (num <= 1) return Math.round(num * 100);
-
-  return Math.round(num);
+  return Math.max(0, Math.min(100, num));
 }
 
-function extractDateFromText(text: string) {
-  if (!text) return "";
+function extractJson(text: string) {
+  const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
 
-  const dates: string[] = [];
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
 
-  const normalized = text
-    .replace(/\*/g, " ")
-    .replace(/>/g, " ")
-    .replace(/</g, " ")
-    .replace(/\s+/g, " ");
-
-  const isoMatches =
-    normalized.match(/\b\d{4}-\d{1,2}-\d{1,2}\b/g) || [];
-
-  for (const raw of isoMatches) {
-    const [year, month, day] = raw.split("-");
-    dates.push(`${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`);
+  if (start === -1 || end === -1) {
+    throw new Error("AI JSON çıktısı bulunamadı.");
   }
 
-  const dotMatches =
-    normalized.match(/\b\d{1,2}\.\d{1,2}\.\d{4}\b/g) || [];
-
-  for (const raw of dotMatches) {
-    const [day, month, year] = raw.split(".");
-    dates.push(`${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`);
-  }
-
-  const slashMatches =
-    normalized.match(/\b\d{1,2}\/\d{1,2}\/\d{4}\b/g) || [];
-
-  for (const raw of slashMatches) {
-    const [day, month, year] = raw.split("/");
-    dates.push(`${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`);
-  }
-
-  const uniqueValidDates = Array.from(new Set(dates))
-    .map((date) => ({
-      date,
-      time: new Date(`${date}T00:00:00`).getTime(),
-    }))
-    .filter((item) => !Number.isNaN(item.time))
-    .sort((a, b) => b.time - a.time);
-
-  return uniqueValidDates[0]?.date || "";
+  return cleaned.slice(start, end + 1);
 }
 
-function fallbackAnalysis(message: string): AIAnalysis {
+function normalizeAnalysis(raw: any): AIAnalysis {
   return {
-    davaTuru: "Tespit Edilemedi",
-    mahkeme: "Tespit Edilemedi",
-    dosyaNo: "Tespit Edilemedi",
-    kurum: "Tespit Edilemedi",
-    risk: "Orta",
-    sonTarih: "",
-    confidence: 0,
-    ozet: message,
-    yapilacaklar: [
-      "AI servisi geçici olarak yanıt vermedi.",
-      "Lütfen birkaç dakika sonra tekrar analiz edin.",
-    ],
+    davaTuru: safeString(raw?.davaTuru),
+    mahkeme: safeString(raw?.mahkeme),
+    dosyaNo: safeString(raw?.dosyaNo),
+    kurum: safeString(raw?.kurum),
+    risk: safeString(raw?.risk || "Orta"),
+    sonTarih: cleanDate(raw?.sonTarih),
+    confidence: safeConfidence(raw?.confidence),
+    ozet: safeString(raw?.ozet),
+    yapilacaklar: safeStringArray(raw?.yapilacaklar),
   };
 }
 
-async function generateWithFallback(
-  genAI: GoogleGenerativeAI,
-  prompt: string
-) {
-  const models = [
-    "gemini-1.5-flash",
-    "gemini-2.0-flash",
-    "gemini-2.5-flash",
-  ];
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
 
-  let lastError: unknown = null;
+    const subject = safeString(body?.subject);
+    const from = safeString(body?.from);
+    const date = safeString(body?.date);
+    const text = safeString(body?.text || body?.body || body?.content);
+    const emailId = safeString(body?.emailId || body?.messageId);
+    const correlationId = crypto.randomUUID();
 
-  for (const modelName of models) {
-    try {
-      const model = genAI.getGenerativeModel({
-        model: modelName,
-      });
-
-      const result = await model.generateContent(prompt);
-
-      return result.response.text();
-    } catch (error) {
-      console.error(`GEMINI MODEL HATASI (${modelName}):`, error);
-      lastError = error;
+    if (!text && !subject) {
+      return NextResponse.json(
+        { error: "Analiz için mail içeriği bulunamadı." },
+        { status: 400 }
+      );
     }
-  }
 
-  throw lastError;
+    const prompt = `
+Sen AL METHER LEGAL için çalışan profesyonel bir hukuk mail analiz motorusun.
+
+Görevin:
+- Mail içeriğini analiz et
+- Dava türünü belirle
+- Mahkeme / kurum / dosya no bilgilerini çıkar
+- Hukuki risk seviyesini belirle
+- Son tarih varsa YYYY-MM-DD formatında çıkar
+- Son tarih yoksa boş string döndür
+- Avukatın yapması gerekenleri maddeler halinde yaz
+
+Sadece geçerli JSON döndür.
+
+JSON şeması:
+{
+  "davaTuru": "",
+  "mahkeme": "",
+  "dosyaNo": "",
+  "kurum": "",
+  "risk": "Düşük | Orta | Yüksek | Kritik",
+  "sonTarih": "YYYY-MM-DD",
+  "confidence": 0,
+  "ozet": "",
+  "yapilacaklar": []
 }
 
-export async function POST(req: Request) {
-  try {
-    if (!process.env.GEMINI_API_KEY) {
-      return Response.json(
+MAIL BİLGİLERİ:
+Konu: ${subject}
+Gönderen: ${from}
+Tarih: ${date}
+
+MAIL İÇERİĞİ:
+${text}
+`;
+
+    const aiResponse = await AIGateway.generate({
+      provider: "gemini",
+      model: "gemini-2.5-flash",
+      product: "legal",
+      task: "mail-analysis",
+      jsonMode: true,
+      messages: [
         {
-          error: "GEMINI_API_KEY bulunamadı",
+          role: "system",
+          content: "Sen AL METHER LEGAL için çalışan hukuk mail analiz motorusun.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      metadata: {
+        subject,
+        from,
+        date,
+        emailId,
+      },
+    });
+
+    if (!aiResponse.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: aiResponse.error || "AI Gateway hata verdi.",
         },
         { status: 500 }
       );
     }
 
-    const { subject, body } = await req.json();
+    const jsonText = extractJson(aiResponse.text);
+    const parsed = JSON.parse(jsonText);
+    const analysis = normalizeAnalysis(parsed);
 
-    if (!body) {
-      return Response.json(
-        {
-          error: "Mail içeriği bulunamadı",
-        },
-        { status: 400 }
-      );
+    await CoreEvents.publish({
+      type: "legal.ai.analysis.completed",
+      source: "legal",
+      product: "legal",
+      correlationId,
+      payload: {
+        subject,
+        from,
+        date,
+        emailId,
+        analysis,
+      },
+    });
+
+    let deadlineRecord = null;
+
+    if (analysis.sonTarih) {
+      const { data, error } = await supabase
+        .from("deadlines")
+        .insert({
+          email_id: emailId || null,
+          subject: subject || null,
+          sender: from || null,
+          dava_turu: analysis.davaTuru || null,
+          mahkeme: analysis.mahkeme || null,
+          dosya_no: analysis.dosyaNo || null,
+          kurum: analysis.kurum || null,
+          risk: analysis.risk || null,
+          son_tarih: analysis.sonTarih,
+          ozet: analysis.ozet || null,
+          yapilacaklar: analysis.yapilacaklar,
+          confidence: analysis.confidence,
+          status: "active",
+        })
+        .select()
+        .single();
+
+      if (!error) {
+        deadlineRecord = data;
+
+        await CoreEvents.publish({
+          type: "legal.deadline.created",
+          source: "legal",
+          product: "legal",
+          correlationId,
+          payload: {
+            deadline: deadlineRecord,
+            analysis,
+            emailId,
+          },
+        });
+      }
     }
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    let calendarEvent = null;
+    let storedCalendarEvent = null;
+    let reminders = null;
 
-    const today = new Date().toISOString().slice(0, 10);
+    if (analysis.sonTarih) {
+      const legalEvent: LegalEvent = {
+        id: deadlineRecord?.id || emailId || crypto.randomUUID(),
+        title: subject || analysis.davaTuru || "Hukuki Süre",
+        description: analysis.ozet,
+        date: analysis.sonTarih,
+        source: "gmail",
+        sourceId: emailId || "",
+        risk: analysis.risk,
+        court: analysis.mahkeme,
+        fileNo: analysis.dosyaNo,
+        institution: analysis.kurum,
+        actions: analysis.yapilacaklar,
+        raw: {
+          subject,
+          from,
+          date,
+          analysis,
+          deadlineRecord,
+        },
+      };
 
-    const prompt = `
-Sen AL Mether Legal isimli hukuk operasyon yapay zekasısın.
+      calendarEvent = await CalendarEngine.createLegalEvent(legalEvent);
+      storedCalendarEvent = await CalendarStore.save(calendarEvent);
+      reminders = await ReminderEngine.createReminders(calendarEvent);
 
-Aşağıdaki mailden hukuki bilgileri çıkar.
-
-ÖNEMLİ:
-- sonTarih alanı MUTLAKA YYYY-MM-DD formatında olmalı.
-- Mailde "tebliğ edilmiş sayılır", "tebliğ edilmiş sayılacaktır", "son gün", "süre sonu", "cevap süresi", "itiraz süresi" gibi bir tarih varsa bunu sonTarih yap.
-- Örnek: 06.06.2026 görürsen "2026-06-06" döndür.
-- Tarih bulunamazsa sonTarih boş string olsun: "".
-- Bugünün tarihi: ${today}
-
-Kurallar:
-- Sadece JSON döndür.
-- Markdown yazma.
-- Açıklama yazma.
-- Risk sadece: Düşük, Orta, Yüksek
-
-JSON ŞEMASI:
-{
-  "davaTuru":"",
-  "mahkeme":"",
-  "dosyaNo":"",
-  "kurum":"",
-  "risk":"",
-  "sonTarih":"",
-  "confidence":0,
-  "ozet":"",
-  "yapilacaklar":[]
-}
-
-MAIL KONUSU:
-${subject || ""}
-
-MAIL:
-${body}
-`;
-
-    let response: string;
-
-    try {
-      response = await generateWithFallback(genAI, prompt);
-    } catch (error) {
-      console.error("AI TÜM MODELLER BAŞARISIZ:", error);
-
-      const fallbackDate = extractDateFromText(`${subject || ""} ${body || ""}`);
-
-      return Response.json({
-        ...fallbackAnalysis(
-          "AI servisi şu anda yoğun veya geçici olarak kullanılamıyor."
-        ),
-        sonTarih: fallbackDate,
+      await CoreEvents.publish({
+        type: "calendar.event.created",
+        source: "calendar",
+        product: "legal",
+        correlationId,
+        payload: {
+          calendarEvent,
+          storedCalendarEvent,
+          reminders,
+        },
       });
     }
 
-    response = response
-      .replace(/```json/g, "")
-      .replace(/```/g, "")
-      .trim();
-
-    let analysis: AIAnalysis;
-
-    try {
-      analysis = JSON.parse(response);
-    } catch {
-      console.error("JSON PARSE:", response);
-
-      analysis = fallbackAnalysis(
-        "AI yanıtı JSON formatında çözümlenemedi."
-      );
-    }
-
-    const detectedDate =
-      cleanDate(analysis.sonTarih) ||
-      extractDateFromText(
-        `${analysis.ozet || ""} ${subject || ""} ${body || ""}`
-      );
-
-    analysis = {
-      davaTuru: analysis.davaTuru || "Tespit Edilemedi",
-      mahkeme: analysis.mahkeme || "Tespit Edilemedi",
-      dosyaNo: analysis.dosyaNo || "Tespit Edilemedi",
-      kurum: analysis.kurum || "Tespit Edilemedi",
-      risk: analysis.risk || "Orta",
-      sonTarih: detectedDate,
-      confidence: normalizeConfidence(analysis.confidence),
-      ozet: analysis.ozet || "-",
-      yapilacaklar: Array.isArray(analysis.yapilacaklar)
-        ? analysis.yapilacaklar
-        : [],
-    };
-
-    const { error } = await supabase.from("deadlines").insert([
+    return NextResponse.json({
+      ok: true,
+      analysis,
+      deadline: deadlineRecord,
+      calendarEvent,
+      storedCalendarEvent,
+      reminders,
+      aiProvider: aiResponse.provider,
+      aiModel: aiResponse.model,
+      correlationId,
+    });
+  } catch (error: any) {
+    return NextResponse.json(
       {
-        title: subject || analysis.davaTuru,
-        risk: analysis.risk,
-        deadline_date: analysis.sonTarih || null,
-        source_mail: subject || null,
-        confidence: analysis.confidence,
-        calendar_created: false,
-        reminder_created: false,
-        status: "pending",
+        ok: false,
+        error: error?.message || "AI analiz sırasında hata oluştu.",
       },
-    ]);
-
-    if (error) {
-      console.error("SUPABASE:", error);
-    }
-
-    return Response.json(analysis);
-  } catch (error: unknown) {
-    console.error("AI HATASI:", error);
-
-    const message =
-      error instanceof Error ? error.message : "AI analizi başarısız";
-
-    return Response.json(fallbackAnalysis(message), { status: 200 });
+      { status: 500 }
+    );
   }
 }
