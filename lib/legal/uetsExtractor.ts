@@ -137,6 +137,12 @@ function repairCommonMojibake(value: string): string {
     [/Ã¶/g, "ö"],
     [/Ã‡/g, "Ç"],
     [/Ã§/g, "ç"],
+    [/Ä°ÅŸ/g, "İş"],
+    [/Ä°Åž/g, "İŞ"],
+    [/Ä±ÅŸ/g, "ış"],
+    [/Ä±Åž/g, "ıŞ"],
+    [/Åž/g, "Ş"],
+    [/ÅŸ/g, "ş"],
     [/â€™/g, "'"],
     [/â€œ/g, '"'],
     [/â€/g, '"'],
@@ -146,11 +152,23 @@ function repairCommonMojibake(value: string): string {
     [/Â/g, ""],
   ];
 
-  return replacements.reduce(
-    (result, [pattern, replacement]) =>
-      result.replace(pattern, replacement),
-    value
-  );
+  let repaired = value;
+
+  for (let pass = 0; pass < 4; pass += 1) {
+    const previous = repaired;
+
+    repaired = replacements.reduce(
+      (result, [pattern, replacement]) =>
+        result.replace(pattern, replacement),
+      repaired
+    );
+
+    if (repaired === previous) {
+      break;
+    }
+  }
+
+  return repaired;
 }
 
 function stripHtml(value: string): string {
@@ -431,28 +449,56 @@ function extractDateCandidates(text: string): DateMatch[] {
     .sort((a, b) => b.score - a.score);
 }
 
+function cleanCourtName(value: string): string {
+  return repairCommonMojibake(value)
+    .replace(/^[^A-Za-zÇĞİÖŞÜçğıöşü]+/, "")
+    .replace(/[^A-Za-zÇĞİÖŞÜçğıöşü0-9.\s-]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function extractCourt(text: string): string {
+  const repairedText = repairCommonMojibake(text);
+
   const patterns = [
-    /(?:barkod numaralı\s+ve\s+)([A-ZÇĞİÖŞÜa-zçğıöşü0-9.\s]+?(?:Mahkemesi|Müdürlüğü|Dairesi))\s*\[/i,
-    /\b([A-ZÇĞİÖŞÜ][A-ZÇĞİÖŞÜa-zçğıöşü\s.-]*?\d+\.\s*(?:İş|Aile|Asliye Hukuk|Asliye Ceza|Ağır Ceza|Sulh Hukuk|Sulh Ceza|Ticaret|İdare|Vergi)\s+Mahkemesi)\b/i,
-    /\b([A-ZÇĞİÖŞÜ][A-ZÇĞİÖŞÜa-zçğıöşü\s.-]*?\d+\.\s*İcra\s+(?:Müdürlüğü|Dairesi))\b/i,
-    /\[([^\[\]]+?(?:Mahkemesi|Müdürlüğü|Dairesi))[^\[\]]*\]/i,
+    /barkod numaralı ve\s+([A-Za-zÇĞİÖŞÜçğıöşü\s.-]+?\d+\.\s*İş\s+Mahkemesi)\s*\[/i,
+    /barkod numaralı ve\s+([A-Za-zÇĞİÖŞÜçğıöşü\s.-]+?\d+\.\s*Aile\s+Mahkemesi)\s*\[/i,
+    /barkod numaralı ve\s+([A-Za-zÇĞİÖŞÜçğıöşü\s.-]+?\d+\.\s*Asliye Hukuk\s+Mahkemesi)\s*\[/i,
+    /barkod numaralı ve\s+([A-Za-zÇĞİÖŞÜçğıöşü\s.-]+?\d+\.\s*Asliye Ceza\s+Mahkemesi)\s*\[/i,
+    /barkod numaralı ve\s+([A-Za-zÇĞİÖŞÜçğıöşü\s.-]+?\d+\.\s*Ağır Ceza\s+Mahkemesi)\s*\[/i,
+    /barkod numaralı ve\s+([A-Za-zÇĞİÖŞÜçğıöşü\s.-]+?\d+\.\s*Ticaret\s+Mahkemesi)\s*\[/i,
+    /barkod numaralı ve\s+([A-Za-zÇĞİÖŞÜçğıöşü\s.-]+?\d+\.\s*İcra\s+(?:Müdürlüğü|Dairesi))\s*\[/i,
+
+    /\b([A-Za-zÇĞİÖŞÜçğıöşü\s.-]+?\d+\.\s*(?:İş|Aile|Asliye Hukuk|Asliye Ceza|Ağır Ceza|Sulh Hukuk|Sulh Ceza|Ticaret|İdare|Vergi)\s+Mahkemesi)\b/i,
+    /\b([A-Za-zÇĞİÖŞÜçğıöşü\s.-]+?\d+\.\s*İcra\s+(?:Müdürlüğü|Dairesi))\b/i,
   ];
 
   for (const pattern of patterns) {
-    const match = text.match(pattern);
+    const match = repairedText.match(pattern);
 
     if (match?.[1]) {
-      return match[1]
-        .replace(/\s+/g, " ")
-        .replace(/^\W+|\W+$/g, "")
-        .trim();
+      const court = cleanCourtName(match[1]);
+
+      if (
+        court.length >= 8 &&
+        court.length <= 120 &&
+        /Mahkemesi|Müdürlüğü|Dairesi/i.test(court)
+      ) {
+        return court;
+      }
     }
+  }
+
+  const bracketMatch = repairedText.match(
+    /\[([A-Za-zÇĞİÖŞÜçğıöşü\s.-]+?\d+\.\s*(?:İş|Aile|Asliye Hukuk|Asliye Ceza|Ağır Ceza|Sulh Hukuk|Sulh Ceza|Ticaret|İdare|Vergi)\s+Mahkemesi)[^\]]*\]/i
+  );
+
+  if (bracketMatch?.[1]) {
+    return cleanCourtName(bracketMatch[1]);
   }
 
   return "";
 }
-
 function extractFileNo(text: string): string {
   const patterns = [
     /\[\s*(20\d{2}\/\d{1,8})\s*\]/,
@@ -678,4 +724,5 @@ export function calculateUetsDeemedServiceDate(
 ): string {
   return addCalendarDays(arrivalDate, 5);
 }
+
 
