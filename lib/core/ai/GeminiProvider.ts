@@ -1,8 +1,10 @@
-﻿import { GoogleGenerativeAI } from "@google/generative-ai";
+﻿import { GoogleGenAI } from "@google/genai";
 import type { AIRequest, AIResponse } from "./types";
 
 function messagesToPrompt(messages: AIRequest["messages"]) {
-  return messages.map((message) => `${message.role.toUpperCase()}:\n${message.content}`).join("\n\n");
+  return messages
+    .map((message) => `${message.role.toUpperCase()}:\n${message.content}`)
+    .join("\n\n");
 }
 
 export class GeminiProvider {
@@ -10,7 +12,7 @@ export class GeminiProvider {
 
   static async generate(request: AIRequest): Promise<AIResponse> {
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
+      const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
       if (!apiKey) {
         return {
@@ -22,12 +24,15 @@ export class GeminiProvider {
         };
       }
 
-      const genAI = new GoogleGenerativeAI(apiKey);
       const modelName = request.model || "gemini-2.5-flash";
-      const model = genAI.getGenerativeModel({ model: modelName });
+      const ai = new GoogleGenAI({ apiKey });
 
-      const result = await model.generateContent(messagesToPrompt(request.messages));
-      const text = result.response.text();
+      const result = await ai.models.generateContent({
+        model: modelName,
+        contents: messagesToPrompt(request.messages),
+      });
+
+      const text = result.text || "";
 
       return {
         ok: true,
