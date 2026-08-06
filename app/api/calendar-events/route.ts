@@ -1,5 +1,11 @@
-﻿import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+﻿import "server-only";
+
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
+
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 type CalendarEventRow = {
   id: string;
@@ -17,44 +23,91 @@ type CalendarEventRow = {
   updated_at: string;
 };
 
-function cleanDate(value: string | null) {
-  if (!value) return "";
+function cleanDate(
+  value: string | null
+): string {
+  if (!value) {
+    return "";
+  }
+
   const trimmed = value.trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return "";
+
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(
+      trimmed
+    )
+  ) {
+    return "";
+  }
+
   return trimmed;
 }
 
-export async function GET(req: NextRequest) {
+export async function GET(
+  req: NextRequest
+) {
   try {
-    const { searchParams } = new URL(req.url);
+    const supabase =
+      getSupabaseAdmin();
 
-    const from = cleanDate(searchParams.get("from"));
-    const to = cleanDate(searchParams.get("to"));
-    const risk = searchParams.get("risk")?.trim() || "";
-    const source = searchParams.get("source")?.trim() || "";
+    const { searchParams } =
+      new URL(req.url);
+
+    const from = cleanDate(
+      searchParams.get("from")
+    );
+
+    const to = cleanDate(
+      searchParams.get("to")
+    );
+
+    const risk =
+      searchParams
+        .get("risk")
+        ?.trim() || "";
+
+    const source =
+      searchParams
+        .get("source")
+        ?.trim() || "";
 
     let query = supabase
       .from("calendar_events")
       .select("*")
-      .order("start_date", { ascending: true });
+      .order("start_date", {
+        ascending: true,
+      });
 
     if (from) {
-      query = query.gte("start_date", from);
+      query = query.gte(
+        "start_date",
+        from
+      );
     }
 
     if (to) {
-      query = query.lte("start_date", to);
+      query = query.lte(
+        "start_date",
+        to
+      );
     }
 
     if (risk) {
-      query = query.eq("risk", risk);
+      query = query.eq(
+        "risk",
+        risk
+      );
     }
 
     if (source) {
-      query = query.eq("source", source);
+      query = query.eq(
+        "source",
+        source
+      );
     }
 
-    const { data, error } = await query;
+    const { data, error } =
+      await query;
 
     if (error) {
       return NextResponse.json(
@@ -67,20 +120,33 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const events = ((data || []) as CalendarEventRow[]).map((event) => ({
+    const events = (
+      (data || []) as CalendarEventRow[]
+    ).map((event) => ({
       id: event.id,
-      legalEventId: event.legal_event_id,
+      legalEventId:
+        event.legal_event_id,
       title: event.title,
-      description: event.description || "",
-      startDate: event.start_date,
-      endDate: event.end_date,
-      allDay: event.all_day,
-      risk: event.risk || "",
-      source: event.source,
-      sourceId: event.source_id || "",
-      raw: event.raw,
-      createdAt: event.created_at,
-      updatedAt: event.updated_at,
+      description:
+        event.description || "",
+      startDate:
+        event.start_date,
+      endDate:
+        event.end_date,
+      allDay:
+        event.all_day,
+      risk:
+        event.risk || "",
+      source:
+        event.source,
+      sourceId:
+        event.source_id || "",
+      raw:
+        event.raw,
+      createdAt:
+        event.created_at,
+      updatedAt:
+        event.updated_at,
     }));
 
     return NextResponse.json({
@@ -88,11 +154,14 @@ export async function GET(req: NextRequest) {
       count: events.length,
       events,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || "Calendar events okunurken hata oluştu.",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Calendar events okunurken hata oluştu.",
         events: [],
       },
       { status: 500 }

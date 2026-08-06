@@ -1,5 +1,5 @@
 ﻿import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabaseServer";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { getOrCreateAppUser } from "@/lib/alUser";
 
 function normalizeRisk(risk?: string | null) {
@@ -13,7 +13,7 @@ function normalizeRisk(risk?: string | null) {
 }
 
 export async function POST(request: Request) {
-  const supabase = await createServerSupabaseClient();
+  const supabase = getSupabaseAdmin();
   const { appUser, error } = await getOrCreateAppUser();
 
   if (error || !appUser) {
@@ -169,3 +169,4 @@ export async function POST(request: Request) {
     deadline,
   });
 }
+

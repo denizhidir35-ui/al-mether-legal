@@ -1,12 +1,13 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Attachment = {
   filename: string;
   mimeType?: string;
   size?: number;
   attachmentId?: string;
+  url?: string;
 };
 
 type Props = {
@@ -19,292 +20,808 @@ type Props = {
   attachments?: Attachment[];
 };
 
+type UetsExtraction = {
+  found: boolean;
+  institution: string;
+  noticeType: string;
+
+  arrivalDate: string;
+  arrivalTime: string;
+  arrivalDateTime: string;
+  deemedServiceDate: string;
+
+  court: string;
+  fileNo: string;
+  barcodeNo: string;
+  recipient: string;
+  subject: string;
+
+  confidence: number;
+  warnings: string[];
+};
+
+type LegalAnalysis = {
+  davaTuru: string;
+  mahkeme: string;
+  dosyaNo: string;
+  kurum: string;
+  risk: string;
+  sonTarih: string;
+  confidence: number;
+  ozet: string;
+  yapilacaklar: string[];
+};
+
+type AnalysisResponse = {
+  ok?: boolean;
+  error?: string;
+
+  extractionMode?: string;
+  uetsExtraction?: Partial<UetsExtraction>;
+  analysis?: Partial<LegalAnalysis>;
+
+  deadline?: unknown;
+  calendarEvent?: unknown;
+  storedCalendarEvent?: unknown;
+  reminders?: unknown;
+
+  data?: {
+    extractionMode?: string;
+    uetsExtraction?: Partial<UetsExtraction>;
+    analysis?: Partial<LegalAnalysis>;
+
+    deadline?: unknown;
+    calendarEvent?: unknown;
+    storedCalendarEvent?: unknown;
+    reminders?: unknown;
+  };
+};
+
+const EMPTY_UETS: UetsExtraction = {
+  found: false,
+  institution: "",
+  noticeType: "",
+
+  arrivalDate: "",
+  arrivalTime: "",
+  arrivalDateTime: "",
+  deemedServiceDate: "",
+
+  court: "",
+  fileNo: "",
+  barcodeNo: "",
+  recipient: "",
+  subject: "",
+
+  confidence: 0,
+  warnings: [],
+};
+
+const EMPTY_ANALYSIS: LegalAnalysis = {
+  davaTuru: "",
+  mahkeme: "",
+  dosyaNo: "",
+  kurum: "",
+  risk: "",
+  sonTarih: "",
+  confidence: 0,
+  ozet: "",
+  yapilacaklar: [],
+};
+
+function safeString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function safeNumber(value: unknown): number {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return 0;
+  }
+
+  if (number > 0 && number <= 1) {
+    return Math.round(number * 100);
+  }
+
+  return Math.max(0, Math.min(100, Math.round(number)));
+}
+
+function safeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function normalizeUetsResponse(
+  data: AnalysisResponse
+): UetsExtraction {
+  const raw =
+    data?.uetsExtraction ||
+    data?.data?.uetsExtraction ||
+    {};
+
+  return {
+    found: Boolean(raw?.found),
+    institution: safeString(raw?.institution),
+    noticeType: safeString(raw?.noticeType),
+
+    arrivalDate: safeString(raw?.arrivalDate),
+    arrivalTime: safeString(raw?.arrivalTime),
+    arrivalDateTime: safeString(raw?.arrivalDateTime),
+    deemedServiceDate: safeString(raw?.deemedServiceDate),
+
+    court: safeString(raw?.court),
+    fileNo: safeString(raw?.fileNo),
+    barcodeNo: safeString(raw?.barcodeNo),
+    recipient: safeString(raw?.recipient),
+    subject: safeString(raw?.subject),
+
+    confidence: safeNumber(raw?.confidence),
+    warnings: safeStringArray(raw?.warnings),
+  };
+}
+
+function normalizeAnalysisResponse(
+  data: AnalysisResponse,
+  uets: UetsExtraction
+): LegalAnalysis {
+  const raw =
+    data?.analysis ||
+    data?.data?.analysis ||
+    {};
+
+  return {
+    davaTuru:
+      safeString(raw?.davaTuru) ||
+      (uets.found ? "Elektronik Tebligat" : ""),
+
+    mahkeme:
+      uets.court ||
+      safeString(raw?.mahkeme),
+
+    dosyaNo:
+      uets.fileNo ||
+      safeString(raw?.dosyaNo),
+
+    kurum:
+      uets.institution ||
+      safeString(raw?.kurum),
+
+    risk:
+      safeString(raw?.risk),
+
+    sonTarih:
+      uets.deemedServiceDate ||
+      safeString(raw?.sonTarih),
+
+    confidence:
+      uets.confidence ||
+      safeNumber(raw?.confidence),
+
+    ozet:
+      safeString(raw?.ozet) ||
+      (uets.found
+        ? "PTT UETS elektronik tebligat bildirimi bulundu."
+        : ""),
+
+    yapilacaklar:
+      safeStringArray(raw?.yapilacaklar),
+  };
+}
+
+function backendCreatedCalendar(
+  data: AnalysisResponse
+): boolean {
+  return Boolean(
+    data?.calendarEvent ||
+      data?.storedCalendarEvent ||
+      data?.deadline ||
+      data?.data?.calendarEvent ||
+      data?.data?.storedCalendarEvent ||
+      data?.data?.deadline
+  );
+}
+
+function formatDate(value: string): string {
+  if (!value || value === "-") {
+    return "-";
+  }
+
+  const parsed = new Date(`${value}T12:00:00`);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleDateString("tr-TR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function formatDateTime(
+  date: string,
+  time: string
+): string {
+  if (!date) {
+    return "-";
+  }
+
+  return `${formatDate(date)}${time ? ` ${time}` : ""}`;
+}
+
+function sanitizeFilename(value: string): string {
+  return value
+    .replace(/[\\/:*?"<>|]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+}
+
 export default function MailDetail({
   title = "Bir mail seçin",
   sender = "-",
   body = "Mail içeriği bulunamadı.",
   deadline = "-",
   type = "Analiz Bekliyor",
-  risk = "Analiz Bekliyor",
+  risk = "",
   attachments = [],
 }: Props) {
-  const [analysis, setAnalysis] = useState("");
   const [loading, setLoading] = useState(false);
-  const [reportLoading, setReportLoading] = useState(false);
-  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [calendarLoading, setCalendarLoading] =
+    useState(false);
+  const [reportLoading, setReportLoading] =
+    useState(false);
 
-  const [caseType, setCaseType] = useState(type);
-  const [riskLevel, setRiskLevel] = useState(risk);
-  const [calendarDate, setCalendarDate] = useState(deadline);
-  const [court, setCourt] = useState("-");
-  const [fileNo, setFileNo] = useState("-");
-  const [confidence, setConfidence] = useState("-");
-  const [summary, setSummary] = useState("-");
-  const [todos, setTodos] = useState<string[]>([]);
-  const [autoCalendarSuccess, setAutoCalendarSuccess] = useState(false);
-  const [autoCalendarError, setAutoCalendarError] = useState("");
-  const [calendarEventLink, setCalendarEventLink] = useState("");
+  const [analysisStatus, setAnalysisStatus] =
+    useState<"idle" | "success" | "error">("idle");
+
+  const [uets, setUets] =
+    useState<UetsExtraction>(EMPTY_UETS);
+
+  const [analysis, setAnalysis] =
+    useState<LegalAnalysis>({
+      ...EMPTY_ANALYSIS,
+      davaTuru: type === "Analiz Bekliyor" ? "" : type,
+      risk,
+      sonTarih: deadline === "-" ? "" : deadline,
+    });
+
+  const [calendarSuccess, setCalendarSuccess] =
+    useState(false);
+
+  const [message, setMessage] = useState("");
+  const [calendarEventLink, setCalendarEventLink] =
+    useState("");
+
+  const hasSelectedMail =
+    title !== "Bir mail seçin" &&
+    body !== "Mail içeriği bulunamadı.";
+
+  const displayCaseType =
+    analysis.davaTuru || "Analiz Bekliyor";
+
+  const displayDeadline =
+    analysis.sonTarih || "-";
+
+  const displayCourt =
+    analysis.mahkeme || "-";
+
+  const displayFileNo =
+    analysis.dosyaNo || "-";
+
+  const displayConfidence =
+    analysis.confidence > 0
+      ? `%${analysis.confidence}`
+      : "-";
+
+  const extractionLabel = useMemo(() => {
+    if (uets.found) {
+      return "PTT UETS bulundu";
+    }
+
+    if (analysisStatus === "success") {
+      return "Mail analiz edildi";
+    }
+
+    if (analysisStatus === "error") {
+      return "Analiz başarısız";
+    }
+
+    return "Analiz bekliyor";
+  }, [analysisStatus, uets.found]);
 
   useEffect(() => {
-    setCaseType(type);
-    setRiskLevel(risk);
-    setCalendarDate(deadline);
-    setAnalysis("");
-    setCourt("-");
-    setFileNo("-");
-    setConfidence("-");
-    setSummary("-");
-    setTodos([]);
-    setAutoCalendarSuccess(false);
-    setAutoCalendarError("");
-    setCalendarEventLink("");
-  }, [title, sender, body, deadline, type, risk]);
+    setUets(EMPTY_UETS);
 
-  async function saveToLegalOs(params: {
-    subject: string;
-    sender: string;
-    mail_body: string;
-    snippet?: string;
-    dava_turu: string;
-    risk: string;
-    son_tarih: string;
-    mahkeme: string;
-    dosya_no: string;
-    ai_summary: string;
-    confidence: number;
-    source?: string;
-  }) {
-    if (!params.son_tarih || params.son_tarih === "-") {
-      throw new Error("Son tarih bulunamadi");
+    setAnalysis({
+      ...EMPTY_ANALYSIS,
+      davaTuru:
+        type === "Analiz Bekliyor" ? "" : type,
+      risk,
+      sonTarih:
+        deadline === "-" ? "" : deadline,
+    });
+
+    setAnalysisStatus("idle");
+    setCalendarSuccess(false);
+    setCalendarEventLink("");
+    setMessage("");
+  }, [
+    title,
+    sender,
+    body,
+    deadline,
+    type,
+    risk,
+  ]);
+
+  async function saveToLegalCalendar(
+    currentAnalysis: LegalAnalysis,
+    currentUets: UetsExtraction,
+    source: "manual" | "gmail_uets"
+  ) {
+    if (!currentAnalysis.sonTarih) {
+      throw new Error(
+        "Takvim kaydı için tebliğ sayılma tarihi bulunamadı."
+      );
     }
 
     setCalendarLoading(true);
 
     try {
-      const res = await fetch("/api/cases/from-analysis", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(params),
-      });
+      const response = await fetch(
+        "/api/cases/from-analysis",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            subject:
+              currentUets.subject ||
+              title,
 
-      const data = await res.json();
+            sender,
 
-      if (!res.ok) {
-        throw new Error(data?.error || "AL Mether Calendar kaydi olusturulamadi");
+            mail_body: body,
+
+            snippet:
+              body.slice(0, 500),
+
+            dava_turu:
+              currentAnalysis.davaTuru,
+
+            risk:
+              currentAnalysis.risk,
+
+            son_tarih:
+              currentAnalysis.sonTarih,
+
+            mahkeme:
+              currentAnalysis.mahkeme,
+
+            dosya_no:
+              currentAnalysis.dosyaNo,
+
+            ai_summary:
+              currentAnalysis.ozet,
+
+            confidence:
+              currentAnalysis.confidence,
+
+            source,
+
+            institution:
+              currentAnalysis.kurum,
+
+            arrival_date:
+              currentUets.arrivalDate,
+
+            arrival_time:
+              currentUets.arrivalTime,
+
+            barcode_no:
+              currentUets.barcodeNo,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "AL Calendar kaydı oluşturulamadı."
+        );
       }
 
-      setCalendarEventLink("/cases");
+      setCalendarSuccess(true);
+      setCalendarEventLink("/calendar");
+
       return data;
     } finally {
       setCalendarLoading(false);
     }
   }
 
-  async function addToCalendar() {
-    try {
-      setAutoCalendarError("");
+  async function runMailEngine() {
+    if (!hasSelectedMail) {
+      setMessage("Önce bir mail seçin.");
+      return;
+    }
 
-      await saveToLegalOs({
-        subject: title,
-        sender,
-        mail_body: body,
-        snippet: body?.slice?.(0, 300) || "",
-        dava_turu: caseType,
-        risk: riskLevel,
-        son_tarih: calendarDate,
-        mahkeme: court,
-        dosya_no: fileNo,
-        ai_summary: summary,
-        confidence: Number(String(confidence).replace("%", "")) || 0,
-        source: "manual",
+    try {
+      setLoading(true);
+      setMessage("");
+      setCalendarSuccess(false);
+      setCalendarEventLink("");
+      setAnalysisStatus("idle");
+
+      const response = await fetch("/api/ai", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          subject: title,
+          sender,
+          body,
+        }),
       });
 
-      setAutoCalendarSuccess(true);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "AL Calendar kaydi basarisiz";
+      const data =
+        (await response.json()) as AnalysisResponse;
 
-      setAutoCalendarError(message);
+      if (!response.ok || !data?.ok) {
+        throw new Error(
+          data?.error ||
+            "Mail okuma motoru çalıştırılamadı."
+        );
+      }
+
+      const foundUets =
+        normalizeUetsResponse(data);
+
+      const foundAnalysis =
+        normalizeAnalysisResponse(
+          data,
+          foundUets
+        );
+
+      setUets(foundUets);
+      setAnalysis(foundAnalysis);
+      setAnalysisStatus("success");
+
+      if (
+        foundUets.found &&
+        foundUets.deemedServiceDate
+      ) {
+        setMessage(
+          `PTT UETS tebligatı bulundu. Tebliğ sayılma tarihi ${formatDate(
+            foundUets.deemedServiceDate
+          )}.`
+        );
+      } else if (foundAnalysis.sonTarih) {
+        setMessage(
+          `Tarih bulundu: ${formatDate(
+            foundAnalysis.sonTarih
+          )}.`
+        );
+      } else {
+        setMessage(
+          "Mail analiz edildi fakat kesin bir tebliğ sayılma tarihi bulunamadı."
+        );
+      }
+
+      if (backendCreatedCalendar(data)) {
+        setCalendarSuccess(true);
+        setCalendarEventLink("/calendar");
+        return;
+      }
+
+      if (foundAnalysis.sonTarih) {
+        await saveToLegalCalendar(
+          foundAnalysis,
+          foundUets,
+          "gmail_uets"
+        );
+
+        setMessage(
+          `Tebliğ sayılma tarihi ${formatDate(
+            foundAnalysis.sonTarih
+          )} olarak AL Calendar'a kaydedildi.`
+        );
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Mail okuma sırasında hata oluştu.";
+
+      setAnalysisStatus("error");
+      setMessage(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function addToCalendarManually() {
+    try {
+      setMessage("");
+
+      await saveToLegalCalendar(
+        analysis,
+        uets,
+        "manual"
+      );
+
+      setMessage(
+        `Tarih ${formatDate(
+          analysis.sonTarih
+        )} olarak AL Calendar'a eklendi.`
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Takvim işlemi başarısız."
+      );
     }
   }
 
   async function createWordReport() {
     try {
       setReportLoading(true);
+      setMessage("");
 
-      const res = await fetch("/api/report", {
+      const response = await fetch("/api/report", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           title,
           sender,
           body,
-          caseType,
-          riskLevel,
-          calendarDate,
-          court,
-          fileNo,
-          summary,
-          todos,
+
+          caseType:
+            analysis.davaTuru,
+
+          riskLevel:
+            analysis.risk,
+
+          calendarDate:
+            analysis.sonTarih,
+
+          court:
+            analysis.mahkeme,
+
+          fileNo:
+            analysis.dosyaNo,
+
+          institution:
+            analysis.kurum,
+
+          summary:
+            analysis.ozet,
+
+          todos:
+            analysis.yapilacaklar,
+
+          arrivalDate:
+            uets.arrivalDate,
+
+          arrivalTime:
+            uets.arrivalTime,
+
+          deemedServiceDate:
+            uets.deemedServiceDate,
+
+          barcodeNo:
+            uets.barcodeNo,
         }),
       });
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.error || "Rapor olusturulamadi");
+      if (!response.ok) {
+        const errorData =
+          await response.json().catch(() => null);
+
+        throw new Error(
+          errorData?.error ||
+            "Word raporu oluşturulamadı."
+        );
       }
 
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
+      const blob = await response.blob();
+      const url =
+        window.URL.createObjectURL(blob);
 
-      a.href = url;
-      a.download = `${title || "al-mether-legal-rapor"}.docx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      const anchor =
+        document.createElement("a");
+
+      anchor.href = url;
+      anchor.download = `${sanitizeFilename(
+        title || "al-mether-lawyer"
+      )}.docx`;
+
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
 
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Rapor hatasi";
-      alert(message);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Word raporu oluşturulamadı."
+      );
     } finally {
       setReportLoading(false);
     }
   }
 
-  async function runAIAnalysis() {
-    try {
-      setLoading(true);
-      setAutoCalendarSuccess(false);
-      setAutoCalendarError("");
-      setCalendarEventLink("");
-
-      const res = await fetch("/api/ai", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subject: title,
-          body,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok && data?.error) {
-        throw new Error(data.error);
-      }
-
-      const foundCaseType = data.davaTuru || "-";
-      const foundRisk = data.risk || "-";
-      const foundDeadline = data.sonTarih || "-";
-      const foundCourt = data.mahkeme || "-";
-      const foundFileNo = data.dosyaNo || "-";
-      const foundConfidenceNumber = Number(data.confidence || 0);
-      const foundSummary = data.ozet || "-";
-      const foundTodos = Array.isArray(data.yapilacaklar)
-        ? data.yapilacaklar
-        : [];
-
-      setCaseType(foundCaseType);
-      setRiskLevel(foundRisk);
-      setCalendarDate(foundDeadline);
-      setCourt(foundCourt);
-      setFileNo(foundFileNo);
-      setConfidence(`${foundConfidenceNumber}%`);
-      setSummary(foundSummary);
-      setTodos(foundTodos);
-      setAnalysis("completed");
-
-      if (foundDeadline && foundDeadline !== "-") {
-        try {
-          await saveToLegalOs({
-            subject: title,
-            sender,
-            mail_body: body,
-            snippet: body?.slice?.(0, 300) || "",
-            dava_turu: foundCaseType,
-            risk: foundRisk,
-            son_tarih: foundDeadline,
-            mahkeme: foundCourt,
-            dosya_no: foundFileNo,
-            ai_summary: foundSummary,
-            confidence: foundConfidenceNumber,
-            source: "gmail_ai",
-          });
-
-          setAutoCalendarSuccess(true);
-        } catch (calendarError) {
-          const message =
-            calendarError instanceof Error
-              ? calendarError.message
-              : "AL Calendar otomasyonu basarisiz";
-
-          setAutoCalendarError(message);
-        }
-      } else {
-        setAutoCalendarError(
-          "AI son tarih bulamadigi icin AL Calendar kaydi olusturulmadi."
-        );
-      }
-    } catch (error) {
-      setAnalysis("error");
-
-      const message =
-        error instanceof Error
-          ? error.message
-          : "AI analizi sirasinda hata olustu.";
-
-      setSummary(message);
-    } finally {
-      setLoading(false);
-    }
-  }
   return (
     <section style={containerStyle}>
       <div style={headerStyle}>
-        <div>
-          <div style={smallLabel}>Mail Detayı</div>
-          <h2 style={titleStyle}>{title}</h2>
-          <p style={senderStyle}>{sender}</p>
+        <div style={{ minWidth: 0 }}>
+          <div style={smallLabel}>
+            Mail Detayı
+          </div>
+
+          <h2 style={titleStyle}>
+            {title}
+          </h2>
+
+          <p style={senderStyle}>
+            {sender}
+          </p>
         </div>
 
-        <RiskBadge value={riskLevel} />
+        <StatusBadge
+          status={analysisStatus}
+          uetsFound={uets.found}
+          label={extractionLabel}
+        />
       </div>
 
       <div style={gridStyle}>
-        <InfoCard label="⚖️ Dava Türü" value={caseType} />
-        <InfoCard label="📅 Son Tarih" value={calendarDate} highlight />
-        <InfoCard label="› Mahkeme" value={court} />
-        <InfoCard label="📄‚ Dosya No" value={fileNo} />
-        <InfoCard label="¯ Güven" value={confidence} />
+        <InfoCard
+          label="Tebligat Türü"
+          value={displayCaseType}
+        />
+
+        <InfoCard
+          label="Tebliğ Sayılma Tarihi"
+          value={formatDate(displayDeadline)}
+          highlight
+        />
+
+        <InfoCard
+          label="Mahkeme"
+          value={displayCourt}
+        />
+
+        <InfoCard
+          label="Dosya No"
+          value={displayFileNo}
+        />
+
+        <InfoCard
+          label="Güven"
+          value={displayConfidence}
+        />
+      </div>
+
+      {uets.found && (
+        <div style={uetsBox}>
+          <div style={sectionTitle}>
+            PTT UETS Tebligat Bilgileri
+          </div>
+
+          <div style={uetsGrid}>
+            <MiniInfo
+              label="Ulaşma Tarihi"
+              value={formatDateTime(
+                uets.arrivalDate,
+                uets.arrivalTime
+              )}
+            />
+
+            <MiniInfo
+              label="Tebliğ Sayılma"
+              value={formatDate(
+                uets.deemedServiceDate
+              )}
+            />
+
+            <MiniInfo
+              label="Barkod No"
+              value={uets.barcodeNo || "-"}
+            />
+
+            <MiniInfo
+              label="Kurum"
+              value={
+                uets.institution || "PTT UETS"
+              }
+            />
+          </div>
+        </div>
+      )}
+
+      <div style={sectionBox}>
+        <div style={sectionTitle}>
+          Mail İçeriği
+        </div>
+
+        <div style={mailBodyStyle}>
+          {body}
+        </div>
       </div>
 
       <div style={sectionBox}>
-        <div style={sectionTitle}>📄 Mail İçeriği</div>
-        <div style={mailBodyStyle}>{body}</div>
-      </div>
+        <div style={sectionHeader}>
+          <div style={sectionTitle}>
+            Mail Ekleri
+          </div>
 
-      <div style={sectionBox}>
-        <div style={sectionTitle}>📄 Mail Ekleri</div>
+          <span style={countBadge}>
+            {attachments.length}
+          </span>
+        </div>
 
         {attachments.length === 0 ? (
-          <p style={mutedText}>Bu mailde ek bulunamadı.</p>
+          <p style={mutedText}>
+            Bu mailde ek bulunamadı.
+          </p>
         ) : (
           <div style={attachmentList}>
-            {attachments.map((file, index) => (
-              <div key={`${file.filename}-${index}`} style={attachmentItem}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={attachmentName}>{file.filename}</div>
-                  <div style={attachmentMeta}>
-                    {file.mimeType || "Dosya"} Â·{" "}
-                    {file.size ? `${Math.round(file.size / 1024)} KB` : "-"}
-                  </div>
-                </div>
+            {attachments.map(
+              (attachment, index) => (
+                <div
+                  key={`${attachment.filename}-${index}`}
+                  style={attachmentItem}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div style={attachmentName}>
+                      {attachment.filename}
+                    </div>
 
-                <button style={attachmentBtn}>📄 Analiz Et</button>
-              </div>
-            ))}
+                    <div style={attachmentMeta}>
+                      {attachment.mimeType ||
+                        "Dosya"}
+
+                      {" · "}
+
+                      {attachment.size
+                        ? `${Math.round(
+                            attachment.size / 1024
+                          )} KB`
+                        : "-"}
+                    </div>
+                  </div>
+
+                  {attachment.url && (
+                    <a
+                      href={attachment.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={attachmentButton}
+                    >
+                      Aç
+                    </a>
+                  )}
+                </div>
+              )
+            )}
           </div>
         )}
       </div>
@@ -312,97 +829,121 @@ export default function MailDetail({
       <div style={analysisBox}>
         <div style={analysisHeader}>
           <div>
-            <div style={sectionTitle}>🤖 AL Analiz Sonucu</div>
+            <div style={sectionTitle}>
+              Mail Okuma Motoru Sonucu
+            </div>
+
             <p style={mutedText}>
-              Dava bilgileri, risk ve kritik tarih çıkarımı
+              PTT UETS bloğu, ulaşma tarihi ve
+              tebliğ sayılma tarihi.
             </p>
           </div>
 
           {(loading || calendarLoading) && (
             <span style={loadingBadge}>
-              {loading ? "Analiz ediliyor..." : "Takvim hazırlanıyor..."}
+              {loading
+                ? "Mail taranıyor..."
+                : "Takvim kaydediliyor..."}
             </span>
           )}
         </div>
 
-        {autoCalendarSuccess && (
-          <div style={successState}>
-            ✅ Takvim kaydı ve alarm hatırlatmaları otomatik oluşturuldu.
-            {calendarEventLink && (
-              <div style={{ marginTop: 8 }}>
-                <a
-                  href={calendarEventLink}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ color: "#86efac", textDecoration: "underline" }}
+        {message && (
+          <div
+            style={
+              analysisStatus === "error"
+                ? errorState
+                : calendarSuccess
+                  ? successState
+                  : infoState
+            }
+          >
+            {message}
+
+            {calendarEventLink &&
+              calendarSuccess && (
+                <div style={{ marginTop: 8 }}>
+                  <a
+                    href={calendarEventLink}
+                    style={calendarLink}
+                  >
+                    AL Calendar’da aç
+                  </a>
+                </div>
+              )}
+          </div>
+        )}
+
+        <div style={summaryBox}>
+          <div style={sectionTitle}>
+            Özet
+          </div>
+
+          <p style={summaryText}>
+            {analysis.ozet ||
+              "Mail henüz taranmadı."}
+          </p>
+        </div>
+
+        {uets.warnings.length > 0 && (
+          <div style={warningBox}>
+            <div style={warningTitle}>
+              Kontrol Notları
+            </div>
+
+            {uets.warnings.map(
+              (warning, index) => (
+                <div
+                  key={`${warning}-${index}`}
+                  style={warningItem}
                 >
-                  AL Calendar’da aç
-                </a>
-              </div>
+                  {warning}
+                </div>
+              )
             )}
           </div>
-        )}
-
-        {autoCalendarError && (
-          <div style={errorState}>âš ï¸ {autoCalendarError}</div>
-        )}
-
-        {!loading && !analysis ? (
-          <div style={emptyState}>
-            Mail seçildikten sonra AI analiz başlatın.
-          </div>
-        ) : (
-          <>
-            <div style={summaryBox}>
-              <div style={sectionTitle}>📄 Özet</div>
-              <p style={summaryText}>{summary}</p>
-            </div>
-
-            <div style={todoBox}>
-              <div style={sectionTitle}>✅ Yapılacaklar</div>
-
-              {todos.length === 0 ? (
-                <p style={mutedText}>Henüz görev çıkarılmadı.</p>
-              ) : (
-                todos.map((todo, index) => (
-                  <div key={index} style={todoItem}>
-                    <span style={checkIcon}>âœ“</span>
-                    <span>{todo}</span>
-                  </div>
-                ))
-              )}
-            </div>
-          </>
         )}
       </div>
 
       <div style={actionBar}>
         <button
-          onClick={runAIAnalysis}
-          style={primaryBtn}
-          disabled={loading || calendarLoading}
+          type="button"
+          onClick={runMailEngine}
+          style={primaryButton}
+          disabled={
+            loading ||
+            calendarLoading ||
+            !hasSelectedMail
+          }
         >
-          🤖 {loading ? "Analiz Ediliyor" : "AI Analiz Et"}
+          {loading
+            ? "Mail Taranıyor"
+            : "Maili Tara"}
         </button>
 
         <button
-          onClick={addToCalendar}
-          style={secondaryBtn}
-          disabled={calendarLoading}
+          type="button"
+          onClick={addToCalendarManually}
+          style={secondaryButton}
+          disabled={
+            calendarLoading ||
+            !analysis.sonTarih
+          }
         >
-          📅 {calendarLoading ? "Takvim..." : "AL Takvimine Ekle"}
+          {calendarLoading
+            ? "Kaydediliyor"
+            : "AL Takvimine Ekle"}
         </button>
 
         <button
+          type="button"
           onClick={createWordReport}
-          style={secondaryBtn}
+          style={secondaryButton}
           disabled={reportLoading}
         >
-          📄 {reportLoading ? "Oluşturuluyor" : "Word Oluştur"}
-        </button>
-
-        <button style={secondaryBtn} disabled={calendarLoading}>
-          🔔 Alarm Kuruldu
+          {reportLoading
+            ? "Oluşturuluyor"
+            : "Word Oluştur"}
         </button>
       </div>
     </section>
@@ -420,11 +961,16 @@ function InfoCard({
 }) {
   return (
     <div style={infoCardStyle}>
-      <div style={cardLabel}>{label}</div>
+      <div style={cardLabel}>
+        {label}
+      </div>
+
       <div
         style={{
           ...cardValue,
-          color: highlight ? "#facc15" : "white",
+          color: highlight
+            ? "#f0b95b"
+            : "#f8fafc",
         }}
       >
         {value || "-"}
@@ -433,172 +979,266 @@ function InfoCard({
   );
 }
 
-function RiskBadge({ value }: { value: string }) {
+function MiniInfo({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div style={miniInfoStyle}>
+      <div style={miniLabel}>
+        {label}
+      </div>
+
+      <div style={miniValue}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function StatusBadge({
+  status,
+  uetsFound,
+  label,
+}: {
+  status: "idle" | "success" | "error";
+  uetsFound: boolean;
+  label: string;
+}) {
   const color =
-    value === "Yüksek"
-      ? "#ef4444"
-      : value === "Orta"
-      ? "#f97316"
-      : value === "Analiz Bekliyor"
-      ? "#60a5fa"
-      : "#22c55e";
+    status === "error"
+      ? "#ef8b8b"
+      : uetsFound
+        ? "#55d69e"
+        : status === "success"
+          ? "#67a7ff"
+          : "#8ba2c7";
 
   return (
     <div
       style={{
-        border: `1px solid ${color}`,
+        border: `1px solid ${color}66`,
         color,
-        background: `${color}22`,
+        background: `${color}16`,
         padding: "8px 12px",
         borderRadius: 999,
         fontWeight: 800,
-        fontSize: 13,
+        fontSize: 12,
         whiteSpace: "nowrap",
       }}
     >
-      🚨 {value}
+      {label}
     </div>
   );
 }
 
 const containerStyle = {
   background:
-    "linear-gradient(180deg,rgba(15,23,42,0.88),rgba(2,6,23,0.92))",
-  border: "1px solid rgba(148,163,184,0.18)",
-  borderRadius: 28,
-  padding: 18,
-  boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+    "linear-gradient(180deg, rgba(12,22,43,0.98), rgba(4,11,25,0.98))",
+  border:
+    "1px solid rgba(106,137,190,0.22)",
+  borderRadius: 24,
+  padding: 16,
+  color: "#f8fafc",
 };
 
 const headerStyle = {
   display: "flex",
   justifyContent: "space-between",
-  gap: 16,
   alignItems: "flex-start",
-  marginBottom: 18,
+  gap: 16,
   flexWrap: "wrap" as const,
+  marginBottom: 14,
 };
 
 const smallLabel = {
-  color: "#60a5fa",
-  fontSize: 13,
+  color: "#69a7ff",
+  fontSize: 12,
   fontWeight: 800,
-  marginBottom: 8,
+  marginBottom: 6,
 };
 
 const titleStyle = {
-  color: "white",
-  fontSize: 22,
-  lineHeight: 1.3,
   margin: 0,
+  fontSize: 20,
+  lineHeight: 1.35,
+  color: "#ffffff",
 };
 
 const senderStyle = {
-  color: "#94a3b8",
-  marginTop: 8,
-  fontSize: 13,
+  margin: "6px 0 0",
+  color: "#8da2c2",
+  fontSize: 12,
 };
 
 const gridStyle = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))",
-  gap: 12,
-  marginBottom: 14,
+  gridTemplateColumns:
+    "repeat(auto-fit, minmax(150px, 1fr))",
+  gap: 10,
+  marginBottom: 12,
 };
 
 const infoCardStyle = {
-  background: "rgba(255,255,255,0.045)",
-  border: "1px solid rgba(255,255,255,0.07)",
-  borderRadius: 18,
-  padding: 14,
   minWidth: 0,
+  background: "#111b30",
+  border:
+    "1px solid rgba(108,137,185,0.18)",
+  borderRadius: 14,
+  padding: 12,
 };
 
 const cardLabel = {
-  color: "#94a3b8",
-  fontSize: 12,
-  marginBottom: 8,
+  color: "#8397b8",
+  fontSize: 11,
+  marginBottom: 7,
 };
 
 const cardValue = {
+  fontSize: 13,
   fontWeight: 800,
-  fontSize: 14,
   wordBreak: "break-word" as const,
 };
 
+const uetsBox = {
+  background: "#0d2130",
+  border:
+    "1px solid rgba(62,207,142,0.25)",
+  borderRadius: 16,
+  padding: 14,
+  marginBottom: 12,
+};
+
+const uetsGrid = {
+  display: "grid",
+  gridTemplateColumns:
+    "repeat(auto-fit, minmax(160px, 1fr))",
+  gap: 10,
+};
+
+const miniInfoStyle = {
+  background: "#0a1728",
+  border:
+    "1px solid rgba(95,137,188,0.14)",
+  borderRadius: 12,
+  padding: 10,
+};
+
+const miniLabel = {
+  color: "#7891b2",
+  fontSize: 10,
+  marginBottom: 6,
+};
+
+const miniValue = {
+  color: "#f3f7fd",
+  fontSize: 12,
+  fontWeight: 800,
+};
+
 const sectionBox = {
-  background: "rgba(255,255,255,0.035)",
-  border: "1px solid rgba(255,255,255,0.06)",
-  borderRadius: 18,
-  padding: 16,
-  marginBottom: 14,
+  background: "#10192c",
+  border:
+    "1px solid rgba(106,137,190,0.16)",
+  borderRadius: 16,
+  padding: 14,
+  marginBottom: 12,
+};
+
+const sectionHeader = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 10,
+  alignItems: "center",
 };
 
 const sectionTitle = {
-  color: "white",
+  color: "#f8fafc",
+  fontSize: 13,
   fontWeight: 800,
   marginBottom: 8,
 };
 
+const countBadge = {
+  color: "#83b7ff",
+  background: "#132947",
+  borderRadius: 999,
+  fontSize: 10,
+  fontWeight: 800,
+  padding: "3px 8px",
+};
+
 const mailBodyStyle = {
-  color: "#cbd5e1",
-  lineHeight: 1.75,
-  fontSize: 14,
-  whiteSpace: "pre-wrap" as const,
-  maxHeight: 260,
+  maxHeight: 250,
   overflowY: "auto" as const,
+  whiteSpace: "pre-wrap" as const,
+  color: "#c6d1e2",
+  fontSize: 12,
+  lineHeight: 1.65,
+};
+
+const mutedText = {
+  margin: 0,
+  color: "#8295b4",
+  fontSize: 12,
+  lineHeight: 1.55,
 };
 
 const attachmentList = {
   display: "flex",
   flexDirection: "column" as const,
-  gap: 10,
+  gap: 8,
 };
 
 const attachmentItem = {
   display: "flex",
   justifyContent: "space-between",
-  gap: 12,
   alignItems: "center",
-  background: "rgba(2,6,23,0.35)",
-  border: "1px solid rgba(255,255,255,0.06)",
-  borderRadius: 14,
-  padding: 12,
+  gap: 12,
+  background: "#0b1527",
+  border:
+    "1px solid rgba(106,137,190,0.14)",
+  borderRadius: 12,
+  padding: 10,
 };
 
 const attachmentName = {
-  color: "white",
+  color: "#f8fafc",
+  fontSize: 12,
   fontWeight: 800,
-  fontSize: 13,
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap" as const,
 };
 
 const attachmentMeta = {
-  color: "#94a3b8",
-  fontSize: 11,
+  color: "#7e91b0",
+  fontSize: 10,
   marginTop: 4,
 };
 
-const attachmentBtn = {
-  background: "rgba(59,130,246,0.14)",
-  border: "1px solid rgba(59,130,246,0.25)",
-  color: "#93c5fd",
-  borderRadius: 12,
-  padding: "8px 10px",
-  fontWeight: 900,
-  cursor: "pointer",
-  whiteSpace: "nowrap" as const,
+const attachmentButton = {
+  color: "#86b9ff",
+  border:
+    "1px solid rgba(92,157,255,0.28)",
+  background: "#10233e",
+  borderRadius: 9,
+  padding: "7px 10px",
+  fontSize: 11,
+  fontWeight: 800,
+  textDecoration: "none",
 };
 
 const analysisBox = {
-  background:
-    "linear-gradient(180deg,rgba(37,99,235,0.13),rgba(15,23,42,0.2))",
-  border: "1px solid rgba(96,165,250,0.22)",
-  borderRadius: 22,
-  padding: 16,
-  marginBottom: 14,
+  background: "#0a1832",
+  border:
+    "1px solid rgba(82,139,229,0.28)",
+  borderRadius: 18,
+  padding: 14,
+  marginBottom: 12,
 };
 
 const analysisHeader = {
@@ -606,121 +1246,126 @@ const analysisHeader = {
   justifyContent: "space-between",
   gap: 12,
   alignItems: "flex-start",
-  marginBottom: 14,
   flexWrap: "wrap" as const,
-};
-
-const mutedText = {
-  color: "#94a3b8",
-  fontSize: 13,
-  margin: 0,
-  lineHeight: 1.6,
+  marginBottom: 12,
 };
 
 const loadingBadge = {
-  color: "#93c5fd",
-  background: "rgba(59,130,246,0.15)",
-  border: "1px solid rgba(59,130,246,0.25)",
-  padding: "7px 10px",
+  color: "#8dbdff",
+  background: "#122849",
+  border:
+    "1px solid rgba(89,151,247,0.24)",
   borderRadius: 999,
-  fontSize: 12,
+  padding: "6px 10px",
+  fontSize: 11,
   fontWeight: 800,
 };
 
-const emptyState = {
-  color: "#94a3b8",
-  padding: 16,
-  borderRadius: 14,
-  background: "rgba(255,255,255,0.03)",
+const infoState = {
+  color: "#b8d3ff",
+  background: "#10233f",
+  border:
+    "1px solid rgba(85,146,240,0.24)",
+  borderRadius: 12,
+  padding: 11,
+  marginBottom: 10,
+  fontSize: 12,
+  fontWeight: 700,
 };
 
 const successState = {
-  color: "#86efac",
-  background: "rgba(34,197,94,0.12)",
-  border: "1px solid rgba(34,197,94,0.28)",
-  padding: 12,
-  borderRadius: 14,
-  marginBottom: 12,
-  fontWeight: 800,
+  color: "#9ce7c1",
+  background: "#0e2b27",
+  border:
+    "1px solid rgba(68,198,139,0.25)",
+  borderRadius: 12,
+  padding: 11,
+  marginBottom: 10,
+  fontSize: 12,
+  fontWeight: 700,
 };
 
 const errorState = {
-  color: "#fecaca",
-  background: "rgba(239,68,68,0.1)",
-  border: "1px solid rgba(239,68,68,0.22)",
-  padding: 12,
-  borderRadius: 14,
-  marginBottom: 12,
-  fontWeight: 800,
+  color: "#f3b3b3",
+  background: "#2d1722",
+  border:
+    "1px solid rgba(221,99,119,0.28)",
+  borderRadius: 12,
+  padding: 11,
+  marginBottom: 10,
+  fontSize: 12,
+  fontWeight: 700,
+};
+
+const calendarLink = {
+  color: "#8dbdff",
+  textDecoration: "underline",
 };
 
 const summaryBox = {
-  background: "rgba(2,6,23,0.35)",
-  borderRadius: 16,
-  padding: 14,
-  marginBottom: 12,
+  background: "#071126",
+  borderRadius: 13,
+  padding: 12,
 };
 
 const summaryText = {
-  color: "#e2e8f0",
-  lineHeight: 1.7,
   margin: 0,
-};
-
-const todoBox = {
-  background: "rgba(2,6,23,0.25)",
-  borderRadius: 16,
-  padding: 14,
-};
-
-const todoItem = {
-  display: "flex",
-  gap: 10,
-  alignItems: "flex-start",
-  color: "#e2e8f0",
-  marginBottom: 9,
-  lineHeight: 1.5,
-};
-
-const checkIcon = {
-  background: "#22c55e",
-  color: "#052e16",
-  borderRadius: 999,
-  width: 18,
-  height: 18,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
+  color: "#d3dbea",
   fontSize: 12,
-  fontWeight: 900,
-  flexShrink: 0,
+  lineHeight: 1.6,
+  whiteSpace: "pre-wrap" as const,
+};
+
+const warningBox = {
+  marginTop: 10,
+  background: "#211d13",
+  border:
+    "1px solid rgba(224,176,75,0.22)",
+  borderRadius: 13,
+  padding: 11,
+};
+
+const warningTitle = {
+  color: "#efc46a",
+  fontSize: 11,
+  fontWeight: 800,
+  marginBottom: 7,
+};
+
+const warningItem = {
+  color: "#cab98e",
+  fontSize: 11,
+  lineHeight: 1.5,
+  marginTop: 4,
 };
 
 const actionBar = {
   display: "flex",
-  gap: 10,
   flexWrap: "wrap" as const,
+  gap: 8,
 };
 
-const primaryBtn = {
-  background: "linear-gradient(to right,#7c3aed,#2563eb)",
+const primaryButton = {
   border: "none",
-  borderRadius: 14,
-  padding: "12px 16px",
-  color: "white",
+  borderRadius: 12,
+  padding: "10px 15px",
+  color: "#ffffff",
+  background:
+    "linear-gradient(90deg, #4b67ff, #8c42e8)",
+  fontSize: 12,
   fontWeight: 800,
   cursor: "pointer",
 };
 
-const secondaryBtn = {
-  background: "rgba(255,255,255,0.06)",
-  border: "1px solid rgba(255,255,255,0.1)",
-  borderRadius: 14,
-  padding: "12px 16px",
-  color: "white",
+const secondaryButton = {
+  border:
+    "1px solid rgba(128,153,196,0.22)",
+  borderRadius: 12,
+  padding: "10px 15px",
+  color: "#e7edf7",
+  background: "#121b2e",
+  fontSize: 12,
   fontWeight: 800,
   cursor: "pointer",
 };
-
-
 

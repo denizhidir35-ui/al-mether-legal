@@ -1,44 +1,161 @@
-﻿import { createServerSupabaseClient } from "@/lib/supabaseServer";
+﻿import "server-only";
 
-export async function getOrCreateAppUser() {
-  const supabase = await createServerSupabaseClient();
+import { getServerSession } from "next-auth";
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+import { authOptions } from "@/lib/auth";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
-  if (authError || !user?.email) {
-    return { user: null, appUser: null, error: "Kullanıcı oturumu bulunamadı." };
+export type AppUserRecord = {
+  id: string;
+  email: string;
+  google_id?: string | null;
+  name?: string | null;
+  role?: string | null;
+  status?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type AppSessionUser = {
+  email: string;
+  name: string;
+  image: string;
+};
+
+export type GetOrCreateAppUserResult = {
+  user: AppSessionUser | null;
+  appUser: AppUserRecord | null;
+  error: string | null;
+};
+
+function cleanEmail(value: unknown): string {
+  if (typeof value !== "string") {
+    return "";
   }
 
-  const email = user.email;
+  return value.trim().toLocaleLowerCase("tr-TR");
+}
 
-  const existing = await supabase
-    .from("app_users")
-    .select("*")
-    .eq("email", email)
-    .maybeSingle();
+function cleanText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
 
-  if (existing.data) {
-    return { user, appUser: existing.data, error: null };
-  }
+export async function getOrCreateAppUser(): Promise<GetOrCreateAppUserResult> {
+  try {
+    const session = await getServerSession(authOptions);
 
-  const created = await supabase
-    .from("app_users")
-    .insert({
+    const email = cleanEmail(session?.user?.email);
+
+    if (!email) {
+      return {
+        user: null,
+        appUser: null,
+        error: "AL Mether Lawyer kullanıcı oturumu bulunamadı.",
+      };
+    }
+
+    const sessionUser: AppSessionUser = {
       email,
-      google_id: user.id,
-      name: user.user_metadata?.full_name || user.user_metadata?.name || email,
-      role: "lawyer",
-      status: "active",
-    })
-    .select("*")
-    .single();
+      name:
+        cleanText(session?.user?.name) ||
+        email.split("@")[0] ||
+        "Avukat",
+      image: cleanText(session?.user?.image),
+    };
 
-  if (created.error) {
-    return { user, appUser: null, error: created.error.message };
+    const supabase = getSupabaseAdmin();
+
+    const existing = await supabase
+      .from("app_users")
+      .select("*")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (existing.error) {
+      return {
+        user: sessionUser,
+        appUser: null,
+        error: existing.error.message,
+      };
+    }
+
+    if (existing.data) {
+      const currentUser =
+        existing.data as AppUserRecord;
+
+      const needsUpdate =
+        currentUser.name !== sessionUser.name ||
+        currentUser.status !== "active";
+
+      if (!needsUpdate) {
+        return {
+          user: sessionUser,
+          appUser: currentUser,
+          error: null,
+        };
+      }
+
+      const updated = await supabase
+        .from("app_users")
+        .update({
+          name: sessionUser.name,
+          status: "active",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", currentUser.id)
+        .select("*")
+        .single();
+
+      if (updated.error) {
+        return {
+          user: sessionUser,
+          appUser: currentUser,
+          error: null,
+        };
+      }
+
+      return {
+        user: sessionUser,
+        appUser:
+          updated.data as AppUserRecord,
+        error: null,
+      };
+    }
+
+    const created = await supabase
+      .from("app_users")
+      .insert({
+        email,
+        google_id: email,
+        name: sessionUser.name,
+        role: "lawyer",
+        status: "active",
+      })
+      .select("*")
+      .single();
+
+    if (created.error) {
+      return {
+        user: sessionUser,
+        appUser: null,
+        error: created.error.message,
+      };
+    }
+
+    return {
+      user: sessionUser,
+      appUser:
+        created.data as AppUserRecord,
+      error: null,
+    };
+  } catch (error: unknown) {
+    return {
+      user: null,
+      appUser: null,
+      error:
+        error instanceof Error
+          ? error.message
+          : "AL Mether Lawyer kullanıcı kaydı hazırlanamadı.",
+    };
   }
-
-  return { user, appUser: created.data, error: null };
 }
