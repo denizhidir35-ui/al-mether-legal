@@ -524,7 +524,6 @@ export default function MailDetail({
       if (backendCreatedCalendar(data)) {
         setCalendarSuccess(true);
         setCalendarEventLink("/calendar");
-        return;
       }
 
       if (foundAnalysis.sonTarih) {
@@ -1368,4 +1367,5 @@ const secondaryButton = {
   fontWeight: 800,
   cursor: "pointer",
 };
+
 

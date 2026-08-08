@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PDFDocument } from "pdf-lib";
-import LegalDock from "@/components/LegalDock";
 
 type CalendarEvent = {
   id: string;
@@ -2275,7 +2274,7 @@ export default function CalendarPage() {
         .pdf-preview-frame {
           width: 100%;
           height: 100%;
-          min-height: 470px;
+          min-height: 290px;
           border: 1px solid var(--border);
           border-radius: 12px;
           background: white;
@@ -2575,7 +2574,7 @@ export default function CalendarPage() {
           }
 
           .calendar-toolbar {
-            margin-bottom: 12px;
+            margin-bottom: 10px;
           }
 
           .month-title {
@@ -3047,8 +3046,7 @@ export default function CalendarPage() {
 
                   {activeDetailTab === "attachments" && (
                     <section className="detail-section">
-                      {!previewAttachment && (
-<div className="attachment-upload-row">
+                      <div className="attachment-upload-row">
                         <label className="attachment-upload">
                           <input
                             type="file"
@@ -3155,9 +3153,8 @@ export default function CalendarPage() {
                           </span>
                         </label>
                       </div>
-)}
 
-{attachmentsLoading ? (
+                      {attachmentsLoading ? (
                         <div className="detail-empty">
                           Ekler yükleniyor...
                         </div>
@@ -3483,18 +3480,9 @@ export default function CalendarPage() {
           </aside>
         </div>
       </section>
-      <LegalDock />
-</main>
+    </main>
   );
 }
-
-
-
-
-
-
-
-
 
 
 

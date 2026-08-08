@@ -1,5 +1,5 @@
 ﻿import React from "react";
-import Button from "./Button";
+import { Button } from "./Button";
 
 type EmptyStateProps = {
   title: string;
@@ -39,3 +39,4 @@ export default function EmptyState({
     </div>
   );
 }
+

@@ -183,16 +183,16 @@ export default function CalendarElite({
         </div>
 
         <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
-          <Button size="sm" variant={filter === "all" ? "primary" : "secondary"} onClick={() => setFilter("all")}>
+          <Button size="sm" variant={filter === "all" ? "default" : "secondary"} onClick={() => setFilter("all")}>
             Tümü
           </Button>
-          <Button size="sm" variant={filter === "today" ? "primary" : "secondary"} onClick={() => setFilter("today")}>
+          <Button size="sm" variant={filter === "today" ? "default" : "secondary"} onClick={() => setFilter("today")}>
             Bugün
           </Button>
-          <Button size="sm" variant={filter === "week" ? "primary" : "secondary"} onClick={() => setFilter("week")}>
+          <Button size="sm" variant={filter === "week" ? "default" : "secondary"} onClick={() => setFilter("week")}>
             7 Gün
           </Button>
-          <Button size="sm" variant={filter === "critical" ? "primary" : "secondary"} onClick={() => setFilter("critical")}>
+          <Button size="sm" variant={filter === "critical" ? "default" : "secondary"} onClick={() => setFilter("critical")}>
             Kritik
           </Button>
         </div>
@@ -208,7 +208,7 @@ export default function CalendarElite({
               const left = daysLeft(event.date);
 
               return (
-                <Card key={event.id} elevated={event.risk === "critical"}>
+                <Card key={event.id}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
                     <div style={{ display: "grid", gap: 8 }}>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -283,3 +283,6 @@ export default function CalendarElite({
     </Layout>
   );
 }
+
+
+

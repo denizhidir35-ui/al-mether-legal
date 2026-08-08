@@ -165,7 +165,7 @@ export default function CaseDetailElite({ caseData = demoCase }: CaseDetailElite
       />
 
       <div style={{ display: "grid", gap: 14 }}>
-        <Card elevated={caseData.risk === "critical"}>
+        <Card>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 14 }}>
             <div style={{ display: "grid", gap: 10 }}>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -344,3 +344,4 @@ export default function CaseDetailElite({ caseData = demoCase }: CaseDetailElite
     </Layout>
   );
 }
+

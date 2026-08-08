@@ -162,13 +162,13 @@ export default function NotificationCenter({
         </div>
 
         <div style={{ display: "flex", gap: 8, overflowX: "auto" }}>
-          <Button size="sm" variant={filter === "all" ? "primary" : "secondary"} onClick={() => setFilter("all")}>
+          <Button size="sm" variant={filter === "all" ? "default" : "secondary"} onClick={() => setFilter("all")}>
             Tümü
           </Button>
-          <Button size="sm" variant={filter === "unread" ? "primary" : "secondary"} onClick={() => setFilter("unread")}>
+          <Button size="sm" variant={filter === "unread" ? "default" : "secondary"} onClick={() => setFilter("unread")}>
             Okunmamış
           </Button>
-          <Button size="sm" variant={filter === "critical" ? "primary" : "secondary"} onClick={() => setFilter("critical")}>
+          <Button size="sm" variant={filter === "critical" ? "default" : "secondary"} onClick={() => setFilter("critical")}>
             Kritik
           </Button>
         </div>
@@ -183,7 +183,6 @@ export default function NotificationCenter({
             {filtered.map((item) => (
               <Card
                 key={item.id}
-                elevated={item.priority === "critical"}
                 onClick={() => setSelected(item)}
                 style={{
                   cursor: "pointer",
@@ -264,3 +263,5 @@ export default function NotificationCenter({
     </Layout>
   );
 }
+
+

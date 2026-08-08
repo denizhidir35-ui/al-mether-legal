@@ -1,0 +1,2198 @@
+﻿
+
+--- .\app\api\cases\from-analysis\route.ts ---
+
+import { NextResponse } from "next/server";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { getOrCreateAppUser } from "@/lib/alUser";
+
+function normalizeRisk(risk?: string | null) {
+  const value = (risk || "").toLowerCase();
+
+  if (value.includes("kritik") || value.includes("critical")) return "critical";
+  if (value.includes("yüksek") || value.includes("high")) return "high";
+  if (value.includes("düşük") || value.includes("low")) return "low";
+
+  return "normal";
+}
+
+export async function POST(request: Request) {
+  const supabase = getSupabaseAdmin();
+  const { appUser, error } = await getOrCreateAppUser();
+
+  if (error || !appUser) {
+    return NextResponse.json({ error }, { status: 401 });
+  }
+
+  const body = await request.json();
+
+  const caseNumber = body.case_number || body.dosya_no || null;
+  const courtName = body.court_name || body.mahkeme || null;
+  const title =
+    body.case_title ||
+    body.title ||
+    body.subject ||
+    caseNumber ||
+    "Tebligat Dosyası";
+
+  const dueDate =
+    body.calculated_due_date ||
+    body.deadline_date ||
+    body.son_tarih ||
+    null;
+
+  const riskLevel = normalizeRisk(body.risk || body.risk_level);
+
+  let legalCase = null;
+
+  if (caseNumber) {
+    const found = await supabase
+      .from("legal_cases")
+      .select("*")
+      .eq("user_id", appUser.id)
+      .eq("case_number", caseNumber)
+      .maybeSingle();
+
+    legalCase = found.data;
+  }
+
+  if (!legalCase) {
+    const created = await supabase
+      .from("legal_cases")
+      .insert({
+        user_id: appUser.id,
+        case_number: caseNumber,
+        court_name: courtName,
+        case_title: title,
+        case_type: body.case_type || body.dava_turu || "Tebligat",
+        status: "active",
+        risk_level: riskLevel,
+        source: "gmail_ai",
+      })
+      .select("*")
+      .single();
+
+    if (created.error) {
+      return NextResponse.json({ error: created.error.message }, { status: 500 });
+    }
+
+    legalCase = created.data;
+  }
+
+  if (body.gmail_message_id || body.subject) {
+    await supabase.from("case_mails").insert({
+      user_id: appUser.id,
+      case_id: legalCase.id,
+      gmail_message_id: body.gmail_message_id || null,
+      subject: body.subject || title,
+      sender: body.sender || null,
+      received_at: body.received_at || null,
+      snippet: body.snippet || null,
+      body: body.mail_body || null,
+      ai_summary: body.ai_summary || body.summary || null,
+    });
+  }
+
+  let deadline: any = null;
+
+  if (dueDate) {
+    const createdDeadline = await supabase
+      .from("legal_deadlines")
+      .insert({
+        user_id: appUser.id,
+        case_id: legalCase.id,
+        title,
+        notification_date: body.notification_date || body.teblig_tarihi || null,
+        start_date: body.start_date || body.baslangic_tarihi || null,
+        calculated_due_date: dueDate,
+        legal_basis: body.legal_basis || body.kanuni_dayanak || null,
+        deadline_days: body.deadline_days || body.sure_gun || null,
+        deadline_type: body.deadline_type || body.sure_tipi || null,
+        rule_used: body.rule_used || null,
+        ai_confidence: body.ai_confidence || body.confidence || null,
+        status: "open",
+      })
+      .select("*")
+      .single();
+
+    deadline = createdDeadline.data;
+
+    const createdEvent = await supabase
+      .from("calendar_events")
+      .insert({
+        user_id: appUser.id,
+        case_id: legalCase.id,
+        title,
+        description: body.ai_summary || body.summary || null,
+        event_type: "legal_deadline",
+        start_date: dueDate,
+        end_date: dueDate,
+        due_date: dueDate,
+        status: "active",
+        priority: riskLevel,
+        source: "gmail_ai",
+        source_mail_id: body.gmail_message_id || null,
+      })
+      .select("*")
+      .single();
+
+    if (createdEvent.data && deadline?.id) {
+      await supabase
+        .from("legal_deadlines")
+        .update({ calendar_event_id: createdEvent.data.id })
+        .eq("id", deadline.id);
+
+      const alarmDays = [7, 3, 1, 0];
+
+      const alarms = alarmDays.map((daysBefore) => {
+        const alarmDate = new Date(`${dueDate}T09:00:00`);
+        alarmDate.setDate(alarmDate.getDate() - daysBefore);
+
+        return {
+          user_id: appUser.id,
+          case_id: legalCase.id,
+          calendar_event_id: createdEvent.data.id,
+          legal_deadline_id: deadline.id,
+          alarm_time: alarmDate.toISOString(),
+          alarm_type: daysBefore === 0 ? "same_day" : `${daysBefore}_days_before`,
+          message:
+            daysBefore === 0
+              ? `${title} için bugün son gün.`
+              : `${title} için son güne ${daysBefore} gün kaldı.`,
+          status: "pending",
+        };
+      });
+
+      await supabase.from("alarms").insert(alarms);
+    }
+  }
+
+  return NextResponse.json({
+    ok: true,
+    case: legalCase,
+    deadline,
+  });
+}
+
+
+
+--- .\lib\calendar\LegalAlarmEngine.ts ---
+
+import {
+  BusinessCalendarEngine,
+  createTurkishBusinessCalendar,
+} from "./BusinessCalendarEngine";
+
+export type LegalAlarmKind =
+  | "advance"
+  | "same_day"
+  | "overdue";
+
+export type LegalAlarmStatus =
+  | "pending"
+  | "sent"
+  | "seen"
+  | "dismissed"
+  | "failed"
+  | "cancelled";
+
+export type LegalAlarmChannel =
+  | "in_app"
+  | "push"
+  | "email";
+
+export type LegalAlarmPriority =
+  | "normal"
+  | "important"
+  | "critical";
+
+export type LegalAlarmDefinition = {
+  id: string;
+
+  userId: string;
+  deadlineId: string;
+  calendarEventId: string;
+  caseId: string;
+
+  title: string;
+  message: string;
+
+  deadlineDate: string;
+  triggerAt: string;
+
+  kind: LegalAlarmKind;
+  status: LegalAlarmStatus;
+  priority: LegalAlarmPriority;
+
+  daysBefore: number | null;
+  channels: LegalAlarmChannel[];
+
+  metadata: Record<string, unknown>;
+};
+
+export type LegalAlarmPlanInput = {
+  userId: string;
+  deadlineId: string;
+  calendarEventId: string;
+  caseId?: string;
+
+  title: string;
+  deadlineDate: string;
+
+  court?: string;
+  fileNo?: string;
+  eventType?: string;
+
+  timezone?: string;
+  notificationHour?: number;
+  notificationMinute?: number;
+
+  reminderDays?: number[];
+
+  channels?: LegalAlarmChannel[];
+
+  includeSameDay?: boolean;
+  includeOverdue?: boolean;
+
+  skipPastAdvanceAlarms?: boolean;
+
+  now?: string;
+};
+
+export type LegalAlarmPlanResult = {
+  deadlineDate: string;
+  generatedAt: string;
+
+  alarms: LegalAlarmDefinition[];
+  skipped: Array<{
+    daysBefore: number;
+    reason: string;
+  }>;
+
+  summary: {
+    total: number;
+    advance: number;
+    sameDay: number;
+    overdue: number;
+  };
+};
+
+const DEFAULT_REMINDER_DAYS = [
+  14,
+  7,
+  5,
+  3,
+  1,
+];
+
+const DEFAULT_CHANNELS: LegalAlarmChannel[] = [
+  "in_app",
+  "push",
+];
+
+function pad(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+function isValidIsoDate(
+  value: string
+): boolean {
+  const match = value.match(
+    /^(\d{4})-(\d{2})-(\d{2})$/
+  );
+
+  if (!match) {
+    return false;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+
+  const date = new Date(
+    Date.UTC(
+      year,
+      month - 1,
+      day,
+      12,
+      0,
+      0
+    )
+  );
+
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() + 1 === month &&
+    date.getUTCDate() === day
+  );
+}
+
+function parseIsoDate(
+  value: string
+): Date {
+  if (!isValidIsoDate(value)) {
+    throw new Error(
+      `Geçersiz tarih: ${value}. YYYY-MM-DD bekleniyor.`
+    );
+  }
+
+  const [
+    year,
+    month,
+    day,
+  ] = value.split("-").map(Number);
+
+  return new Date(
+    Date.UTC(
+      year,
+      month - 1,
+      day,
+      12,
+      0,
+      0
+    )
+  );
+}
+
+function toIsoDate(
+  date: Date
+): string {
+  return [
+    date.getUTCFullYear(),
+    pad(date.getUTCMonth() + 1),
+    pad(date.getUTCDate()),
+  ].join("-");
+}
+
+function addDays(
+  value: string,
+  amount: number
+): string {
+  const date = parseIsoDate(value);
+
+  date.setUTCDate(
+    date.getUTCDate() + amount
+  );
+
+  return toIsoDate(date);
+}
+
+function normalizeReminderDays(
+  values: number[]
+): number[] {
+  return Array.from(
+    new Set(
+      values.filter(
+        (value) =>
+          Number.isInteger(value) &&
+          value > 0 &&
+          value <= 365
+      )
+    )
+  ).sort(
+    (left, right) =>
+      right - left
+  );
+}
+
+function normalizeHour(
+  value: number | undefined
+): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isInteger(value) ||
+    value < 0 ||
+    value > 23
+  ) {
+    return 9;
+  }
+
+  return value;
+}
+
+function normalizeMinute(
+  value: number | undefined
+): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isInteger(value) ||
+    value < 0 ||
+    value > 59
+  ) {
+    return 0;
+  }
+
+  return value;
+}
+
+function normalizeChannels(
+  channels: LegalAlarmChannel[] | undefined
+): LegalAlarmChannel[] {
+  const allowed =
+    new Set<LegalAlarmChannel>([
+      "in_app",
+      "push",
+      "email",
+    ]);
+
+  const normalized =
+    Array.from(
+      new Set(
+        (channels || DEFAULT_CHANNELS)
+          .filter(
+            (channel) =>
+              allowed.has(channel)
+          )
+      )
+    );
+
+  return normalized.length > 0
+    ? normalized
+    : ["in_app"];
+}
+
+function createTriggerAt(
+  date: string,
+  hour: number,
+  minute: number
+): string {
+  if (!isValidIsoDate(date)) {
+    throw new Error(
+      `Alarm tarihi geçersiz: ${date}.`
+    );
+  }
+
+  return `${date}T${pad(hour)}:${pad(
+    minute
+  )}:00`;
+}
+
+function createStableId(
+  parts: string[]
+): string {
+  const text = parts
+    .join("|")
+    .toLocaleLowerCase("tr-TR")
+    .replace(
+      /[^a-z0-9çğıöşü|_-]+/gi,
+      "-"
+    )
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  let hash = 0;
+
+  for (
+    let index = 0;
+    index < text.length;
+    index += 1
+  ) {
+    hash =
+      (hash * 31 +
+        text.charCodeAt(index)) |
+      0;
+  }
+
+  return `alarm-${Math.abs(hash)}-${text.slice(
+    0,
+    48
+  )}`;
+}
+
+function getPriority(
+  daysBefore: number | null,
+  kind: LegalAlarmKind
+): LegalAlarmPriority {
+  if (
+    kind === "same_day" ||
+    kind === "overdue"
+  ) {
+    return "critical";
+  }
+
+  if (
+    daysBefore !== null &&
+    daysBefore <= 3
+  ) {
+    return "important";
+  }
+
+  return "normal";
+}
+
+function buildContextText(
+  input: LegalAlarmPlanInput
+): string {
+  const values = [
+    input.court?.trim() || "",
+    input.fileNo?.trim()
+      ? `Dosya ${input.fileNo.trim()}`
+      : "",
+  ].filter(Boolean);
+
+  return values.length > 0
+    ? ` ${values.join(" · ")}.`
+    : "";
+}
+
+function buildMessage(
+  input: LegalAlarmPlanInput,
+  kind: LegalAlarmKind,
+  daysBefore: number | null
+): string {
+  const context =
+    buildContextText(input);
+
+  if (kind === "same_day") {
+    return `${input.title} için bugün son gün.${context}`;
+  }
+
+  if (kind === "overdue") {
+    return `${input.title} için kayıtlı hukuki süre geçti.${context}`;
+  }
+
+  return `${input.title} için son güne ${daysBefore} gün kaldı.${context}`;
+}
+
+function toComparableTime(
+  value: string
+): number {
+  const parsed = new Date(value);
+
+  if (
+    Number.isNaN(parsed.getTime())
+  ) {
+    throw new Error(
+      `Geçersiz tarih-saat: ${value}.`
+    );
+  }
+
+  return parsed.getTime();
+}
+
+export class LegalAlarmEngine {
+  private readonly calendar:
+    BusinessCalendarEngine;
+
+  constructor(
+    calendar:
+      BusinessCalendarEngine =
+        createTurkishBusinessCalendar()
+  ) {
+    this.calendar = calendar;
+  }
+
+  createPlan(
+    input: LegalAlarmPlanInput
+  ): LegalAlarmPlanResult {
+    if (!input.userId?.trim()) {
+      throw new Error(
+        "Alarm planı için userId zorunludur."
+      );
+    }
+
+    if (!input.deadlineId?.trim()) {
+      throw new Error(
+        "Alarm planı için deadlineId zorunludur."
+      );
+    }
+
+    if (
+      !input.calendarEventId?.trim()
+    ) {
+      throw new Error(
+        "Alarm planı için calendarEventId zorunludur."
+      );
+    }
+
+    if (!input.title?.trim()) {
+      throw new Error(
+        "Alarm başlığı zorunludur."
+      );
+    }
+
+    if (
+      !isValidIsoDate(
+        input.deadlineDate
+      )
+    ) {
+      throw new Error(
+        "Geçerli deadlineDate zorunludur."
+      );
+    }
+
+    const notificationHour =
+      normalizeHour(
+        input.notificationHour
+      );
+
+    const notificationMinute =
+      normalizeMinute(
+        input.notificationMinute
+      );
+
+    const channels =
+      normalizeChannels(
+        input.channels
+      );
+
+    const reminderDays =
+      normalizeReminderDays(
+        input.reminderDays ||
+          DEFAULT_REMINDER_DAYS
+      );
+
+    const includeSameDay =
+      input.includeSameDay !== false;
+
+    const includeOverdue =
+      input.includeOverdue !== false;
+
+    const skipPastAdvanceAlarms =
+      input.skipPastAdvanceAlarms !== false;
+
+    const now =
+      input.now ||
+      new Date().toISOString();
+
+    const nowTime =
+      toComparableTime(now);
+
+    const alarms:
+      LegalAlarmDefinition[] = [];
+
+    const skipped: Array<{
+      daysBefore: number;
+      reason: string;
+    }> = [];
+
+    for (
+      const daysBefore of reminderDays
+    ) {
+      const requestedDate =
+        addDays(
+          input.deadlineDate,
+          -daysBefore
+        );
+
+      const requestedStatus =
+        this.calendar.getDayStatus(
+          requestedDate
+        );
+
+      const triggerDate =
+        requestedStatus.isBusinessDay
+          ? requestedDate
+          : this.calendar.previousBusinessDay(
+              requestedDate,
+              false
+            );
+
+      const triggerAt =
+        createTriggerAt(
+          triggerDate,
+          notificationHour,
+          notificationMinute
+        );
+
+      if (
+        skipPastAdvanceAlarms &&
+        toComparableTime(triggerAt) <=
+          nowTime
+      ) {
+        skipped.push({
+          daysBefore,
+          reason:
+            "Alarm zamanı geçmiş olduğu için oluşturulmadı.",
+        });
+
+        continue;
+      }
+
+      const alarm: LegalAlarmDefinition = {
+        id: createStableId([
+          input.userId,
+          input.deadlineId,
+          input.calendarEventId,
+          String(daysBefore),
+          triggerAt,
+        ]),
+
+        userId:
+          input.userId.trim(),
+
+        deadlineId:
+          input.deadlineId.trim(),
+
+        calendarEventId:
+          input.calendarEventId.trim(),
+
+        caseId:
+          input.caseId?.trim() || "",
+
+        title:
+          input.title.trim(),
+
+        message:
+          buildMessage(
+            input,
+            "advance",
+            daysBefore
+          ),
+
+        deadlineDate:
+          input.deadlineDate,
+
+        triggerAt,
+
+        kind: "advance",
+        status: "pending",
+
+        priority:
+          getPriority(
+            daysBefore,
+            "advance"
+          ),
+
+        daysBefore,
+        channels,
+
+        metadata: {
+          eventType:
+            input.eventType || "",
+          court:
+            input.court || "",
+          fileNo:
+            input.fileNo || "",
+          requestedTriggerDate:
+            requestedDate,
+          finalTriggerDate:
+            triggerDate,
+          shiftedForNonBusinessDay:
+            requestedDate !==
+            triggerDate,
+          requestedDayStatus:
+            requestedStatus,
+          timezone:
+            input.timezone ||
+            "Europe/Istanbul",
+        },
+      };
+
+      alarms.push(alarm);
+    }
+
+    if (includeSameDay) {
+      const triggerAt =
+        createTriggerAt(
+          input.deadlineDate,
+          notificationHour,
+          notificationMinute
+        );
+
+      alarms.push({
+        id: createStableId([
+          input.userId,
+          input.deadlineId,
+          input.calendarEventId,
+          "same-day",
+          triggerAt,
+        ]),
+
+        userId:
+          input.userId.trim(),
+
+        deadlineId:
+          input.deadlineId.trim(),
+
+        calendarEventId:
+          input.calendarEventId.trim(),
+
+        caseId:
+          input.caseId?.trim() || "",
+
+        title:
+          input.title.trim(),
+
+        message:
+          buildMessage(
+            input,
+            "same_day",
+            0
+          ),
+
+        deadlineDate:
+          input.deadlineDate,
+
+        triggerAt,
+
+        kind: "same_day",
+        status: "pending",
+        priority: "critical",
+
+        daysBefore: 0,
+        channels,
+
+        metadata: {
+          eventType:
+            input.eventType || "",
+          court:
+            input.court || "",
+          fileNo:
+            input.fileNo || "",
+          timezone:
+            input.timezone ||
+            "Europe/Istanbul",
+        },
+      });
+    }
+
+    if (includeOverdue) {
+      const overdueDate =
+        addDays(
+          input.deadlineDate,
+          1
+        );
+
+      const triggerAt =
+        createTriggerAt(
+          overdueDate,
+          notificationHour,
+          notificationMinute
+        );
+
+      alarms.push({
+        id: createStableId([
+          input.userId,
+          input.deadlineId,
+          input.calendarEventId,
+          "overdue",
+          triggerAt,
+        ]),
+
+        userId:
+          input.userId.trim(),
+
+        deadlineId:
+          input.deadlineId.trim(),
+
+        calendarEventId:
+          input.calendarEventId.trim(),
+
+        caseId:
+          input.caseId?.trim() || "",
+
+        title:
+          input.title.trim(),
+
+        message:
+          buildMessage(
+            input,
+            "overdue",
+            null
+          ),
+
+        deadlineDate:
+          input.deadlineDate,
+
+        triggerAt,
+
+        kind: "overdue",
+        status: "pending",
+        priority: "critical",
+
+        daysBefore: null,
+        channels,
+
+        metadata: {
+          eventType:
+            input.eventType || "",
+          court:
+            input.court || "",
+          fileNo:
+            input.fileNo || "",
+          timezone:
+            input.timezone ||
+            "Europe/Istanbul",
+        },
+      });
+    }
+
+    const uniqueMap =
+      new Map<
+        string,
+        LegalAlarmDefinition
+      >();
+
+    for (const alarm of alarms) {
+      uniqueMap.set(
+        alarm.id,
+        alarm
+      );
+    }
+
+    const uniqueAlarms =
+      Array.from(
+        uniqueMap.values()
+      ).sort(
+        (left, right) =>
+          left.triggerAt.localeCompare(
+            right.triggerAt
+          )
+      );
+
+    return {
+      deadlineDate:
+        input.deadlineDate,
+
+      generatedAt:
+        new Date().toISOString(),
+
+      alarms:
+        uniqueAlarms,
+
+      skipped,
+
+      summary: {
+        total:
+          uniqueAlarms.length,
+
+        advance:
+          uniqueAlarms.filter(
+            (alarm) =>
+              alarm.kind === "advance"
+          ).length,
+
+        sameDay:
+          uniqueAlarms.filter(
+            (alarm) =>
+              alarm.kind ===
+              "same_day"
+          ).length,
+
+        overdue:
+          uniqueAlarms.filter(
+            (alarm) =>
+              alarm.kind === "overdue"
+          ).length,
+      },
+    };
+  }
+
+  getDueAlarms(
+    alarms: LegalAlarmDefinition[],
+    now = new Date().toISOString()
+  ): LegalAlarmDefinition[] {
+    const nowTime =
+      toComparableTime(now);
+
+    return alarms
+      .filter(
+        (alarm) =>
+          alarm.status === "pending" &&
+          toComparableTime(
+            alarm.triggerAt
+          ) <= nowTime
+      )
+      .sort(
+        (left, right) =>
+          left.triggerAt.localeCompare(
+            right.triggerAt
+          )
+      );
+  }
+
+  markStatus(
+    alarm: LegalAlarmDefinition,
+    status: LegalAlarmStatus
+  ): LegalAlarmDefinition {
+    return {
+      ...alarm,
+      status,
+      metadata: {
+        ...alarm.metadata,
+        statusChangedAt:
+          new Date().toISOString(),
+      },
+    };
+  }
+}
+
+export function createLegalAlarmEngine(
+  calendar?:
+    BusinessCalendarEngine
+): LegalAlarmEngine {
+  return new LegalAlarmEngine(
+    calendar ||
+      createTurkishBusinessCalendar()
+  );
+}
+
+
+--- .\lib\calendar\LegalAlarmStore.ts ---
+
+import "server-only";
+
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+
+import type {
+  LegalAlarmDefinition,
+  LegalAlarmPlanResult,
+} from "./LegalAlarmEngine";
+
+export type StoredLegalAlarm = {
+  id: string;
+
+  user_id: string;
+  case_id: string | null;
+  calendar_event_id: string;
+  legal_deadline_id: string;
+
+  alarm_time: string;
+  alarm_type: string;
+  message: string;
+  status: string;
+
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type LegalAlarmStoreResult = {
+  ok: boolean;
+
+  inserted: number;
+  deleted: number;
+
+  alarms: StoredLegalAlarm[];
+  error: string | null;
+};
+
+function safeText(value: unknown): string {
+  return typeof value === "string"
+    ? value.trim()
+    : "";
+}
+
+function toDatabaseAlarmType(
+  alarm: LegalAlarmDefinition
+): string {
+  if (alarm.kind === "same_day") {
+    return "same_day";
+  }
+
+  if (alarm.kind === "overdue") {
+    return "overdue";
+  }
+
+  if (
+    alarm.kind === "advance" &&
+    typeof alarm.daysBefore === "number"
+  ) {
+    return `${alarm.daysBefore}_days_before`;
+  }
+
+  return "reminder";
+}
+
+function toDatabaseRow(
+  alarm: LegalAlarmDefinition
+) {
+  return {
+    user_id: safeText(alarm.userId),
+
+    case_id:
+      safeText(alarm.caseId) || null,
+
+    calendar_event_id:
+      safeText(alarm.calendarEventId),
+
+    legal_deadline_id:
+      safeText(alarm.deadlineId),
+
+    alarm_time:
+      safeText(alarm.triggerAt),
+
+    alarm_type:
+      toDatabaseAlarmType(alarm),
+
+    message:
+      safeText(alarm.message),
+
+    status:
+      safeText(alarm.status) || "pending",
+  };
+}
+
+function validateAlarm(
+  alarm: LegalAlarmDefinition
+): string[] {
+  const errors: string[] = [];
+
+  if (!safeText(alarm.userId)) {
+    errors.push("userId eksik.");
+  }
+
+  if (!safeText(alarm.deadlineId)) {
+    errors.push("deadlineId eksik.");
+  }
+
+  if (!safeText(alarm.calendarEventId)) {
+    errors.push("calendarEventId eksik.");
+  }
+
+  if (!safeText(alarm.triggerAt)) {
+    errors.push("triggerAt eksik.");
+  }
+
+  if (!safeText(alarm.message)) {
+    errors.push("message eksik.");
+  }
+
+  const triggerDate =
+    new Date(alarm.triggerAt);
+
+  if (
+    safeText(alarm.triggerAt) &&
+    Number.isNaN(triggerDate.getTime())
+  ) {
+    errors.push(
+      `Geçersiz triggerAt: ${alarm.triggerAt}.`
+    );
+  }
+
+  return errors;
+}
+
+function uniqueAlarms(
+  alarms: LegalAlarmDefinition[]
+): LegalAlarmDefinition[] {
+  const uniqueMap =
+    new Map<
+      string,
+      LegalAlarmDefinition
+    >();
+
+  for (const alarm of alarms) {
+    const key = [
+      alarm.userId,
+      alarm.calendarEventId,
+      alarm.deadlineId,
+      alarm.triggerAt,
+      alarm.kind,
+      alarm.daysBefore ?? "none",
+    ].join("|");
+
+    uniqueMap.set(key, alarm);
+  }
+
+  return Array.from(
+    uniqueMap.values()
+  ).sort(
+    (left, right) =>
+      left.triggerAt.localeCompare(
+        right.triggerAt
+      )
+  );
+}
+
+export class LegalAlarmStore {
+  static async replacePlan(
+    plan: LegalAlarmPlanResult
+  ): Promise<LegalAlarmStoreResult> {
+    try {
+      const alarms =
+        uniqueAlarms(plan.alarms);
+
+      if (alarms.length === 0) {
+        return {
+          ok: true,
+          inserted: 0,
+          deleted: 0,
+          alarms: [],
+          error: null,
+        };
+      }
+
+      const validationErrors =
+        alarms.flatMap(
+          (alarm, index) =>
+            validateAlarm(alarm).map(
+              (error) =>
+                `Alarm ${index + 1}: ${error}`
+            )
+        );
+
+      if (
+        validationErrors.length > 0
+      ) {
+        return {
+          ok: false,
+          inserted: 0,
+          deleted: 0,
+          alarms: [],
+          error:
+            validationErrors.join(" "),
+        };
+      }
+
+      const firstAlarm =
+        alarms[0];
+
+      const userId =
+        safeText(firstAlarm.userId);
+
+      const calendarEventId =
+        safeText(
+          firstAlarm.calendarEventId
+        );
+
+      const deadlineId =
+        safeText(
+          firstAlarm.deadlineId
+        );
+
+      const containsDifferentOwner =
+        alarms.some(
+          (alarm) =>
+            safeText(alarm.userId) !==
+              userId ||
+            safeText(
+              alarm.calendarEventId
+            ) !== calendarEventId ||
+            safeText(
+              alarm.deadlineId
+            ) !== deadlineId
+        );
+
+      if (containsDifferentOwner) {
+        return {
+          ok: false,
+          inserted: 0,
+          deleted: 0,
+          alarms: [],
+          error:
+            "Tek alarm planında farklı kullanıcı, takvim kaydı veya deadline bulunamaz.",
+        };
+      }
+
+      const supabase =
+        getSupabaseAdmin();
+
+      const deleteResult =
+        await supabase
+          .from("alarms")
+          .delete()
+          .eq("user_id", userId)
+          .eq(
+            "calendar_event_id",
+            calendarEventId
+          )
+          .eq(
+            "legal_deadline_id",
+            deadlineId
+          )
+          .eq("status", "pending")
+          .select("id");
+
+      if (deleteResult.error) {
+        return {
+          ok: false,
+          inserted: 0,
+          deleted: 0,
+          alarms: [],
+          error:
+            deleteResult.error.message,
+        };
+      }
+
+      const rows =
+        alarms.map(
+          toDatabaseRow
+        );
+
+      const insertResult =
+        await supabase
+          .from("alarms")
+          .insert(rows)
+          .select("*");
+
+      if (insertResult.error) {
+        return {
+          ok: false,
+          inserted: 0,
+          deleted:
+            deleteResult.data?.length ||
+            0,
+          alarms: [],
+          error:
+            insertResult.error.message,
+        };
+      }
+
+      const storedAlarms =
+        (insertResult.data ||
+          []) as StoredLegalAlarm[];
+
+      return {
+        ok: true,
+
+        inserted:
+          storedAlarms.length,
+
+        deleted:
+          deleteResult.data?.length ||
+          0,
+
+        alarms:
+          storedAlarms,
+
+        error: null,
+      };
+    } catch (error: unknown) {
+      return {
+        ok: false,
+        inserted: 0,
+        deleted: 0,
+        alarms: [],
+        error:
+          error instanceof Error
+            ? error.message
+            : "Alarm planı kaydedilemedi.",
+      };
+    }
+  }
+
+  static async getPendingForUser(
+    userId: string,
+    until?: string
+  ): Promise<LegalAlarmStoreResult> {
+    try {
+      const cleanUserId =
+        safeText(userId);
+
+      if (!cleanUserId) {
+        return {
+          ok: false,
+          inserted: 0,
+          deleted: 0,
+          alarms: [],
+          error:
+            "Alarm sorgusu için userId zorunludur.",
+        };
+      }
+
+      const supabase =
+        getSupabaseAdmin();
+
+      let query = supabase
+        .from("alarms")
+        .select("*")
+        .eq(
+          "user_id",
+          cleanUserId
+        )
+        .eq("status", "pending")
+        .order("alarm_time", {
+          ascending: true,
+        });
+
+      if (until) {
+        const parsed =
+          new Date(until);
+
+        if (
+          Number.isNaN(
+            parsed.getTime()
+          )
+        ) {
+          return {
+            ok: false,
+            inserted: 0,
+            deleted: 0,
+            alarms: [],
+            error:
+              "until değeri geçerli bir tarih-saat olmalıdır.",
+          };
+        }
+
+        query = query.lte(
+          "alarm_time",
+          until
+        );
+      }
+
+      const result =
+        await query;
+
+      if (result.error) {
+        return {
+          ok: false,
+          inserted: 0,
+          deleted: 0,
+          alarms: [],
+          error:
+            result.error.message,
+        };
+      }
+
+      return {
+        ok: true,
+        inserted: 0,
+        deleted: 0,
+        alarms:
+          (result.data ||
+            []) as StoredLegalAlarm[],
+        error: null,
+      };
+    } catch (error: unknown) {
+      return {
+        ok: false,
+        inserted: 0,
+        deleted: 0,
+        alarms: [],
+        error:
+          error instanceof Error
+            ? error.message
+            : "Bekleyen alarmlar okunamadı.",
+      };
+    }
+  }
+
+  static async updateStatus(
+    alarmId: string,
+    userId: string,
+    status:
+      | "sent"
+      | "seen"
+      | "dismissed"
+      | "failed"
+      | "cancelled"
+  ): Promise<LegalAlarmStoreResult> {
+    try {
+      const cleanAlarmId =
+        safeText(alarmId);
+
+      const cleanUserId =
+        safeText(userId);
+
+      if (
+        !cleanAlarmId ||
+        !cleanUserId
+      ) {
+        return {
+          ok: false,
+          inserted: 0,
+          deleted: 0,
+          alarms: [],
+          error:
+            "alarmId ve userId zorunludur.",
+        };
+      }
+
+      const supabase =
+        getSupabaseAdmin();
+
+      const result =
+        await supabase
+          .from("alarms")
+          .update({
+            status,
+            updated_at:
+              new Date().toISOString(),
+          })
+          .eq("id", cleanAlarmId)
+          .eq(
+            "user_id",
+            cleanUserId
+          )
+          .select("*")
+          .single();
+
+      if (result.error) {
+        return {
+          ok: false,
+          inserted: 0,
+          deleted: 0,
+          alarms: [],
+          error:
+            result.error.message,
+        };
+      }
+
+      return {
+        ok: true,
+        inserted: 0,
+        deleted: 0,
+        alarms: [
+          result.data as StoredLegalAlarm,
+        ],
+        error: null,
+      };
+    } catch (error: unknown) {
+      return {
+        ok: false,
+        inserted: 0,
+        deleted: 0,
+        alarms: [],
+        error:
+          error instanceof Error
+            ? error.message
+            : "Alarm durumu güncellenemedi.",
+      };
+    }
+  }
+}
+
+
+--- .\lib\legal\UetsRecordIdentity.ts ---
+
+export type UetsRecordInput = {
+  barcodeNo?: string;
+  fileNo?: string;
+  court?: string;
+  institution?: string;
+
+  arrivalDate?: string;
+  arrivalTime?: string;
+  deemedServiceDate?: string;
+
+  subject?: string;
+  sender?: string;
+
+  gmailMessageId?: string;
+  gmailThreadId?: string;
+
+  sourceText?: string;
+};
+
+export type UetsIdentityStrength =
+  | "strong"
+  | "medium"
+  | "weak"
+  | "insufficient";
+
+export type UetsComparisonStatus =
+  | "new"
+  | "duplicate"
+  | "updated"
+  | "conflict";
+
+export type UetsRecordIdentity = {
+  identityKey: string;
+  fingerprint: string;
+
+  strength: UetsIdentityStrength;
+
+  normalized: {
+    barcodeNo: string;
+    fileNo: string;
+    court: string;
+    institution: string;
+
+    arrivalDate: string;
+    arrivalTime: string;
+    deemedServiceDate: string;
+
+    subject: string;
+    sender: string;
+
+    gmailMessageId: string;
+    gmailThreadId: string;
+  };
+
+  components: string[];
+  warnings: string[];
+};
+
+export type UetsRecordComparison = {
+  status: UetsComparisonStatus;
+
+  sameIdentity: boolean;
+  sameFingerprint: boolean;
+
+  changedFields: string[];
+  conflictingFields: string[];
+
+  existing: UetsRecordIdentity;
+  incoming: UetsRecordIdentity;
+
+  explanation: string;
+};
+
+function safeText(value: unknown): string {
+  return typeof value === "string"
+    ? value.trim()
+    : "";
+}
+
+function normalizeTurkishText(value: unknown): string {
+  return safeText(value)
+    .normalize("NFKC")
+    .toLocaleLowerCase("tr-TR")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeCompactText(value: unknown): string {
+  return normalizeTurkishText(value)
+    .replace(/[^a-z0-9çğıöşü]+/gi, "")
+    .trim();
+}
+
+function normalizeBarcode(value: unknown): string {
+  return safeText(value)
+    .replace(/\D+/g, "")
+    .trim();
+}
+
+function normalizeFileNo(value: unknown): string {
+  const text = safeText(value);
+
+  const match = text.match(
+    /\b(20\d{2})\s*\/\s*(\d{1,12})\b/
+  );
+
+  if (!match) {
+    return normalizeCompactText(text);
+  }
+
+  return `${match[1]}/${match[2]}`;
+}
+
+function normalizeIsoDate(value: unknown): string {
+  const text = safeText(value);
+
+  if (
+    /^\d{4}-\d{2}-\d{2}$/.test(text)
+  ) {
+    return text;
+  }
+
+  const dotted = text.match(
+    /^(\d{1,2})[./-](\d{1,2})[./-](20\d{2})$/
+  );
+
+  if (!dotted) {
+    return "";
+  }
+
+  return [
+    dotted[3],
+    dotted[2].padStart(2, "0"),
+    dotted[1].padStart(2, "0"),
+  ].join("-");
+}
+
+function normalizeTime(value: unknown): string {
+  const text = safeText(value);
+
+  const match = text.match(
+    /\b([01]?\d|2[0-3])[:.]([0-5]\d)\b/
+  );
+
+  if (!match) {
+    return "";
+  }
+
+  return `${match[1].padStart(2, "0")}:${match[2]}`;
+}
+
+function stableHash(value: string): string {
+  let hashOne = 2166136261;
+  let hashTwo = 0x811c9dc5;
+
+  for (
+    let index = 0;
+    index < value.length;
+    index += 1
+  ) {
+    const code =
+      value.charCodeAt(index);
+
+    hashOne ^= code;
+    hashOne = Math.imul(
+      hashOne,
+      16777619
+    );
+
+    hashTwo += code;
+    hashTwo = Math.imul(
+      hashTwo ^ (hashTwo >>> 13),
+      2246822519
+    );
+  }
+
+  const first =
+    (hashOne >>> 0)
+      .toString(16)
+      .padStart(8, "0");
+
+  const second =
+    (hashTwo >>> 0)
+      .toString(16)
+      .padStart(8, "0");
+
+  return `${first}${second}`;
+}
+
+function createIdentityKey(
+  components: string[]
+): string {
+  return `uets-${stableHash(
+    components.join("|")
+  )}`;
+}
+
+function getStrength(params: {
+  barcodeNo: string;
+  fileNo: string;
+  arrivalDate: string;
+  court: string;
+  institution: string;
+}): UetsIdentityStrength {
+  if (
+    params.barcodeNo &&
+    params.arrivalDate
+  ) {
+    return "strong";
+  }
+
+  if (
+    params.fileNo &&
+    params.arrivalDate &&
+    params.court
+  ) {
+    return "strong";
+  }
+
+  if (
+    params.fileNo &&
+    params.arrivalDate
+  ) {
+    return "medium";
+  }
+
+  if (
+    params.arrivalDate &&
+    params.court &&
+    params.institution
+  ) {
+    return "medium";
+  }
+
+  if (
+    params.arrivalDate ||
+    params.fileNo ||
+    params.barcodeNo
+  ) {
+    return "weak";
+  }
+
+  return "insufficient";
+}
+
+function createComponents(params: {
+  barcodeNo: string;
+  fileNo: string;
+  court: string;
+  institution: string;
+  arrivalDate: string;
+}): string[] {
+  if (
+    params.barcodeNo &&
+    params.arrivalDate
+  ) {
+    return [
+      "barcode",
+      params.barcodeNo,
+      params.arrivalDate,
+    ];
+  }
+
+  if (
+    params.fileNo &&
+    params.arrivalDate &&
+    params.court
+  ) {
+    return [
+      "case",
+      params.fileNo,
+      params.arrivalDate,
+      params.court,
+    ];
+  }
+
+  if (
+    params.fileNo &&
+    params.arrivalDate
+  ) {
+    return [
+      "case-date",
+      params.fileNo,
+      params.arrivalDate,
+      params.institution,
+    ];
+  }
+
+  return [
+    "fallback",
+    params.arrivalDate,
+    params.court,
+    params.institution,
+  ].filter(Boolean);
+}
+
+export function createUetsRecordIdentity(
+  input: UetsRecordInput
+): UetsRecordIdentity {
+  const normalized = {
+    barcodeNo:
+      normalizeBarcode(
+        input.barcodeNo
+      ),
+
+    fileNo:
+      normalizeFileNo(
+        input.fileNo
+      ),
+
+    court:
+      normalizeTurkishText(
+        input.court
+      ),
+
+    institution:
+      normalizeTurkishText(
+        input.institution
+      ),
+
+    arrivalDate:
+      normalizeIsoDate(
+        input.arrivalDate
+      ),
+
+    arrivalTime:
+      normalizeTime(
+        input.arrivalTime
+      ),
+
+    deemedServiceDate:
+      normalizeIsoDate(
+        input.deemedServiceDate
+      ),
+
+    subject:
+      normalizeTurkishText(
+        input.subject
+      ),
+
+    sender:
+      normalizeTurkishText(
+        input.sender
+      ),
+
+    gmailMessageId:
+      safeText(
+        input.gmailMessageId
+      ),
+
+    gmailThreadId:
+      safeText(
+        input.gmailThreadId
+      ),
+  };
+
+  const strength =
+    getStrength({
+      barcodeNo:
+        normalized.barcodeNo,
+
+      fileNo:
+        normalized.fileNo,
+
+      arrivalDate:
+        normalized.arrivalDate,
+
+      court:
+        normalized.court,
+
+      institution:
+        normalized.institution,
+    });
+
+  const components =
+    createComponents({
+      barcodeNo:
+        normalized.barcodeNo,
+
+      fileNo:
+        normalized.fileNo,
+
+      court:
+        normalized.court,
+
+      institution:
+        normalized.institution,
+
+      arrivalDate:
+        normalized.arrivalDate,
+    });
+
+  const warnings: string[] = [];
+
+  if (!normalized.barcodeNo) {
+    warnings.push(
+      "UETS barkod numarası bulunamadı."
+    );
+  }
+
+  if (!normalized.fileNo) {
+    warnings.push(
+      "Dosya numarası bulunamadı."
+    );
+  }
+
+  if (!normalized.arrivalDate) {
+    warnings.push(
+      "Ulaşma tarihi bulunamadı."
+    );
+  }
+
+  if (
+    strength === "insufficient"
+  ) {
+    warnings.push(
+      "Tebligatı güvenilir biçimde tekilleştirecek yeterli veri bulunamadı."
+    );
+  }
+
+  const fingerprintPayload = [
+    normalized.barcodeNo,
+    normalized.fileNo,
+    normalized.court,
+    normalized.institution,
+    normalized.arrivalDate,
+    normalized.arrivalTime,
+    normalized.deemedServiceDate,
+    normalized.subject,
+    normalized.sender,
+  ].join("|");
+
+  return {
+    identityKey:
+      createIdentityKey(
+        components
+      ),
+
+    fingerprint:
+      stableHash(
+        fingerprintPayload
+      ),
+
+    strength,
+
+    normalized,
+
+    components,
+
+    warnings,
+  };
+}
+
+function compareField(
+  fieldName: string,
+  existingValue: string,
+  incomingValue: string,
+  changedFields: string[],
+  conflictingFields: string[],
+  conflictWhenDifferent = false
+): void {
+  if (
+    existingValue === incomingValue
+  ) {
+    return;
+  }
+
+  if (
+    !existingValue &&
+    incomingValue
+  ) {
+    changedFields.push(
+      fieldName
+    );
+
+    return;
+  }
+
+  if (
+    existingValue &&
+    !incomingValue
+  ) {
+    return;
+  }
+
+  if (
+    existingValue &&
+    incomingValue &&
+    existingValue !== incomingValue
+  ) {
+    if (conflictWhenDifferent) {
+      conflictingFields.push(
+        fieldName
+      );
+    } else {
+      changedFields.push(
+        fieldName
+      );
+    }
+  }
+}
+
+export function compareUetsRecords(
+  existingInput: UetsRecordInput,
+  incomingInput: UetsRecordInput
+): UetsRecordComparison {
+  const existing =
+    createUetsRecordIdentity(
+      existingInput
+    );
+
+  const incoming =
+    createUetsRecordIdentity(
+      incomingInput
+    );
+
+  const sameIdentity =
+    existing.identityKey ===
+    incoming.identityKey;
+
+  const sameFingerprint =
+    existing.fingerprint ===
+    incoming.fingerprint;
+
+  const changedFields: string[] = [];
+  const conflictingFields: string[] = [];
+
+  compareField(
+    "barcodeNo",
+    existing.normalized.barcodeNo,
+    incoming.normalized.barcodeNo,
+    changedFields,
+    conflictingFields,
+    true
+  );
+
+  compareField(
+    "fileNo",
+    existing.normalized.fileNo,
+    incoming.normalized.fileNo,
+    changedFields,
+    conflictingFields,
+    true
+  );
+
+  compareField(
+    "arrivalDate",
+    existing.normalized.arrivalDate,
+    incoming.normalized.arrivalDate,
+    changedFields,
+    conflictingFields,
+    true
+  );
+
+  compareField(
+    "deemedServiceDate",
+    existing.normalized.deemedServiceDate,
+    incoming.normalized.deemedServiceDate,
+    changedFields,
+    conflictingFields,
+    true
+  );
+
+  compareField(
+    "court",
+    existing.normalized.court,
+    incoming.normalized.court,
+    changedFields,
+    conflictingFields
+  );
+
+  compareField(
+    "institution",
+    existing.normalized.institution,
+    incoming.normalized.institution,
+    changedFields,
+    conflictingFields
+  );
+
+  compareField(
+    "arrivalTime",
+    existing.normalized.arrivalTime,
+    incoming.normalized.arrivalTime,
+    changedFields,
+    conflictingFields
+  );
+
+  let status:
+    UetsComparisonStatus;
+
+  let explanation: string;
+
+  if (!sameIdentity) {
+    status = "new";
+
+    explanation =
+      "Gelen tebligat mevcut kayıtla aynı kimliğe sahip değil; yeni kayıt olarak değerlendirilmelidir.";
+  } else if (
+    conflictingFields.length > 0
+  ) {
+    status = "conflict";
+
+    explanation =
+      `Aynı tebligat kimliğinde çelişen alanlar bulundu: ${conflictingFields.join(
+        ", "
+      )}. Otomatik güncelleme yapılmamalıdır.`;
+  } else if (
+    sameFingerprint &&
+    changedFields.length === 0
+  ) {
+    status = "duplicate";
+
+    explanation =
+      "Aynı tebligat daha önce işlenmiş; yeni takvim veya alarm kaydı oluşturulmamalıdır.";
+  } else {
+    status = "updated";
+
+    explanation =
+      changedFields.length > 0
+        ? `Aynı tebligata ait yeni bilgiler bulundu: ${changedFields.join(
+            ", "
+          )}. Mevcut kayıt güncellenebilir.`
+        : "Aynı tebligatın içerik parmak izi değişmiş; mevcut kayıt kontrollü biçimde güncellenebilir.";
+  }
+
+  return {
+    status,
+
+    sameIdentity,
+    sameFingerprint,
+
+    changedFields,
+    conflictingFields,
+
+    existing,
+    incoming,
+
+    explanation,
+  };
+}
+
+export function isReliableUetsIdentity(
+  identity: UetsRecordIdentity
+): boolean {
+  return (
+    identity.strength === "strong" ||
+    identity.strength === "medium"
+  );
+}
+
