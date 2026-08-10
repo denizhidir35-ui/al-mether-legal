@@ -45,6 +45,16 @@ export async function GET(
         .get("calendarEventId")
         ?.trim() || "";
 
+    const caseId =
+      searchParams
+        .get("caseId")
+        ?.trim() || "";
+
+    const source =
+      searchParams
+        .get("source")
+        ?.trim() || "";
+
     const supabase =
       getSupabaseAdmin();
 
@@ -102,30 +112,59 @@ export async function GET(
       });
     }
 
-    if (!calendarEventId) {
+    if (
+      !calendarEventId &&
+      !caseId
+    ) {
       return NextResponse.json(
         {
           ok: false,
           error:
-            "calendarEventId veya attachmentId zorunludur.",
+            "calendarEventId, caseId veya attachmentId zorunludur.",
           attachments: [],
         },
         { status: 400 }
       );
     }
 
-    const result =
-      await supabase
+    let query =
+      supabase
         .from("calendar_attachments")
         .select("*")
-        .eq("user_id", appUser.id)
         .eq(
+          "user_id",
+          appUser.id
+        );
+
+    if (caseId) {
+      query =
+        query.eq(
+          "case_id",
+          caseId
+        );
+    } else {
+      query =
+        query.eq(
           "calendar_event_id",
           calendarEventId
-        )
-        .order("created_at", {
+        );
+    }
+
+    if (source) {
+      query =
+        query.eq(
+          "source",
+          source
+        );
+    }
+
+    const result =
+      await query.order(
+        "created_at",
+        {
           ascending: false,
-        });
+        }
+      );
 
     if (result.error) {
       return NextResponse.json(
@@ -185,15 +224,33 @@ export async function POST(
         formData.get("calendarEventId") || ""
       ).trim();
 
+    const caseId =
+      String(
+        formData.get("caseId") || ""
+      ).trim();
+
+const requestedSource =
+  String(
+    formData.get("source") || "manual"
+  ).trim();
+
+const attachmentSource =
+  requestedSource === "mail"
+    ? "mail"
+    : "manual";
+
     const uploadedFile =
       formData.get("file");
 
-    if (!calendarEventId) {
+    if (
+      !calendarEventId &&
+      !caseId
+    ) {
       return NextResponse.json(
         {
           ok: false,
           error:
-            "calendarEventId zorunludur.",
+            "calendarEventId veya caseId zorunludur.",
         },
         { status: 400 }
       );
@@ -246,8 +303,13 @@ export async function POST(
         uploadedFile.name
       );
 
+    const ownerPath =
+      caseId
+        ? `case/${caseId}`
+        : `calendar/${calendarEventId}`;
+
     const storagePath =
-      `${appUser.id}/${calendarEventId}/${crypto.randomUUID()}-${safeName}`;
+      `${appUser.id}/${ownerPath}/${crypto.randomUUID()}-${safeName}`;
 
     const supabase =
       getSupabaseAdmin();
@@ -284,7 +346,12 @@ export async function POST(
             appUser.id,
 
           calendar_event_id:
-            calendarEventId,
+            calendarEventId ||
+            null,
+
+          case_id:
+            caseId ||
+            null,
 
           file_name:
             uploadedFile.name,
@@ -298,8 +365,7 @@ export async function POST(
           storage_path:
             storagePath,
 
-          source:
-            "manual",
+          source: attachmentSource,
         })
         .select("*")
         .single();
@@ -565,3 +631,6 @@ export async function PATCH(
     );
   }
 }
+
+
+

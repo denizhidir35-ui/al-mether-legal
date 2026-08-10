@@ -24,6 +24,15 @@ type CaseMail = {
   received_at?: string | null;
 };
 
+type CaseAttachment = {
+  id: string;
+  file_name?: string | null;
+  file_type?: string | null;
+  file_size?: number | null;
+  source?: string | null;
+  created_at?: string | null;
+};
+
 type LegalCase = {
   id: string;
   case_number?: string | null;
@@ -89,6 +98,26 @@ export default function CasesPage() {
     useState(false);
 
   const [caseNoteError, setCaseNoteError] =
+    useState("");
+
+  const [caseFiles, setCaseFiles] =
+    useState<CaseAttachment[]>([]);
+
+  const [caseFilesLoading, setCaseFilesLoading] =
+    useState(false);
+
+  const [caseFileUploading, setCaseFileUploading] =
+    useState(false);
+
+  const [caseDocuments, setCaseDocuments] =
+    useState<CaseAttachment[]>([]);
+
+  const [caseDocumentsLoading, setCaseDocumentsLoading] =
+    useState(false);
+
+  const [caseDocumentError, setCaseDocumentError] =
+    useState("");
+  const [caseFileError, setCaseFileError] =
     useState("");
 
   async function loadCases() {
@@ -331,6 +360,201 @@ export default function CasesPage() {
     }
   }
 
+  async function loadCaseDocuments(
+    caseId: string
+  ) {
+    try {
+      setCaseDocumentsLoading(true);
+      setCaseDocumentError("");
+
+      const response =
+        await fetch(
+          `/api/attachments?source=mail&caseId=${encodeURIComponent(
+            caseId
+          )}`,
+          {
+            cache: "no-store",
+          }
+        );
+
+      const data =
+        await readJsonResponse(
+          response
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Evraklar alınamadı."
+        );
+      }
+
+      setCaseDocuments(
+        Array.isArray(
+          data?.attachments
+        )
+          ? data.attachments
+          : []
+      );
+    } catch (error) {
+      setCaseDocuments([]);
+
+      setCaseDocumentError(
+        error instanceof Error
+          ? error.message
+          : "Evraklar alınamadı."
+      );
+    } finally {
+      setCaseDocumentsLoading(false);
+    }
+  }
+  async function loadCaseFiles(
+    caseId: string
+  ) {
+    try {
+      setCaseFilesLoading(true);
+      setCaseFileError("");
+
+      const response =
+        await fetch(
+          `/api/attachments?source=manual&caseId=${encodeURIComponent(
+            caseId
+          )}`,
+          {
+            cache: "no-store",
+          }
+        );
+
+      const data =
+        await readJsonResponse(
+          response
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Dosyalar alınamadı."
+        );
+      }
+
+      setCaseFiles(
+        Array.isArray(
+          data?.attachments
+        )
+          ? data.attachments
+          : []
+      );
+    } catch (error) {
+      setCaseFiles([]);
+
+      setCaseFileError(
+        error instanceof Error
+          ? error.message
+          : "Dosyalar alınamadı."
+      );
+    } finally {
+      setCaseFilesLoading(false);
+    }
+  }
+
+  async function uploadCaseFile(
+    caseId: string,
+    file: File
+  ) {
+    try {
+      setCaseFileUploading(true);
+      setCaseFileError("");
+
+      const formData =
+        new FormData();
+
+      formData.append(
+        "caseId",
+        caseId
+      );
+
+      formData.append(
+        "file",
+        file
+      );
+
+      const response =
+        await fetch(
+          "/api/attachments",
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+      const data =
+        await readJsonResponse(
+          response
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Dosya yüklenemedi."
+        );
+      }
+
+      await loadCaseFiles(caseId);
+    } catch (error) {
+      setCaseFileError(
+        error instanceof Error
+          ? error.message
+          : "Dosya yüklenemedi."
+      );
+    } finally {
+      setCaseFileUploading(false);
+    }
+  }
+
+  async function openCaseFile(
+    attachmentId: string
+  ) {
+    try {
+      setCaseFileError("");
+
+      const response =
+        await fetch(
+          `/api/attachments?attachmentId=${encodeURIComponent(
+            attachmentId
+          )}`,
+          {
+            cache: "no-store",
+          }
+        );
+
+      const data =
+        await readJsonResponse(
+          response
+        );
+
+      if (
+        !response.ok ||
+        !data?.signedUrl
+      ) {
+        throw new Error(
+          data?.error ||
+            "Dosya açılamadı."
+        );
+      }
+
+      window.open(
+        data.signedUrl,
+        "_blank",
+        "noopener,noreferrer"
+      );
+    } catch (error) {
+      setCaseFileError(
+        error instanceof Error
+          ? error.message
+          : "Dosya açılamadı."
+      );
+    }
+  }
   function toggleCasePanel(
     caseId: string,
     tab:
@@ -354,6 +578,10 @@ export default function CasesPage() {
 
     if (tab === "note") {
       loadCaseNote(caseId);
+    }
+
+    if (tab === "file") {
+      loadCaseFiles(caseId);
     }
   }
 
@@ -734,6 +962,54 @@ export default function CasesPage() {
           background: #0a1322;
           border-radius: 0 0 11px 11px;
         }
+        .case-mail-list {
+          display: grid;
+          gap: 7px;
+        }
+
+        .case-mail-item {
+          display: grid;
+          grid-template-columns:
+            minmax(0, 1fr)
+            auto;
+          gap: 12px;
+          align-items: center;
+          padding: 10px 11px;
+          border: 1px solid #20314a;
+          border-radius: 10px;
+          background: #0d1829;
+        }
+
+        .case-mail-subject {
+          margin-bottom: 4px;
+          color: #eef4ff;
+          font-size: 10px;
+          font-weight: 850;
+          line-height: 1.4;
+        }
+
+        .case-mail-sender {
+          color: #7790b3;
+          font-size: 9px;
+          overflow-wrap: anywhere;
+        }
+
+        .case-mail-date {
+          color: #7189aa;
+          font-size: 8px;
+          white-space: nowrap;
+        }
+
+        @media (max-width: 900px) {
+          .case-mail-item {
+            grid-template-columns: 1fr;
+            gap: 5px;
+          }
+
+          .case-mail-date {
+            white-space: normal;
+          }
+        }
 
         .case-note-area {
           width: 100%;
@@ -779,6 +1055,67 @@ export default function CasesPage() {
           font-size: 10px;
         }
 
+        .case-file-panel {
+          display: grid;
+          gap: 8px;
+        }
+
+        .case-file-toolbar {
+          display: flex;
+          justify-content: flex-end;
+        }
+
+        .case-file-upload {
+          height: 30px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 11px;
+          border: 1px solid #30415f;
+          border-radius: 8px;
+          background: #111d30;
+          color: #dfe9f7;
+          cursor: pointer;
+          font-size: 9px;
+          font-weight: 850;
+        }
+
+        .case-file-upload input {
+          display: none;
+        }
+
+        .case-file-list {
+          display: grid;
+          gap: 6px;
+        }
+
+        .case-file-item {
+          width: 100%;
+          min-height: 48px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 8px 10px;
+          border: 1px solid #20314a;
+          border-radius: 10px;
+          background: #0d1829;
+          color: #8fa8ca;
+          cursor: pointer;
+          text-align: left;
+        }
+
+        .case-file-item strong {
+          display: block;
+          margin-bottom: 3px;
+          color: #edf4ff;
+          font-size: 10px;
+        }
+
+        .case-file-item span {
+          color: #7890b2;
+          font-size: 8px;
+        }
         .inline-error {
           margin-top: 6px;
           color: #ff7089;
@@ -1291,27 +1628,236 @@ export default function CasesPage() {
                           )}
 
                           {openCaseTab === "mail" && (
-                            <div className="inline-empty">
-                              Mail akışı burada açılacak.
-                            </div>
+                            <>
+                              {(item.case_mails || []).length === 0 ? (
+                                <div className="inline-empty">
+                                  Bu davaya bağlı mail bulunmuyor.
+                                </div>
+                              ) : (
+                                <div className="case-mail-list">
+                                  {(item.case_mails || []).map(
+                                    (mail) => (
+                                      <div
+                                        key={mail.id}
+                                        className="case-mail-item"
+                                      >
+                                        <div>
+                                          <div className="case-mail-subject">
+                                            {mail.subject ||
+                                              "Konu bilgisi yok"}
+                                          </div>
+
+                                          <div className="case-mail-sender">
+                                            {mail.sender ||
+                                              "Gönderen bilgisi yok"}
+                                          </div>
+                                        </div>
+
+                                        <div className="case-mail-date">
+                                          {formatDate(
+                                            mail.received_at
+                                          )}
+                                        </div>
+                                      </div>
+                                    )
+                                  )}
+                                </div>
+                              )}
+                            </>
                           )}
 
                           {openCaseTab === "file" && (
-                            <div className="inline-empty">
-                              Dosyalar burada açılacak.
+                            <div className="case-file-panel">
+                              <div className="case-file-toolbar">
+                                <label className="case-file-upload">
+                                  <input
+                                    type="file"
+                                    accept=".pdf,.doc,.docx,image/jpeg,image/png"
+                                    disabled={caseFileUploading}
+                                    onChange={(event) => {
+                                      const file =
+                                        event.target.files?.[0];
+
+                                      if (file) {
+                                        uploadCaseFile(
+                                          item.id,
+                                          file
+                                        );
+                                      }
+
+                                      event.target.value =
+                                        "";
+                                    }}
+                                  />
+
+                                  {caseFileUploading
+                                    ? "Yükleniyor..."
+                                    : "+ Dosya Ekle"}
+                                </label>
+                              </div>
+
+                              {caseFileError && (
+                                <div className="inline-error">
+                                  {caseFileError}
+                                </div>
+                              )}
+
+                              {caseFilesLoading ? (
+                                <div className="inline-empty">
+                                  Dosyalar yükleniyor...
+                                </div>
+                              ) : caseFiles.length === 0 ? (
+                                <div className="inline-empty">
+                                  Bu davaya ait dosya bulunmuyor.
+                                </div>
+                              ) : (
+                                <div className="case-file-list">
+                                  {caseFiles.map(
+                                    (file) => (
+                                      <button
+                                        type="button"
+                                        key={file.id}
+                                        className="case-file-item"
+                                        onClick={() =>
+                                          openCaseFile(
+                                            file.id
+                                          )
+                                        }
+                                      >
+                                        <div>
+                                          <strong>
+                                            {file.file_name ||
+                                              "Dosya"}
+                                          </strong>
+
+                                          <span>
+                                            {file.file_type ||
+                                              "Dosya"}
+                                          </span>
+                                        </div>
+
+                                        <span>
+                                          Aç →
+                                        </span>
+                                      </button>
+                                    )
+                                  )}
+                                </div>
+                              )}
                             </div>
                           )}
 
                           {openCaseTab === "document" && (
-                            <div className="inline-empty">
-                              Evraklar burada açılacak.
+                            <div className="case-file-panel">
+                              {caseDocumentError && (
+                                <div className="inline-error">
+                                  {caseDocumentError}
+                                </div>
+                              )}
+
+                              {caseDocumentsLoading ? (
+                                <div className="inline-empty">
+                                  Evraklar yükleniyor...
+                                </div>
+                              ) : caseDocuments.length === 0 ? (
+                                <div className="inline-empty">
+                                  Bu davaya mailden gelen evrak bulunmuyor.
+                                </div>
+                              ) : (
+                                <div className="case-file-list">
+                                  {caseDocuments.map(
+                                    (file) => (
+                                      <button
+                                        type="button"
+                                        key={file.id}
+                                        className="case-file-item"
+                                        onClick={() =>
+                                          openCaseFile(
+                                            file.id
+                                          )
+                                        }
+                                      >
+                                        <div>
+                                          <strong>
+                                            {file.file_name ||
+                                              "Evrak"}
+                                          </strong>
+
+                                          <span>
+                                            Mailden otomatik alındı
+                                          </span>
+                                        </div>
+
+                                        <span>
+                                          Aç →
+                                        </span>
+                                      </button>
+                                    )
+                                  )}
+                                </div>
+                              )}
                             </div>
                           )}
 
                           {openCaseTab === "deadline" && (
-                            <div className="inline-empty">
-                              Süre ve hatırlatıcı burada açılacak.
-                            </div>
+                            <>
+                              {(item.legal_deadlines || []).length === 0 ? (
+                                <div className="inline-empty">
+                                  Bu davaya ait kayıtlı süre bulunmuyor.
+                                </div>
+                              ) : (
+                                <div className="case-mail-list">
+                                  {(item.legal_deadlines || [])
+                                    .filter(
+                                      (deadline) =>
+                                        deadline.calculated_due_date
+                                    )
+                                    .sort(
+                                      (a, b) =>
+                                        new Date(
+                                          a.calculated_due_date as string
+                                        ).getTime() -
+                                        new Date(
+                                          b.calculated_due_date as string
+                                        ).getTime()
+                                    )
+                                    .map((deadline) => {
+                                      const state =
+                                        getDeadlineState(
+                                          deadline.calculated_due_date
+                                        );
+
+                                      return (
+                                        <div
+                                          key={deadline.id}
+                                          className="case-mail-item"
+                                        >
+                                          <div>
+                                            <div className="case-mail-subject">
+                                              {deadline.title ||
+                                                "Hukuki süre"}
+                                            </div>
+
+                                            <div className="case-mail-sender">
+                                              Durum:{" "}
+                                              {deadline.status ||
+                                                "active"}
+                                            </div>
+                                          </div>
+
+                                          <div
+                                            className={`case-mail-date deadline-button ${state}`}
+                                          >
+                                            {formatDate(
+                                              deadline.calculated_due_date
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
                       )}
@@ -1328,6 +1874,13 @@ export default function CasesPage() {
     </main>
   );
 }
+
+
+
+
+
+
+
 
 
 

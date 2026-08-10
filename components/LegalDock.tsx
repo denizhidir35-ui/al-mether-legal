@@ -5,7 +5,12 @@ import { usePathname } from "next/navigation";
 export default function LegalDock() {
   const pathname = usePathname();
 
-  const items = [
+  const items = [    {
+      href: "/inbox",
+      icon: "✉",
+      label: "Gelen",
+    },
+
     {
       href: "/calendar",
       icon: "▦",
@@ -214,3 +219,4 @@ export default function LegalDock() {
     </div>
   );
 }
+

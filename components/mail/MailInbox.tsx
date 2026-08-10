@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -35,7 +35,33 @@ export default function MailInbox({ onSelectMail }: Props) {
   const [filter, setFilter] = useState<FilterType>("all");
 
   useEffect(() => {
-    loadMails();
+    refreshMailSystem();
+
+    const interval =
+      window.setInterval(
+        refreshMailSystem,
+        2 * 60 * 1000
+      );
+
+    const handleFocus = () => {
+      refreshMailSystem();
+    };
+
+    window.addEventListener(
+      "focus",
+      handleFocus
+    );
+
+    return () => {
+      window.clearInterval(
+        interval
+      );
+
+      window.removeEventListener(
+        "focus",
+        handleFocus
+      );
+    };
   }, []);
 
   const filteredMails = useMemo(() => {
@@ -60,6 +86,57 @@ export default function MailInbox({ onSelectMail }: Props) {
     });
   }, [mails, search, filter]);
 
+  async function runMailSync() {
+    try {
+      const response =
+        await fetch(
+          "/api/mail-sync",
+          {
+            method: "POST",
+            cache: "no-store",
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        console.error(
+          "MAIL SYNC ERROR:",
+          data
+        );
+
+        return;
+      }
+
+      console.log(
+        "MAIL SYNC:",
+        {
+          scanned:
+            data?.scanned || 0,
+
+          new:
+            data?.new || 0,
+
+          processed:
+            data?.processed || 0,
+
+          skipped:
+            data?.skipped || 0,
+        }
+      );
+    } catch (error) {
+      console.error(
+        "MAIL SYNC ERROR:",
+        error
+      );
+    }
+  }
+
+  async function refreshMailSystem() {
+    await runMailSync();
+    await loadMails();
+  }
   async function loadMails() {
     try {
       setLoading(true);
@@ -85,6 +162,11 @@ export default function MailInbox({ onSelectMail }: Props) {
           deadline: mail.deadline || "-",
           type: mail.type || "Analiz Bekliyor",
           risk: mail.risk || "Analiz Bekliyor",
+          attachments:
+            Array.isArray(mail.attachments)
+              ? mail.attachments
+              : [],
+
           hasAttachment:
             Boolean(mail.hasAttachment) ||
             Boolean(mail.has_attachment) ||
@@ -502,3 +584,5 @@ const errorState = {
   padding: 14,
   fontSize: 13,
 };
+
+

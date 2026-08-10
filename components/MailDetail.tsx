@@ -11,7 +11,8 @@ type Attachment = {
 };
 
 type Props = {
-  title?: string;
+messageId?: string;
+title?: string;
   sender?: string;
   body?: string;
   deadline?: string;
@@ -266,7 +267,8 @@ function sanitizeFilename(value: string): string {
 }
 
 export default function MailDetail({
-  title = "Bir mail seçin",
+  messageId,
+title = "Bir mail seçin",
   sender = "-",
   body = "Mail içeriği bulunamadı.",
   deadline = "-",
@@ -391,6 +393,9 @@ export default function MailDetail({
 
             sender,
 
+
+        gmail_message_id:
+          messageId || "",
             mail_body: body,
 
             snippet:
@@ -430,6 +435,25 @@ export default function MailDetail({
 
             barcode_no:
               currentUets.barcodeNo,
+
+        attachments:
+          (attachments || []).map(
+            (attachment) => ({
+              filename:
+                attachment.filename,
+
+              mimeType:
+                attachment.mimeType ||
+                "application/octet-stream",
+
+              size:
+                attachment.size || 0,
+
+              attachmentId:
+                attachment.attachmentId ||
+                "",
+            })
+          ),
           }),
         }
       );
@@ -1367,4 +1391,7 @@ const secondaryButton = {
   fontWeight: 800,
   cursor: "pointer",
 };
+
+
+
 

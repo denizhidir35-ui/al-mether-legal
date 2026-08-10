@@ -231,7 +231,7 @@ export async function GET() {
 
     const messages = await gmail.users.messages.list({
       userId: "me",
-      maxResults: 20,
+      maxResults: 50,
     });
 
     const result = [];
@@ -284,3 +284,4 @@ export async function GET() {
     );
   }
 }
+
