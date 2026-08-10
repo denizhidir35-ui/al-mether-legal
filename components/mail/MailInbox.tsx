@@ -739,8 +739,90 @@ export default function MailInbox({
           color:
             var(--legal-danger);
         }
+
+        /* FINAL INBOX WIDTH FIX */
+
+        .inbox-list {
+          width: 100%;
+          min-width: 0;
+          max-width: 100%;
+          overflow: hidden;
+        }
+
+        .inbox-tools {
+          width: 100%;
+          min-width: 0;
+
+          grid-template-columns:
+            minmax(0, 1fr)
+            46px
+            34px;
+        }
+
+        .inbox-search {
+          width: 100%;
+          min-width: 0;
+          overflow: hidden;
+        }
+
+        .inbox-search input {
+          width: 100%;
+          min-width: 0;
+        }
+
+        .filter-button {
+          width: 46px;
+          padding: 0;
+        }
+
+        .mail-count {
+          width: 100%;
+          min-width: 0;
+        }
+
+        .mail-scroll {
+          width: 100%;
+          min-width: 0;
+          max-width: 100%;
+
+          overflow-x: hidden !important;
+          overflow-y: auto;
+        }
+
+        .mail-row {
+          width: 100%;
+          min-width: 0;
+          max-width: 100%;
+
+          overflow: hidden;
+        }
+
+        .mail-row-top {
+          width: 100%;
+          min-width: 0;
+        }
+
+        .mail-row-top strong {
+          min-width: 0;
+          max-width: 100%;
+        }
+
+        .mail-sender,
+        .mail-preview,
+        .mail-date {
+          width: 100%;
+          min-width: 0;
+          max-width: 100%;
+        }
+
+        .mail-preview {
+          word-break: break-word;
+          overflow-wrap: anywhere;
+        }
+
       `}</style>
     </section>
   );
 }
+
 

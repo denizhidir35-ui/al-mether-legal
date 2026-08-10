@@ -1226,9 +1226,85 @@ export default function InboxPage() {
           overflow-wrap: anywhere;
           word-break: break-word;
         }
+
+        /* FINAL INBOX PAGE FIX */
+
+        .workspace {
+          grid-template-columns:
+            minmax(320px, 32%)
+            minmax(0, 1fr);
+
+          width: 100%;
+          min-width: 0;
+          max-width: 100%;
+
+          overflow: hidden;
+        }
+
+        .mail-pane {
+          min-width: 0;
+          max-width: 100%;
+          overflow: hidden;
+        }
+
+        .detail-pane {
+          min-width: 0;
+          max-width: 100%;
+          overflow: hidden;
+        }
+
+        .detail-header {
+          min-width: 0;
+        }
+
+        .detail-heading {
+          width: 100%;
+          min-width: 0;
+        }
+
+        .mail-content {
+          width: 100%;
+          min-width: 0;
+          max-width: 100%;
+
+          overflow-x: hidden;
+          overflow-y: auto;
+
+          word-break: break-word;
+          overflow-wrap: anywhere;
+        }
+
+        .mail-content {
+          padding:
+            18px 22px;
+        }
+
+        .mail-content::first-line {
+          line-height: 1.7;
+        }
+
+        @media (min-width: 1100px) {
+          .mail-content {
+            padding-right: 8%;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .workspace {
+            display: block;
+            overflow: visible;
+          }
+
+          .mail-pane,
+          .detail-pane {
+            width: 100%;
+            max-width: 100%;
+          }
+        }
 `}</style>
     </main>
   );
 }
+
 
 
