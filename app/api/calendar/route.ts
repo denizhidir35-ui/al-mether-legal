@@ -1,5 +1,5 @@
 import { google } from "googleapis";
-import { supabase } from "@/lib/supabase";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 type CalendarBody = {
   title?: string;
@@ -50,6 +50,7 @@ function toDateOnly(date: Date) {
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as CalendarBody;
+    const supabase = getSupabaseAdmin();
 
     if (!process.env.GOOGLE_CLIENT_ID) {
       throw new Error("GOOGLE_CLIENT_ID eksik");

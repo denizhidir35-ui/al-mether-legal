@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import LegalDock from "@/components/LegalDock";
+import { readJsonResponse } from "@/lib/apiResponse";
 
 type LegalDeadline = {
   id: string;
@@ -100,7 +101,7 @@ export default function CasesPage() {
         });
 
       const data =
-        await response.json();
+        await readJsonResponse(response);
 
       if (!response.ok) {
         throw new Error(

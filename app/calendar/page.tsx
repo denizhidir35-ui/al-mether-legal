@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PDFDocument } from "pdf-lib";
 import LegalDock from "@/components/LegalDock";
+import { readJsonResponse } from "@/lib/apiResponse";
 
 type CalendarEvent = {
   id: string;
@@ -329,7 +330,7 @@ export default function CalendarPage() {
       );
 
       const data =
-        (await response.json()) as ApiResponse;
+        (await readJsonResponse(response)) as ApiResponse;
 
       if (!response.ok || !data.ok) {
         throw new Error(
