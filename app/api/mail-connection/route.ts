@@ -1,0 +1,79 @@
+﻿import {
+  NextResponse,
+} from "next/server";
+
+import {
+  getOrCreateAppUser,
+} from "@/lib/alUser";
+
+import {
+  getSupabaseAdmin,
+} from "@/lib/supabaseAdmin";
+
+export async function GET() {
+  const {
+    appUser,
+    error,
+  } =
+    await getOrCreateAppUser();
+
+  if (
+    error ||
+    !appUser
+  ) {
+    return NextResponse.json(
+      {
+        ok: false,
+        connected: false,
+        error:
+          error ||
+          "Kullanıcı bulunamadı.",
+      },
+      {
+        status: 401,
+      }
+    );
+  }
+
+  const supabase =
+    getSupabaseAdmin();
+
+  const result =
+    await supabase
+      .from("mail_connections")
+      .select(
+        "id,provider,email,status,updated_at"
+      )
+      .eq(
+        "user_id",
+        appUser.id
+      )
+      .eq(
+        "status",
+        "connected"
+      );
+
+  if (result.error) {
+    return NextResponse.json(
+      {
+        ok: false,
+        connected: false,
+        error:
+          result.error.message,
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+
+  const connections =
+    result.data || [];
+
+  return NextResponse.json({
+    ok: true,
+    connected:
+      connections.length > 0,
+    connections,
+  });
+}

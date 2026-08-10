@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PDFDocument } from "pdf-lib";
 import LegalDock from "@/components/LegalDock";
+import LegalSessionControl from "@/components/LegalSessionControl";
 import { readJsonResponse } from "@/lib/apiResponse";
 
 type CalendarEvent = {
@@ -2531,83 +2532,264 @@ export default function CalendarPage() {
           }
 
           .workspace {
-            height: 100vh;
+            min-height: 100vh;
+            height: auto;
             border: 0;
             border-radius: 0;
+            overflow: visible;
           }
 
           .topbar {
-            min-height: 62px;
+            min-height: 56px;
             padding: 10px 12px;
+          }
+
+          .brand-kicker {
+            font-size: 9px;
+          }
+
+          .brand-title {
+            font-size: 15px;
           }
 
           .brand-subtitle {
             display: none;
           }
 
-          .brand-mark {
-            width: 38px;
-            height: 38px;
+          .top-actions {
+            gap: 6px;
           }
 
-          .action-button.labelled {
-            display: none;
+          .top-actions button {
+            height: 34px;
+            padding: 0 10px;
+            font-size: 10px;
           }
 
           .main-grid {
-            display: grid;
-            grid-template-rows: 58% 42%;
-            overflow: hidden;
+            display: block;
+            overflow: visible;
+          }
+
+          .summary-panel {
+            display: none;
           }
 
           .calendar-panel,
           .detail-panel {
-            overflow: hidden;
+            width: 100%;
+            min-height: 0;
+            overflow: visible;
             border-right: 0;
           }
 
           .calendar-panel {
-            padding: 12px;
+            padding: 10px;
           }
 
           .detail-panel {
-            padding: 10px 12px;
+            padding: 12px 10px 88px;
             border-top: 1px solid var(--border);
           }
 
           .calendar-toolbar {
-            margin-bottom: 12px;
+            margin-bottom: 8px;
+          }
+
+          .calendar-navigation {
+            width: 100%;
+            justify-content: space-between;
           }
 
           .month-title {
-            min-width: 135px;
+            min-width: auto;
             font-size: 15px;
           }
 
+          .calendar-grid {
+            gap: 5px;
+          }
+
+          .weekday {
+            font-size: 9px;
+          }
+
           .day-cell {
-            min-height: 58px;
-            padding: 5px;
-            border-radius: 10px;
+            min-height: 46px;
+            aspect-ratio: 1 / 1;
+            padding: 4px;
+            border-radius: 9px;
           }
 
           .day-number {
-            width: 23px;
-            height: 23px;
+            width: 22px;
+            height: 22px;
             font-size: 10px;
           }
-        .event-count-chip {
-          position: relative;
-          z-index: 1;
-          width: fit-content;
-          max-width: 100%;
-          padding: 4px 7px;
-          border: 1px solid rgba(155, 109, 255, 0.28);
-          border-radius: 8px;
-          background: var(--violet-soft);
-          color: var(--accent);
-          font-size: 9px;
-          font-weight: 900;
-          white-space: nowrap;
+
+          .event-dots {
+            gap: 2px;
+            margin-top: 3px;
+          }
+
+          .event-chip {
+            width: 6px;
+            height: 6px;
+            min-width: 6px;
+            padding: 0;
+            border-radius: 50%;
+            color: transparent;
+          }
+
+          .section-eyebrow {
+            font-size: 9px;
+          }
+
+          .detail-date {
+            margin-bottom: 8px;
+            font-size: 15px;
+          }
+
+          .detail-tabs {
+            display: flex;
+            gap: 5px;
+            margin: 6px 0 8px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: none;
+          }
+
+          .detail-tabs::-webkit-scrollbar {
+            display: none;
+          }
+
+          .detail-tab {
+            flex: 0 0 auto;
+            min-width: 62px;
+            height: 32px;
+            padding: 0 10px;
+            font-size: 9px;
+          }
+
+          .detail-section {
+            overflow: visible;
+          }
+
+          .pdf-preview {
+            height: auto;
+            min-height: 0;
+          }
+
+          .pdf-preview-frame {
+            min-height: 420px;
+          }
+
+          .legal-dock-zone {
+            height: 70px;
+          }
+
+          .legal-dock {
+            width: calc(100vw - 18px);
+            max-width: 420px;
+            justify-content: space-around;
+            gap: 2px;
+            margin-bottom: 6px;
+            padding: 6px 8px;
+            opacity: 1;
+            transform: none;
+            pointer-events: auto;
+            border-radius: 18px;
+          }
+
+          .legal-dock a {
+            width: 48px;
+            height: 46px;
+            flex: 0 0 48px;
+            border-radius: 13px;
+          }
+
+          .legal-dock a:hover {
+            width: 48px;
+            min-width: 48px;
+            transform: none;
+            padding: 0;
+          }
+
+          .legal-dock .dock-label {
+            display: none !important;
+          }
+
+          .legal-dock .dock-icon {
+            font-size: 18px;
+          }
+
+          .detail-panel {
+            background: var(--surface-1);
+          }
+
+          .detail-empty {
+            min-height: 72px;
+            padding: 14px;
+            font-size: 10px;
+            line-height: 1.55;
+          }
+
+          .event-selector {
+            max-height: none;
+            overflow: visible;
+          }
+
+          .event-selector-list {
+            max-height: 160px;
+            overflow-y: auto;
+          }
+
+          .detail-row {
+            grid-template-columns: 78px minmax(0, 1fr);
+            gap: 8px;
+            padding: 9px 0;
+          }
+
+          .detail-row-label {
+            font-size: 9px;
+          }
+
+          .detail-row-value {
+            min-width: 0;
+            overflow-wrap: anywhere;
+            font-size: 10px;
+          }
+
+          .attachment-upload-row {
+            display: grid;
+            grid-template-columns:
+              repeat(2, minmax(0, 1fr));
+            gap: 6px;
+          }
+
+          .attachment-upload {
+            width: 100%;
+            justify-content: center;
+            min-height: 38px;
+            padding: 0 8px;
+            font-size: 9px;
+          }
+
+          .attachment-item {
+            align-items: flex-start;
+            flex-direction: column;
+          }
+
+          .attachment-item > div:last-child {
+            width: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+          }
+
+          .attachment-item .small-button {
+            flex: 1 1 auto;
+          }
         }
 
           .event-chip {
@@ -3484,10 +3666,14 @@ export default function CalendarPage() {
           </aside>
         </div>
       </section>
+      <LegalSessionControl />
       <LegalDock />
 </main>
   );
 }
+
+
+
 
 
 

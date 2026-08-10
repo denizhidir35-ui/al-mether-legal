@@ -1,6 +1,6 @@
-import { google } from "googleapis";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+﻿import { google } from "googleapis";
+import { getOrCreateAppUser } from "@/lib/alUser";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 type GmailAttachment = {
   filename: string;
@@ -95,22 +95,134 @@ function collectAttachments(payload: any): GmailAttachment[] {
 
 export async function GET() {
   try {
-    const session: any = await getServerSession(authOptions);
+    const {
+      appUser,
+      error: userError,
+    } = await getOrCreateAppUser();
 
-    if (!session?.accessToken) {
+    if (
+      userError ||
+      !appUser
+    ) {
       return Response.json(
         {
-          error: "Google hesabı bağlı değil",
+          error:
+            userError ||
+            "Kullanıcı bulunamadı.",
         },
         { status: 401 }
       );
     }
 
-    const oauth2Client = new google.auth.OAuth2();
+    const supabase =
+      getSupabaseAdmin();
+
+    const connection =
+      await supabase
+        .from("mail_connections")
+        .select("*")
+        .eq(
+          "user_id",
+          appUser.id
+        )
+        .eq(
+          "provider",
+          "google"
+        )
+        .eq(
+          "status",
+          "connected"
+        )
+        .maybeSingle();
+
+    if (connection.error) {
+      return Response.json(
+        {
+          error:
+            connection.error.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!connection.data) {
+      return Response.json(
+        {
+          error:
+            "Google hesabı bağlı değil.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const oauth2Client =
+      new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET
+      );
 
     oauth2Client.setCredentials({
-      access_token: session.accessToken,
+      access_token:
+        connection.data.access_token ||
+        undefined,
+
+      refresh_token:
+        connection.data.refresh_token ||
+        undefined,
+
+      expiry_date:
+        connection.data.token_expires_at
+          ? new Date(
+              connection.data.token_expires_at
+            ).getTime()
+          : undefined,
     });
+
+    oauth2Client.on(
+      "tokens",
+      async (tokens) => {
+        const update: Record<
+          string,
+          unknown
+        > = {
+          updated_at:
+            new Date().toISOString(),
+        };
+
+        if (tokens.access_token) {
+          update.access_token =
+            tokens.access_token;
+        }
+
+        if (tokens.refresh_token) {
+          update.refresh_token =
+            tokens.refresh_token;
+        }
+
+        if (tokens.expiry_date) {
+          update.token_expires_at =
+            new Date(
+              tokens.expiry_date
+            ).toISOString();
+        }
+
+        const updated =
+          await supabase
+            .from("mail_connections")
+            .update(update)
+            .eq(
+              "id",
+              connection.data.id
+            );
+
+        if (updated.error) {
+          console.error(
+            "MAIL TOKEN UPDATE ERROR:",
+            updated.error.message
+          );
+        }
+      }
+    );
 
     const gmail = google.gmail({
       version: "v1",

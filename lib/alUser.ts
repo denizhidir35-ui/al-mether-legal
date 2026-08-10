@@ -83,9 +83,21 @@ export async function getOrCreateAppUser(): Promise<GetOrCreateAppUserResult> {
       const currentUser =
         existing.data as AppUserRecord;
 
+      if (
+        currentUser.status &&
+        currentUser.status !== "active"
+      ) {
+        return {
+          user: sessionUser,
+          appUser: currentUser,
+          error:
+            "AL Mether Legal hesabınız pasif durumda. Yönetici ile iletişime geçin.",
+        };
+      }
+
       const needsUpdate =
-        currentUser.name !== sessionUser.name ||
-        currentUser.status !== "active";
+        currentUser.name !==
+        sessionUser.name;
 
       if (!needsUpdate) {
         return {
@@ -95,16 +107,22 @@ export async function getOrCreateAppUser(): Promise<GetOrCreateAppUserResult> {
         };
       }
 
-      const updated = await supabase
-        .from("app_users")
-        .update({
-          name: sessionUser.name,
-          status: "active",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", currentUser.id)
-        .select("*")
-        .single();
+      const updated =
+        await supabase
+          .from("app_users")
+          .update({
+            name:
+              sessionUser.name,
+
+            updated_at:
+              new Date().toISOString(),
+          })
+          .eq(
+            "id",
+            currentUser.id
+          )
+          .select("*")
+          .single();
 
       if (updated.error) {
         return {
@@ -121,7 +139,6 @@ export async function getOrCreateAppUser(): Promise<GetOrCreateAppUserResult> {
         error: null,
       };
     }
-
     const created = await supabase
       .from("app_users")
       .insert({
@@ -159,3 +176,4 @@ export async function getOrCreateAppUser(): Promise<GetOrCreateAppUserResult> {
     };
   }
 }
+

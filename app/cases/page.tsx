@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import LegalDock from "@/components/LegalDock";
+import LegalSessionControl from "@/components/LegalSessionControl";
 import { readJsonResponse } from "@/lib/apiResponse";
 
 type LegalDeadline = {
@@ -807,45 +808,189 @@ export default function CasesPage() {
         }
 
         @media (max-width: 900px) {
+          html,
           body {
-            overflow: auto;
+            width: 100%;
+            min-height: 100%;
+            overflow-x: hidden;
+            overflow-y: auto;
           }
 
           .cases-page {
-            padding:
-              12px
-              10px
-              75px;
+            min-height: 100vh;
+            padding: 12px 10px 86px;
           }
 
           .cases-shell {
             width: 100%;
+            max-width: none;
           }
 
           .cases-header {
             align-items: stretch;
             flex-direction: column;
+            gap: 9px;
+            margin-bottom: 10px;
+          }
+
+          .cases-title small {
+            margin-bottom: 3px;
+            font-size: 8px;
+          }
+
+          .cases-title h1 {
+            font-size: 18px;
+          }
+
+          .cases-title p {
+            margin-top: 3px;
+            font-size: 9px;
           }
 
           .header-actions {
             width: 100%;
+            display: grid;
+            grid-template-columns:
+              minmax(0, 1fr)
+              auto;
+            gap: 6px;
           }
 
           .search-input {
             width: 100%;
+            min-width: 0;
+            height: 38px;
+            font-size: 10px;
           }
 
-          .manual-form,
-          .case-row {
+          .manual-trigger {
+            height: 38px;
+            padding: 0 11px;
+            white-space: nowrap;
+            font-size: 9px;
+          }
+
+          .manual-form {
             grid-template-columns: 1fr;
+            gap: 6px;
+            margin-bottom: 8px;
+            padding: 8px;
+          }
+
+          .manual-form input,
+          .manual-form button {
+            width: 100%;
+            height: 38px;
+          }
+
+          .cases-list {
+            gap: 7px;
+          }
+
+          .case-row {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+            min-height: 0;
+            padding: 10px;
+            border-radius: 12px;
+          }
+
+          .case-number {
+            font-size: 12px;
+          }
+
+          .case-court {
+            margin-top: 2px;
+            font-size: 9px;
+            white-space: normal;
+          }
+
+          .case-title {
+            font-size: 10px;
+            line-height: 1.35;
+            white-space: normal;
           }
 
           .case-actions {
-            flex-wrap: wrap;
+            width: 100%;
+            display: grid;
+            grid-template-columns:
+              repeat(5, minmax(0, 1fr));
+            gap: 5px;
+          }
+
+          .case-actions button {
+            width: 100%;
+            min-width: 0;
+            height: 36px;
+            padding: 0 4px;
+            border-radius: 9px;
+            font-size: 8px;
           }
 
           .case-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding-top: 6px;
+            border-top: 1px solid #1f3048;
+            font-size: 8px;
             text-align: left;
+          }
+
+          .case-status {
+            margin-top: 0;
+            white-space: nowrap;
+            font-size: 8px;
+          }
+
+          .case-inline-panel {
+            grid-column: 1;
+            width: 100%;
+            margin: 2px 0 0;
+            padding: 9px;
+            border-radius: 10px;
+          }
+
+          .case-note-area {
+            height: 110px;
+            font-size: 10px;
+          }
+
+          .inline-actions {
+            width: 100%;
+            justify-content: stretch;
+          }
+
+          .inline-actions button {
+            flex: 1;
+            height: 34px;
+          }
+
+          .state-box {
+            padding: 18px 12px;
+            font-size: 10px;
+          }
+        }
+
+        @media (max-width: 430px) {
+          .header-actions {
+            grid-template-columns: 1fr;
+          }
+
+          .manual-trigger {
+            width: 100%;
+          }
+
+          .case-actions {
+            grid-template-columns:
+              repeat(3, minmax(0, 1fr));
+          }
+
+          .case-actions .deadline-button {
+            grid-column: span 2;
           }
         }
       `}</style>
@@ -1178,9 +1323,11 @@ export default function CasesPage() {
           )}
       </div>
 
+      <LegalSessionControl />
       <LegalDock />
     </main>
   );
 }
+
 
 
