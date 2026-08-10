@@ -174,12 +174,12 @@ export default function LegalSessionControl() {
           padding: 0 10px;
 
           border: 1px solid
-            rgba(255,255,255,0.1);
+            var(--legal-border);
 
           border-radius: 11px;
 
           background:
-            rgba(12,20,34,0.9);
+            var(--legal-surface);
 
           backdrop-filter:
             blur(16px);
@@ -254,3 +254,4 @@ export default function LegalSessionControl() {
     </div>
   );
 }
+

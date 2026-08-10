@@ -9549,6 +9549,159 @@ export default function CalendarPage() {
             height: 19px;
           }
         }
+
+        /* LIVE CALENDAR VISIBILITY FIX */
+
+        .top-actions {
+          display: none !important;
+        }
+
+        .day-cell.today {
+          border-color:
+            var(--legal-border-strong);
+
+          background:
+            var(--legal-surface-3);
+        }
+
+        .day-cell.today
+        .day-number {
+          background:
+            var(--legal-gold);
+
+          color: #111;
+        }
+
+        .day-cell.selected {
+          border:
+            2px solid
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          box-shadow: none;
+        }
+
+        .day-cell.selected.today {
+          border:
+            2px solid
+            var(--legal-gold);
+        }
+
+        .event-dots {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 3px;
+
+          max-width: 100%;
+        }
+
+        .event-chip {
+          width: auto !important;
+          height: auto !important;
+          min-width: 0 !important;
+
+          display: block !important;
+
+          padding:
+            2px 5px !important;
+
+          border-radius:
+            999px !important;
+
+          color:
+            var(--legal-text-soft)
+            !important;
+
+          font-size:
+            6.5px !important;
+
+          line-height: 1.25;
+
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .event-chip.service {
+          border-color:
+            color-mix(
+              in srgb,
+              var(--legal-success)
+              40%,
+              transparent
+            );
+
+          background:
+            color-mix(
+              in srgb,
+              var(--legal-success)
+              12%,
+              transparent
+            );
+
+          color:
+            var(--legal-success)
+            !important;
+        }
+
+        .event-chip.deadline {
+          color:
+            var(--legal-danger)
+            !important;
+        }
+
+        .event-chip.hearing {
+          color:
+            var(--legal-warning)
+            !important;
+        }
+
+        .event-chip.notice {
+          color:
+            var(--legal-gold)
+            !important;
+        }
+
+        .detail-row {
+          font-size: 8.7px;
+        }
+
+        .detail-row strong {
+          font-size: 8.7px;
+        }
+
+        @media (
+          max-width: 760px
+        ) {
+          .event-chip {
+            max-width: 100%;
+
+            padding:
+              2px 4px !important;
+
+            font-size:
+              6px !important;
+          }
+        }
+
+        @media (
+          max-width: 520px
+        ) {
+          .event-chip {
+            width: 7px !important;
+            height: 7px !important;
+            min-width: 7px !important;
+
+            padding: 0 !important;
+
+            color:
+              transparent !important;
+
+            font-size: 0 !important;
+          }
+        }
 `}</style>
 
       <section className="workspace">
@@ -10409,6 +10562,7 @@ export default function CalendarPage() {
 </main>
   );
 }
+
 
 
 

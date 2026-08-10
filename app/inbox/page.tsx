@@ -1187,8 +1187,48 @@ export default function InboxPage() {
             height: 19px;
           }
         }
+
+        /* LIVE INBOX FIX */
+
+        .inbox-header
+        .header-actions {
+          display: none;
+        }
+
+        .workspace {
+          min-width: 0;
+        }
+
+        .mail-pane,
+        .detail-pane,
+        .mail-scroll,
+        .mail-row,
+        .mail-content {
+          min-width: 0;
+          max-width: 100%;
+        }
+
+        .mail-scroll {
+          overflow-x: hidden !important;
+        }
+
+        .mail-row {
+          overflow: hidden;
+        }
+
+        .mail-preview {
+          overflow-wrap: anywhere;
+          word-break: break-word;
+        }
+
+        .mail-content {
+          overflow-x: hidden;
+          overflow-wrap: anywhere;
+          word-break: break-word;
+        }
 `}</style>
     </main>
   );
 }
+
 

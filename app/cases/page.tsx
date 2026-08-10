@@ -4855,6 +4855,12 @@ export default function CasesPage() {
             height: 19px;
           }
         }
+
+        /* LIVE CASES HEADER FIX */
+
+        .cases-theme-button {
+          display: none !important;
+        }
 `}</style>
 
       <div className="cases-shell">
@@ -5410,6 +5416,7 @@ export default function CasesPage() {
     </main>
   );
 }
+
 
 
 

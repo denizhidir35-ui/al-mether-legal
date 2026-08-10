@@ -25,6 +25,72 @@ export type Mail = {
   }[];
 };
 
+
+function cleanVisibleMailText(
+  value: string
+) {
+  if (!value) {
+    return "";
+  }
+
+  return value
+    .replace(
+      /<style[\s\S]*?<\/style>/gi,
+      " "
+    )
+    .replace(
+      /<script[\s\S]*?<\/script>/gi,
+      " "
+    )
+    .replace(
+      /<[^>]+>/g,
+      " "
+    )
+    .replace(
+      /https?:\/\/\S{90,}/gi,
+      "[bağlantı]"
+    )
+    .replace(
+      /(?:utm_[a-z_]+|trk|tracking|token|mid|lipi|origin)=[^\s&]+/gi,
+      ""
+    )
+    .replace(
+      /\s+/g,
+      " "
+    )
+    .trim();
+}
+
+function formatMailDate(
+  value?: string
+) {
+  if (!value) {
+    return "";
+  }
+
+  const date =
+    new Date(value);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat(
+    "tr-TR",
+    {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }
+  ).format(date);
+}
+
 type Props = {
   onSelectMail?: (
     mail: Mail
@@ -174,9 +240,11 @@ export default function MailInbox({
               "Bilinmeyen gönderen",
 
             body:
-              mail.body ||
-              mail.snippet ||
-              "",
+              cleanVisibleMailText(
+                mail.body ||
+                mail.snippet ||
+                ""
+              ),
 
             deadline:
               mail.deadline ||
@@ -191,8 +259,9 @@ export default function MailInbox({
               "Analiz Bekliyor",
 
             date:
-              mail.date ||
-              "",
+              formatMailDate(
+                mail.date || ""
+              ),
 
             attachments:
               Array.isArray(
@@ -674,3 +743,4 @@ export default function MailInbox({
     </section>
   );
 }
+
