@@ -10,6 +10,8 @@ import LegalDock from "@/components/LegalDock";
 import LegalSessionControl from "@/components/LegalSessionControl";
 import { readJsonResponse } from "@/lib/apiResponse";
 
+type Theme = "dark" | "light";
+
 type LegalDeadline = {
   id: string;
   title?: string | null;
@@ -59,6 +61,9 @@ export default function CasesPage() {
 
   const [search, setSearch] =
     useState("");
+
+  const [theme, setTheme] =
+    useState<Theme>("dark");
 
   const [manualOpen, setManualOpen] =
     useState(false);
@@ -157,6 +162,46 @@ export default function CasesPage() {
   useEffect(() => {
     loadCases();
   }, []);
+
+  useEffect(() => {
+    const saved =
+      window.localStorage.getItem(
+        "legal-theme"
+      );
+
+    const initial: Theme =
+      saved === "light"
+        ? "light"
+        : "dark";
+
+    setTheme(initial);
+
+    document.documentElement
+      .classList.toggle(
+        "dark",
+        initial === "dark"
+      );
+  }, []);
+
+  function toggleTheme() {
+    const next: Theme =
+      theme === "dark"
+        ? "light"
+        : "dark";
+
+    setTheme(next);
+
+    window.localStorage.setItem(
+      "legal-theme",
+      next
+    );
+
+    document.documentElement
+      .classList.toggle(
+        "dark",
+        next === "dark"
+      );
+  }
 
   const filteredCases =
     useMemo(() => {
@@ -715,7 +760,7 @@ export default function CasesPage() {
   }
 
   return (
-    <main className="cases-page">
+    <main className="legal-app cases-page">
       <style jsx global>{`
         * {
           box-sizing: border-box;
@@ -1330,7 +1375,3487 @@ export default function CasesPage() {
             grid-column: span 2;
           }
         }
-      `}</style>
+        /* AL METHER CASES PREMIUM OVERRIDE */
+
+        html,
+        body {
+          background: var(--legal-bg);
+          color: var(--legal-text);
+        }
+
+        .cases-page {
+          height: 100dvh;
+          min-height: 100dvh;
+          overflow: hidden;
+          padding: 12px 16px 72px;
+          background: var(--legal-bg);
+          color: var(--legal-text);
+        }
+
+        .cases-shell {
+          width: min(1500px, calc(100vw - 32px));
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          margin: 0 auto;
+        }
+
+        .cases-header {
+          min-height: 46px;
+          flex: 0 0 auto;
+          margin-bottom: 8px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid var(--legal-border);
+        }
+
+        .cases-title small {
+          margin-bottom: 2px;
+          color: var(--legal-gold);
+          font-size: 7px;
+          letter-spacing: 0.16em;
+        }
+
+        .cases-title h1 {
+          color: var(--legal-text);
+          font-size: 15px;
+          font-weight: 850;
+          letter-spacing: -0.02em;
+        }
+
+        .cases-title p {
+          display: none;
+        }
+
+        .header-actions {
+          gap: 6px;
+        }
+
+        .search-input {
+          width: 250px;
+          height: 32px;
+          padding: 0 10px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface);
+          color: var(--legal-text);
+          font-size: 9px;
+        }
+
+        .search-input::placeholder {
+          color: var(--legal-muted);
+        }
+
+        .search-input:focus {
+          border-color: var(--legal-gold);
+          box-shadow: 0 0 0 3px var(--legal-gold-soft);
+        }
+
+        .manual-trigger,
+        .cases-theme-button {
+          height: 32px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface-2);
+          color: var(--legal-text-soft);
+          cursor: pointer;
+        }
+
+        .manual-trigger {
+          padding: 0 11px;
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .cases-theme-button {
+          width: 32px;
+          color: var(--legal-gold);
+          font-size: 13px;
+        }
+
+        .manual-trigger:hover,
+        .cases-theme-button:hover {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+        }
+
+        .manual-form {
+          flex: 0 0 auto;
+          margin-bottom: 7px;
+          padding: 7px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-md);
+          background: var(--legal-surface);
+        }
+
+        .manual-form input {
+          height: 31px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface-2);
+          color: var(--legal-text);
+          font-size: 9px;
+        }
+
+        .manual-form button {
+          height: 31px;
+          border: 1px solid var(--legal-gold);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-light);
+          font-size: 9px;
+        }
+
+        .cases-list {
+          min-height: 0;
+          flex: 1;
+          overflow-y: auto;
+          align-content: start;
+          gap: 5px;
+          padding-right: 3px;
+        }
+
+        .case-row {
+          min-height: 48px;
+          grid-template-columns:
+            185px
+            minmax(170px, 1fr)
+            auto
+            112px;
+          gap: 10px;
+          padding: 7px 10px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-md);
+          background: var(--legal-surface);
+          box-shadow: none;
+        }
+
+        .case-row:hover {
+          border-color: var(--legal-border-strong);
+        }
+
+        .case-row.selected {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+          box-shadow: inset 3px 0 0 var(--legal-gold);
+        }
+
+        .case-number {
+          color: var(--legal-text);
+          font-size: 10.5px;
+          font-weight: 900;
+        }
+
+        .case-court {
+          margin-top: 2px;
+          color: var(--legal-muted);
+          font-size: 8px;
+        }
+
+        .case-title {
+          color: var(--legal-text-soft);
+          font-size: 9px;
+          font-weight: 700;
+        }
+
+        .case-actions {
+          gap: 4px;
+        }
+
+        .case-actions button {
+          height: 27px;
+          padding: 0 8px;
+          border: 1px solid var(--legal-border);
+          border-radius: 7px;
+          background: var(--legal-surface-2);
+          color: var(--legal-muted);
+          font-size: 8px;
+          font-weight: 800;
+        }
+
+        .case-actions button:hover {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-light);
+        }
+
+        .case-meta {
+          color: var(--legal-muted);
+          font-size: 7.5px;
+        }
+
+        .case-status {
+          margin-top: 2px;
+          color: var(--legal-success);
+          font-size: 7.5px;
+        }
+
+        .case-inline-panel {
+          margin-top: 2px;
+          padding: 8px;
+          border-top: 1px solid var(--legal-border);
+          background: var(--legal-surface-2);
+        }
+
+        .case-mail-item,
+        .case-file-item {
+          border: 1px solid var(--legal-border);
+          background: var(--legal-surface);
+          color: var(--legal-text-soft);
+        }
+
+        .case-mail-subject,
+        .case-file-item strong {
+          color: var(--legal-text);
+        }
+
+        .case-mail-sender,
+        .case-mail-date,
+        .case-file-item span,
+        .inline-empty,
+        .state-box {
+          color: var(--legal-muted);
+        }
+
+        .case-note-area {
+          border: 1px solid var(--legal-border);
+          background: var(--legal-surface);
+          color: var(--legal-text);
+        }
+
+        .inline-error,
+        .inline-actions .danger {
+          color: var(--legal-danger);
+        }
+
+        .deadline-button.warning {
+          border-color: var(--legal-warning) !important;
+          color: var(--legal-warning) !important;
+        }
+
+        .deadline-button.urgent,
+        .deadline-button.critical,
+        .deadline-button.overdue {
+          border-color: var(--legal-danger) !important;
+          color: var(--legal-danger) !important;
+        }
+
+        @media (max-width: 900px) {
+          html,
+          body {
+            overflow-y: auto;
+          }
+
+          .cases-page {
+            height: auto;
+            min-height: 100dvh;
+            overflow: visible;
+            padding: 8px 7px 74px;
+          }
+
+          .cases-shell {
+            width: 100%;
+            height: auto;
+          }
+
+          .cases-header {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 7px;
+          }
+
+          .header-actions {
+            grid-template-columns:
+              minmax(0, 1fr)
+              32px
+              auto;
+          }
+
+          .search-input,
+          .cases-theme-button,
+          .manual-trigger {
+            height: 34px;
+          }
+
+          .cases-list {
+            overflow: visible;
+          }
+
+          .case-row {
+            grid-template-columns: 1fr;
+            gap: 6px;
+            padding: 9px;
+          }
+
+          .case-actions {
+            display: grid;
+            grid-template-columns:
+              repeat(5, minmax(0, 1fr));
+            gap: 4px;
+          }
+
+          .case-actions button {
+            width: 100%;
+            height: 32px;
+            padding: 0 3px;
+            font-size: 7.5px;
+          }
+
+          .case-meta {
+            padding-top: 5px;
+            border-top: 1px solid var(--legal-border);
+          }
+        }
+
+        @media (max-width: 430px) {
+          .header-actions {
+            grid-template-columns:
+              minmax(0, 1fr)
+              32px;
+          }
+
+          .manual-trigger {
+            grid-column: 1 / -1;
+            width: 100%;
+          }
+
+          .case-actions {
+            grid-template-columns:
+              repeat(3, minmax(0, 1fr));
+          }
+
+          .case-actions .deadline-button {
+            grid-column: span 2;
+          }
+        }
+
+        /* AL METHER CASES PREMIUM OVERRIDE */
+
+        html,
+        body {
+          background: var(--legal-bg);
+          color: var(--legal-text);
+        }
+
+        .cases-page {
+          height: 100dvh;
+          min-height: 100dvh;
+          overflow: hidden;
+          padding: 12px 16px 72px;
+          background: var(--legal-bg);
+          color: var(--legal-text);
+        }
+
+        .cases-shell {
+          width: min(1500px, calc(100vw - 32px));
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          margin: 0 auto;
+        }
+
+        .cases-header {
+          min-height: 46px;
+          flex: 0 0 auto;
+          margin-bottom: 8px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid var(--legal-border);
+        }
+
+        .cases-title small {
+          margin-bottom: 2px;
+          color: var(--legal-gold);
+          font-size: 7px;
+          letter-spacing: 0.16em;
+        }
+
+        .cases-title h1 {
+          color: var(--legal-text);
+          font-size: 15px;
+          font-weight: 850;
+          letter-spacing: -0.02em;
+        }
+
+        .cases-title p {
+          display: none;
+        }
+
+        .header-actions {
+          gap: 6px;
+        }
+
+        .search-input {
+          width: 250px;
+          height: 32px;
+          padding: 0 10px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface);
+          color: var(--legal-text);
+          font-size: 9px;
+        }
+
+        .search-input::placeholder {
+          color: var(--legal-muted);
+        }
+
+        .search-input:focus {
+          border-color: var(--legal-gold);
+          box-shadow: 0 0 0 3px var(--legal-gold-soft);
+        }
+
+        .manual-trigger,
+        .cases-theme-button {
+          height: 32px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface-2);
+          color: var(--legal-text-soft);
+          cursor: pointer;
+        }
+
+        .manual-trigger {
+          padding: 0 11px;
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .cases-theme-button {
+          width: 32px;
+          color: var(--legal-gold);
+          font-size: 13px;
+        }
+
+        .manual-trigger:hover,
+        .cases-theme-button:hover {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+        }
+
+        .manual-form {
+          flex: 0 0 auto;
+          margin-bottom: 7px;
+          padding: 7px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-md);
+          background: var(--legal-surface);
+        }
+
+        .manual-form input {
+          height: 31px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface-2);
+          color: var(--legal-text);
+          font-size: 9px;
+        }
+
+        .manual-form button {
+          height: 31px;
+          border: 1px solid var(--legal-gold);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-light);
+          font-size: 9px;
+        }
+
+        .cases-list {
+          min-height: 0;
+          flex: 1;
+          overflow-y: auto;
+          align-content: start;
+          gap: 5px;
+          padding-right: 3px;
+        }
+
+        .case-row {
+          min-height: 48px;
+          grid-template-columns:
+            185px
+            minmax(170px, 1fr)
+            auto
+            112px;
+          gap: 10px;
+          padding: 7px 10px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-md);
+          background: var(--legal-surface);
+          box-shadow: none;
+        }
+
+        .case-row:hover {
+          border-color: var(--legal-border-strong);
+        }
+
+        .case-row.selected {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+          box-shadow: inset 3px 0 0 var(--legal-gold);
+        }
+
+        .case-number {
+          color: var(--legal-text);
+          font-size: 10.5px;
+          font-weight: 900;
+        }
+
+        .case-court {
+          margin-top: 2px;
+          color: var(--legal-muted);
+          font-size: 8px;
+        }
+
+        .case-title {
+          color: var(--legal-text-soft);
+          font-size: 9px;
+          font-weight: 700;
+        }
+
+        .case-actions {
+          gap: 4px;
+        }
+
+        .case-actions button {
+          height: 27px;
+          padding: 0 8px;
+          border: 1px solid var(--legal-border);
+          border-radius: 7px;
+          background: var(--legal-surface-2);
+          color: var(--legal-muted);
+          font-size: 8px;
+          font-weight: 800;
+        }
+
+        .case-actions button:hover {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-light);
+        }
+
+        .case-meta {
+          color: var(--legal-muted);
+          font-size: 7.5px;
+        }
+
+        .case-status {
+          margin-top: 2px;
+          color: var(--legal-success);
+          font-size: 7.5px;
+        }
+
+        .case-inline-panel {
+          margin-top: 2px;
+          padding: 8px;
+          border-top: 1px solid var(--legal-border);
+          background: var(--legal-surface-2);
+        }
+
+        .case-mail-item,
+        .case-file-item {
+          border: 1px solid var(--legal-border);
+          background: var(--legal-surface);
+          color: var(--legal-text-soft);
+        }
+
+        .case-mail-subject,
+        .case-file-item strong {
+          color: var(--legal-text);
+        }
+
+        .case-mail-sender,
+        .case-mail-date,
+        .case-file-item span,
+        .inline-empty,
+        .state-box {
+          color: var(--legal-muted);
+        }
+
+        .case-note-area {
+          border: 1px solid var(--legal-border);
+          background: var(--legal-surface);
+          color: var(--legal-text);
+        }
+
+        .inline-error,
+        .inline-actions .danger {
+          color: var(--legal-danger);
+        }
+
+        .deadline-button.warning {
+          border-color: var(--legal-warning) !important;
+          color: var(--legal-warning) !important;
+        }
+
+        .deadline-button.urgent,
+        .deadline-button.critical,
+        .deadline-button.overdue {
+          border-color: var(--legal-danger) !important;
+          color: var(--legal-danger) !important;
+        }
+
+        @media (max-width: 900px) {
+          html,
+          body {
+            overflow-y: auto;
+          }
+
+          .cases-page {
+            height: auto;
+            min-height: 100dvh;
+            overflow: visible;
+            padding: 8px 7px 74px;
+          }
+
+          .cases-shell {
+            width: 100%;
+            height: auto;
+          }
+
+          .cases-header {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 7px;
+          }
+
+          .header-actions {
+            grid-template-columns:
+              minmax(0, 1fr)
+              32px
+              auto;
+          }
+
+          .search-input,
+          .cases-theme-button,
+          .manual-trigger {
+            height: 34px;
+          }
+
+          .cases-list {
+            overflow: visible;
+          }
+
+          .case-row {
+            grid-template-columns: 1fr;
+            gap: 6px;
+            padding: 9px;
+          }
+
+          .case-actions {
+            display: grid;
+            grid-template-columns:
+              repeat(5, minmax(0, 1fr));
+            gap: 4px;
+          }
+
+          .case-actions button {
+            width: 100%;
+            height: 32px;
+            padding: 0 3px;
+            font-size: 7.5px;
+          }
+
+          .case-meta {
+            padding-top: 5px;
+            border-top: 1px solid var(--legal-border);
+          }
+        }
+
+        @media (max-width: 430px) {
+          .header-actions {
+            grid-template-columns:
+              minmax(0, 1fr)
+              32px;
+          }
+
+          .manual-trigger {
+            grid-column: 1 / -1;
+            width: 100%;
+          }
+
+          .case-actions {
+            grid-template-columns:
+              repeat(3, minmax(0, 1fr));
+          }
+
+          .case-actions .deadline-button {
+            grid-column: span 2;
+          }
+        }
+
+
+        /* AL METHER CASES PREMIUM OVERRIDE */
+
+        html,
+        body {
+          background: var(--legal-bg);
+          color: var(--legal-text);
+        }
+
+        .cases-page {
+          height: 100dvh;
+          min-height: 100dvh;
+          overflow: hidden;
+          padding: 12px 16px 72px;
+          background: var(--legal-bg);
+          color: var(--legal-text);
+        }
+
+        .cases-shell {
+          width: min(1500px, calc(100vw - 32px));
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          margin: 0 auto;
+        }
+
+        .cases-header {
+          min-height: 46px;
+          flex: 0 0 auto;
+          margin-bottom: 8px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid var(--legal-border);
+        }
+
+        .cases-title small {
+          margin-bottom: 2px;
+          color: var(--legal-gold);
+          font-size: 7px;
+          letter-spacing: 0.16em;
+        }
+
+        .cases-title h1 {
+          color: var(--legal-text);
+          font-size: 15px;
+          font-weight: 850;
+          letter-spacing: -0.02em;
+        }
+
+        .cases-title p {
+          display: none;
+        }
+
+        .header-actions {
+          gap: 6px;
+        }
+
+        .search-input {
+          width: 250px;
+          height: 32px;
+          padding: 0 10px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface);
+          color: var(--legal-text);
+          font-size: 9px;
+        }
+
+        .search-input::placeholder {
+          color: var(--legal-muted);
+        }
+
+        .search-input:focus {
+          border-color: var(--legal-gold);
+          box-shadow: 0 0 0 3px var(--legal-gold-soft);
+        }
+
+        .manual-trigger,
+        .cases-theme-button {
+          height: 32px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface-2);
+          color: var(--legal-text-soft);
+          cursor: pointer;
+        }
+
+        .manual-trigger {
+          padding: 0 11px;
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .cases-theme-button {
+          width: 32px;
+          color: var(--legal-gold);
+          font-size: 13px;
+        }
+
+        .manual-trigger:hover,
+        .cases-theme-button:hover {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+        }
+
+        .manual-form {
+          flex: 0 0 auto;
+          margin-bottom: 7px;
+          padding: 7px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-md);
+          background: var(--legal-surface);
+        }
+
+        .manual-form input {
+          height: 31px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface-2);
+          color: var(--legal-text);
+          font-size: 9px;
+        }
+
+        .manual-form button {
+          height: 31px;
+          border: 1px solid var(--legal-gold);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-light);
+          font-size: 9px;
+        }
+
+        .cases-list {
+          min-height: 0;
+          flex: 1;
+          overflow-y: auto;
+          align-content: start;
+          gap: 5px;
+          padding-right: 3px;
+        }
+
+        .case-row {
+          min-height: 48px;
+          grid-template-columns:
+            185px
+            minmax(170px, 1fr)
+            auto
+            112px;
+          gap: 10px;
+          padding: 7px 10px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-md);
+          background: var(--legal-surface);
+          box-shadow: none;
+        }
+
+        .case-row:hover {
+          border-color: var(--legal-border-strong);
+        }
+
+        .case-row.selected {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+          box-shadow: inset 3px 0 0 var(--legal-gold);
+        }
+
+        .case-number {
+          color: var(--legal-text);
+          font-size: 10.5px;
+          font-weight: 900;
+        }
+
+        .case-court {
+          margin-top: 2px;
+          color: var(--legal-muted);
+          font-size: 8px;
+        }
+
+        .case-title {
+          color: var(--legal-text-soft);
+          font-size: 9px;
+          font-weight: 700;
+        }
+
+        .case-actions {
+          gap: 4px;
+        }
+
+        .case-actions button {
+          height: 27px;
+          padding: 0 8px;
+          border: 1px solid var(--legal-border);
+          border-radius: 7px;
+          background: var(--legal-surface-2);
+          color: var(--legal-muted);
+          font-size: 8px;
+          font-weight: 800;
+        }
+
+        .case-actions button:hover {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-light);
+        }
+
+        .case-meta {
+          color: var(--legal-muted);
+          font-size: 7.5px;
+        }
+
+        .case-status {
+          margin-top: 2px;
+          color: var(--legal-success);
+          font-size: 7.5px;
+        }
+
+        .case-inline-panel {
+          margin-top: 2px;
+          padding: 8px;
+          border-top: 1px solid var(--legal-border);
+          background: var(--legal-surface-2);
+        }
+
+        .case-mail-item,
+        .case-file-item {
+          border: 1px solid var(--legal-border);
+          background: var(--legal-surface);
+          color: var(--legal-text-soft);
+        }
+
+        .case-mail-subject,
+        .case-file-item strong {
+          color: var(--legal-text);
+        }
+
+        .case-mail-sender,
+        .case-mail-date,
+        .case-file-item span,
+        .inline-empty,
+        .state-box {
+          color: var(--legal-muted);
+        }
+
+        .case-note-area {
+          border: 1px solid var(--legal-border);
+          background: var(--legal-surface);
+          color: var(--legal-text);
+        }
+
+        .inline-error,
+        .inline-actions .danger {
+          color: var(--legal-danger);
+        }
+
+        .deadline-button.warning {
+          border-color: var(--legal-warning) !important;
+          color: var(--legal-warning) !important;
+        }
+
+        .deadline-button.urgent,
+        .deadline-button.critical,
+        .deadline-button.overdue {
+          border-color: var(--legal-danger) !important;
+          color: var(--legal-danger) !important;
+        }
+
+        @media (max-width: 900px) {
+          html,
+          body {
+            overflow-y: auto;
+          }
+
+          .cases-page {
+            height: auto;
+            min-height: 100dvh;
+            overflow: visible;
+            padding: 8px 7px 74px;
+          }
+
+          .cases-shell {
+            width: 100%;
+            height: auto;
+          }
+
+          .cases-header {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 7px;
+          }
+
+          .header-actions {
+            grid-template-columns:
+              minmax(0, 1fr)
+              32px
+              auto;
+          }
+
+          .search-input,
+          .cases-theme-button,
+          .manual-trigger {
+            height: 34px;
+          }
+
+          .cases-list {
+            overflow: visible;
+          }
+
+          .case-row {
+            grid-template-columns: 1fr;
+            gap: 6px;
+            padding: 9px;
+          }
+
+          .case-actions {
+            display: grid;
+            grid-template-columns:
+              repeat(5, minmax(0, 1fr));
+            gap: 4px;
+          }
+
+          .case-actions button {
+            width: 100%;
+            height: 32px;
+            padding: 0 3px;
+            font-size: 7.5px;
+          }
+
+          .case-meta {
+            padding-top: 5px;
+            border-top: 1px solid var(--legal-border);
+          }
+        }
+
+        @media (max-width: 430px) {
+          .header-actions {
+            grid-template-columns:
+              minmax(0, 1fr)
+              32px;
+          }
+
+          .manual-trigger {
+            grid-column: 1 / -1;
+            width: 100%;
+          }
+
+          .case-actions {
+            grid-template-columns:
+              repeat(3, minmax(0, 1fr));
+          }
+
+          .case-actions .deadline-button {
+            grid-column: span 2;
+          }
+        }
+ 
+        /* AL METHER CASES PREMIUM OVERRIDE */
+
+        html,
+        body {
+          background: var(--legal-bg);
+          color: var(--legal-text);
+        }
+
+        .cases-page {
+          height: 100dvh;
+          min-height: 100dvh;
+          overflow: hidden;
+          padding: 12px 16px 72px;
+          background: var(--legal-bg);
+          color: var(--legal-text);
+        }
+
+        .cases-shell {
+          width: min(1500px, calc(100vw - 32px));
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          margin: 0 auto;
+        }
+
+        .cases-header {
+          min-height: 46px;
+          flex: 0 0 auto;
+          margin-bottom: 8px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid var(--legal-border);
+        }
+
+        .cases-title small {
+          margin-bottom: 2px;
+          color: var(--legal-gold);
+          font-size: 7px;
+          letter-spacing: 0.16em;
+        }
+
+        .cases-title h1 {
+          color: var(--legal-text);
+          font-size: 15px;
+          font-weight: 850;
+          letter-spacing: -0.02em;
+        }
+
+        .cases-title p {
+          display: none;
+        }
+
+        .header-actions {
+          gap: 6px;
+        }
+
+        .search-input {
+          width: 250px;
+          height: 32px;
+          padding: 0 10px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface);
+          color: var(--legal-text);
+          font-size: 9px;
+        }
+
+        .search-input::placeholder {
+          color: var(--legal-muted);
+        }
+
+        .search-input:focus {
+          border-color: var(--legal-gold);
+          box-shadow: 0 0 0 3px var(--legal-gold-soft);
+        }
+
+        .manual-trigger,
+        .cases-theme-button {
+          height: 32px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface-2);
+          color: var(--legal-text-soft);
+          cursor: pointer;
+        }
+
+        .manual-trigger {
+          padding: 0 11px;
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .cases-theme-button {
+          width: 32px;
+          color: var(--legal-gold);
+          font-size: 13px;
+        }
+
+        .manual-trigger:hover,
+        .cases-theme-button:hover {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+        }
+
+        .manual-form {
+          flex: 0 0 auto;
+          margin-bottom: 7px;
+          padding: 7px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-md);
+          background: var(--legal-surface);
+        }
+
+        .manual-form input {
+          height: 31px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface-2);
+          color: var(--legal-text);
+          font-size: 9px;
+        }
+
+        .manual-form button {
+          height: 31px;
+          border: 1px solid var(--legal-gold);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-light);
+          font-size: 9px;
+        }
+
+        .cases-list {
+          min-height: 0;
+          flex: 1;
+          overflow-y: auto;
+          align-content: start;
+          gap: 5px;
+          padding-right: 3px;
+        }
+
+        .case-row {
+          min-height: 48px;
+          grid-template-columns:
+            185px
+            minmax(170px, 1fr)
+            auto
+            112px;
+          gap: 10px;
+          padding: 7px 10px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-md);
+          background: var(--legal-surface);
+          box-shadow: none;
+        }
+
+        .case-row:hover {
+          border-color: var(--legal-border-strong);
+        }
+
+        .case-row.selected {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+          box-shadow: inset 3px 0 0 var(--legal-gold);
+        }
+
+        .case-number {
+          color: var(--legal-text);
+          font-size: 10.5px;
+          font-weight: 900;
+        }
+
+        .case-court {
+          margin-top: 2px;
+          color: var(--legal-muted);
+          font-size: 8px;
+        }
+
+        .case-title {
+          color: var(--legal-text-soft);
+          font-size: 9px;
+          font-weight: 700;
+        }
+
+        .case-actions {
+          gap: 4px;
+        }
+
+        .case-actions button {
+          height: 27px;
+          padding: 0 8px;
+          border: 1px solid var(--legal-border);
+          border-radius: 7px;
+          background: var(--legal-surface-2);
+          color: var(--legal-muted);
+          font-size: 8px;
+          font-weight: 800;
+        }
+
+        .case-actions button:hover {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-light);
+        }
+
+        .case-meta {
+          color: var(--legal-muted);
+          font-size: 7.5px;
+        }
+
+        .case-status {
+          margin-top: 2px;
+          color: var(--legal-success);
+          font-size: 7.5px;
+        }
+
+        .case-inline-panel {
+          margin-top: 2px;
+          padding: 8px;
+          border-top: 1px solid var(--legal-border);
+          background: var(--legal-surface-2);
+        }
+
+        .case-mail-item,
+        .case-file-item {
+          border: 1px solid var(--legal-border);
+          background: var(--legal-surface);
+          color: var(--legal-text-soft);
+        }
+
+        .case-mail-subject,
+        .case-file-item strong {
+          color: var(--legal-text);
+        }
+
+        .case-mail-sender,
+        .case-mail-date,
+        .case-file-item span,
+        .inline-empty,
+        .state-box {
+          color: var(--legal-muted);
+        }
+
+        .case-note-area {
+          border: 1px solid var(--legal-border);
+          background: var(--legal-surface);
+          color: var(--legal-text);
+        }
+
+        .inline-error,
+        .inline-actions .danger {
+          color: var(--legal-danger);
+        }
+
+        .deadline-button.warning {
+          border-color: var(--legal-warning) !important;
+          color: var(--legal-warning) !important;
+        }
+
+        .deadline-button.urgent,
+        .deadline-button.critical,
+        .deadline-button.overdue {
+          border-color: var(--legal-danger) !important;
+          color: var(--legal-danger) !important;
+        }
+
+        @media (max-width: 900px) {
+          html,
+          body {
+            overflow-y: auto;
+          }
+
+          .cases-page {
+            height: auto;
+            min-height: 100dvh;
+            overflow: visible;
+            padding: 8px 7px 74px;
+          }
+
+          .cases-shell {
+            width: 100%;
+            height: auto;
+          }
+
+          .cases-header {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 7px;
+          }
+
+          .header-actions {
+            grid-template-columns:
+              minmax(0, 1fr)
+              32px
+              auto;
+          }
+
+          .search-input,
+          .cases-theme-button,
+          .manual-trigger {
+            height: 34px;
+          }
+
+          .cases-list {
+            overflow: visible;
+          }
+
+          .case-row {
+            grid-template-columns: 1fr;
+            gap: 6px;
+            padding: 9px;
+          }
+
+          .case-actions {
+            display: grid;
+            grid-template-columns:
+              repeat(5, minmax(0, 1fr));
+            gap: 4px;
+          }
+
+          .case-actions button {
+            width: 100%;
+            height: 32px;
+            padding: 0 3px;
+            font-size: 7.5px;
+          }
+
+          .case-meta {
+            padding-top: 5px;
+            border-top: 1px solid var(--legal-border);
+          }
+        }
+
+        @media (max-width: 430px) {
+          .header-actions {
+            grid-template-columns:
+              minmax(0, 1fr)
+              32px;
+          }
+
+          .manual-trigger {
+            grid-column: 1 / -1;
+            width: 100%;
+          }
+
+          .case-actions {
+            grid-template-columns:
+              repeat(3, minmax(0, 1fr));
+          }
+
+          .case-actions .deadline-button {
+            grid-column: span 2;
+          }
+        }
+ 
+        /* AL METHER CASES PREMIUM OVERRIDE */
+
+        html,
+        body {
+          background: var(--legal-bg);
+          color: var(--legal-text);
+        }
+
+        .cases-page {
+          height: 100dvh;
+          min-height: 100dvh;
+          overflow: hidden;
+          padding: 12px 16px 72px;
+          background: var(--legal-bg);
+          color: var(--legal-text);
+        }
+
+        .cases-shell {
+          width: min(1500px, calc(100vw - 32px));
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          margin: 0 auto;
+        }
+
+        .cases-header {
+          min-height: 46px;
+          flex: 0 0 auto;
+          margin-bottom: 8px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid var(--legal-border);
+        }
+
+        .cases-title small {
+          margin-bottom: 2px;
+          color: var(--legal-gold);
+          font-size: 7px;
+          letter-spacing: 0.16em;
+        }
+
+        .cases-title h1 {
+          color: var(--legal-text);
+          font-size: 15px;
+          font-weight: 850;
+          letter-spacing: -0.02em;
+        }
+
+        .cases-title p {
+          display: none;
+        }
+
+        .header-actions {
+          gap: 6px;
+        }
+
+        .search-input {
+          width: 250px;
+          height: 32px;
+          padding: 0 10px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface);
+          color: var(--legal-text);
+          font-size: 9px;
+        }
+
+        .search-input::placeholder {
+          color: var(--legal-muted);
+        }
+
+        .search-input:focus {
+          border-color: var(--legal-gold);
+          box-shadow: 0 0 0 3px var(--legal-gold-soft);
+        }
+
+        .manual-trigger,
+        .cases-theme-button {
+          height: 32px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface-2);
+          color: var(--legal-text-soft);
+          cursor: pointer;
+        }
+
+        .manual-trigger {
+          padding: 0 11px;
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .cases-theme-button {
+          width: 32px;
+          color: var(--legal-gold);
+          font-size: 13px;
+        }
+
+        .manual-trigger:hover,
+        .cases-theme-button:hover {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+        }
+
+        .manual-form {
+          flex: 0 0 auto;
+          margin-bottom: 7px;
+          padding: 7px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-md);
+          background: var(--legal-surface);
+        }
+
+        .manual-form input {
+          height: 31px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface-2);
+          color: var(--legal-text);
+          font-size: 9px;
+        }
+
+        .manual-form button {
+          height: 31px;
+          border: 1px solid var(--legal-gold);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-light);
+          font-size: 9px;
+        }
+
+        .cases-list {
+          min-height: 0;
+          flex: 1;
+          overflow-y: auto;
+          align-content: start;
+          gap: 5px;
+          padding-right: 3px;
+        }
+
+        .case-row {
+          min-height: 48px;
+          grid-template-columns:
+            185px
+            minmax(170px, 1fr)
+            auto
+            112px;
+          gap: 10px;
+          padding: 7px 10px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-md);
+          background: var(--legal-surface);
+          box-shadow: none;
+        }
+
+        .case-row:hover {
+          border-color: var(--legal-border-strong);
+        }
+
+        .case-row.selected {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+          box-shadow: inset 3px 0 0 var(--legal-gold);
+        }
+
+        .case-number {
+          color: var(--legal-text);
+          font-size: 10.5px;
+          font-weight: 900;
+        }
+
+        .case-court {
+          margin-top: 2px;
+          color: var(--legal-muted);
+          font-size: 8px;
+        }
+
+        .case-title {
+          color: var(--legal-text-soft);
+          font-size: 9px;
+          font-weight: 700;
+        }
+
+        .case-actions {
+          gap: 4px;
+        }
+
+        .case-actions button {
+          height: 27px;
+          padding: 0 8px;
+          border: 1px solid var(--legal-border);
+          border-radius: 7px;
+          background: var(--legal-surface-2);
+          color: var(--legal-muted);
+          font-size: 8px;
+          font-weight: 800;
+        }
+
+        .case-actions button:hover {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-light);
+        }
+
+        .case-meta {
+          color: var(--legal-muted);
+          font-size: 7.5px;
+        }
+
+        .case-status {
+          margin-top: 2px;
+          color: var(--legal-success);
+          font-size: 7.5px;
+        }
+
+        .case-inline-panel {
+          margin-top: 2px;
+          padding: 8px;
+          border-top: 1px solid var(--legal-border);
+          background: var(--legal-surface-2);
+        }
+
+        .case-mail-item,
+        .case-file-item {
+          border: 1px solid var(--legal-border);
+          background: var(--legal-surface);
+          color: var(--legal-text-soft);
+        }
+
+        .case-mail-subject,
+        .case-file-item strong {
+          color: var(--legal-text);
+        }
+
+        .case-mail-sender,
+        .case-mail-date,
+        .case-file-item span,
+        .inline-empty,
+        .state-box {
+          color: var(--legal-muted);
+        }
+
+        .case-note-area {
+          border: 1px solid var(--legal-border);
+          background: var(--legal-surface);
+          color: var(--legal-text);
+        }
+
+        .inline-error,
+        .inline-actions .danger {
+          color: var(--legal-danger);
+        }
+
+        .deadline-button.warning {
+          border-color: var(--legal-warning) !important;
+          color: var(--legal-warning) !important;
+        }
+
+        .deadline-button.urgent,
+        .deadline-button.critical,
+        .deadline-button.overdue {
+          border-color: var(--legal-danger) !important;
+          color: var(--legal-danger) !important;
+        }
+
+        @media (max-width: 900px) {
+          html,
+          body {
+            overflow-y: auto;
+          }
+
+          .cases-page {
+            height: auto;
+            min-height: 100dvh;
+            overflow: visible;
+            padding: 8px 7px 74px;
+          }
+
+          .cases-shell {
+            width: 100%;
+            height: auto;
+          }
+
+          .cases-header {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 7px;
+          }
+
+          .header-actions {
+            grid-template-columns:
+              minmax(0, 1fr)
+              32px
+              auto;
+          }
+
+          .search-input,
+          .cases-theme-button,
+          .manual-trigger {
+            height: 34px;
+          }
+
+          .cases-list {
+            overflow: visible;
+          }
+
+          .case-row {
+            grid-template-columns: 1fr;
+            gap: 6px;
+            padding: 9px;
+          }
+
+          .case-actions {
+            display: grid;
+            grid-template-columns:
+              repeat(5, minmax(0, 1fr));
+            gap: 4px;
+          }
+
+          .case-actions button {
+            width: 100%;
+            height: 32px;
+            padding: 0 3px;
+            font-size: 7.5px;
+          }
+
+          .case-meta {
+            padding-top: 5px;
+            border-top: 1px solid var(--legal-border);
+          }
+        }
+
+        @media (max-width: 430px) {
+          .header-actions {
+            grid-template-columns:
+              minmax(0, 1fr)
+              32px;
+          }
+
+          .manual-trigger {
+            grid-column: 1 / -1;
+            width: 100%;
+          }
+
+          .case-actions {
+            grid-template-columns:
+              repeat(3, minmax(0, 1fr));
+          }
+
+          .case-actions .deadline-button {
+            grid-column: span 2;
+          }
+        }
+ 
+        /* AL METHER CASES PREMIUM OVERRIDE */
+
+        html,
+        body {
+          background: var(--legal-bg);
+          color: var(--legal-text);
+        }
+
+        .cases-page {
+          height: 100dvh;
+          min-height: 100dvh;
+          overflow: hidden;
+          padding: 12px 16px 72px;
+          background: var(--legal-bg);
+          color: var(--legal-text);
+        }
+
+        .cases-shell {
+          width: min(1500px, calc(100vw - 32px));
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          margin: 0 auto;
+        }
+
+        .cases-header {
+          min-height: 46px;
+          flex: 0 0 auto;
+          margin-bottom: 8px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid var(--legal-border);
+        }
+
+        .cases-title small {
+          margin-bottom: 2px;
+          color: var(--legal-gold);
+          font-size: 7px;
+          letter-spacing: 0.16em;
+        }
+
+        .cases-title h1 {
+          color: var(--legal-text);
+          font-size: 15px;
+          font-weight: 850;
+          letter-spacing: -0.02em;
+        }
+
+        .cases-title p {
+          display: none;
+        }
+
+        .header-actions {
+          gap: 6px;
+        }
+
+        .search-input {
+          width: 250px;
+          height: 32px;
+          padding: 0 10px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface);
+          color: var(--legal-text);
+          font-size: 9px;
+        }
+
+        .search-input::placeholder {
+          color: var(--legal-muted);
+        }
+
+        .search-input:focus {
+          border-color: var(--legal-gold);
+          box-shadow: 0 0 0 3px var(--legal-gold-soft);
+        }
+
+        .manual-trigger,
+        .cases-theme-button {
+          height: 32px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface-2);
+          color: var(--legal-text-soft);
+          cursor: pointer;
+        }
+
+        .manual-trigger {
+          padding: 0 11px;
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .cases-theme-button {
+          width: 32px;
+          color: var(--legal-gold);
+          font-size: 13px;
+        }
+
+        .manual-trigger:hover,
+        .cases-theme-button:hover {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+        }
+
+        .manual-form {
+          flex: 0 0 auto;
+          margin-bottom: 7px;
+          padding: 7px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-md);
+          background: var(--legal-surface);
+        }
+
+        .manual-form input {
+          height: 31px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface-2);
+          color: var(--legal-text);
+          font-size: 9px;
+        }
+
+        .manual-form button {
+          height: 31px;
+          border: 1px solid var(--legal-gold);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-light);
+          font-size: 9px;
+        }
+
+        .cases-list {
+          min-height: 0;
+          flex: 1;
+          overflow-y: auto;
+          align-content: start;
+          gap: 5px;
+          padding-right: 3px;
+        }
+
+        .case-row {
+          min-height: 48px;
+          grid-template-columns:
+            185px
+            minmax(170px, 1fr)
+            auto
+            112px;
+          gap: 10px;
+          padding: 7px 10px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-md);
+          background: var(--legal-surface);
+          box-shadow: none;
+        }
+
+        .case-row:hover {
+          border-color: var(--legal-border-strong);
+        }
+
+        .case-row.selected {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+          box-shadow: inset 3px 0 0 var(--legal-gold);
+        }
+
+        .case-number {
+          color: var(--legal-text);
+          font-size: 10.5px;
+          font-weight: 900;
+        }
+
+        .case-court {
+          margin-top: 2px;
+          color: var(--legal-muted);
+          font-size: 8px;
+        }
+
+        .case-title {
+          color: var(--legal-text-soft);
+          font-size: 9px;
+          font-weight: 700;
+        }
+
+        .case-actions {
+          gap: 4px;
+        }
+
+        .case-actions button {
+          height: 27px;
+          padding: 0 8px;
+          border: 1px solid var(--legal-border);
+          border-radius: 7px;
+          background: var(--legal-surface-2);
+          color: var(--legal-muted);
+          font-size: 8px;
+          font-weight: 800;
+        }
+
+        .case-actions button:hover {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-light);
+        }
+
+        .case-meta {
+          color: var(--legal-muted);
+          font-size: 7.5px;
+        }
+
+        .case-status {
+          margin-top: 2px;
+          color: var(--legal-success);
+          font-size: 7.5px;
+        }
+
+        .case-inline-panel {
+          margin-top: 2px;
+          padding: 8px;
+          border-top: 1px solid var(--legal-border);
+          background: var(--legal-surface-2);
+        }
+
+        .case-mail-item,
+        .case-file-item {
+          border: 1px solid var(--legal-border);
+          background: var(--legal-surface);
+          color: var(--legal-text-soft);
+        }
+
+        .case-mail-subject,
+        .case-file-item strong {
+          color: var(--legal-text);
+        }
+
+        .case-mail-sender,
+        .case-mail-date,
+        .case-file-item span,
+        .inline-empty,
+        .state-box {
+          color: var(--legal-muted);
+        }
+
+        .case-note-area {
+          border: 1px solid var(--legal-border);
+          background: var(--legal-surface);
+          color: var(--legal-text);
+        }
+
+        .inline-error,
+        .inline-actions .danger {
+          color: var(--legal-danger);
+        }
+
+        .deadline-button.warning {
+          border-color: var(--legal-warning) !important;
+          color: var(--legal-warning) !important;
+        }
+
+        .deadline-button.urgent,
+        .deadline-button.critical,
+        .deadline-button.overdue {
+          border-color: var(--legal-danger) !important;
+          color: var(--legal-danger) !important;
+        }
+
+        @media (max-width: 900px) {
+          html,
+          body {
+            overflow-y: auto;
+          }
+
+          .cases-page {
+            height: auto;
+            min-height: 100dvh;
+            overflow: visible;
+            padding: 8px 7px 74px;
+          }
+
+          .cases-shell {
+            width: 100%;
+            height: auto;
+          }
+
+          .cases-header {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 7px;
+          }
+
+          .header-actions {
+            grid-template-columns:
+              minmax(0, 1fr)
+              32px
+              auto;
+          }
+
+          .search-input,
+          .cases-theme-button,
+          .manual-trigger {
+            height: 34px;
+          }
+
+          .cases-list {
+            overflow: visible;
+          }
+
+          .case-row {
+            grid-template-columns: 1fr;
+            gap: 6px;
+            padding: 9px;
+          }
+
+          .case-actions {
+            display: grid;
+            grid-template-columns:
+              repeat(5, minmax(0, 1fr));
+            gap: 4px;
+          }
+
+          .case-actions button {
+            width: 100%;
+            height: 32px;
+            padding: 0 3px;
+            font-size: 7.5px;
+          }
+
+          .case-meta {
+            padding-top: 5px;
+            border-top: 1px solid var(--legal-border);
+          }
+        }
+
+        @media (max-width: 430px) {
+          .header-actions {
+            grid-template-columns:
+              minmax(0, 1fr)
+              32px;
+          }
+
+          .manual-trigger {
+            grid-column: 1 / -1;
+            width: 100%;
+          }
+
+          .case-actions {
+            grid-template-columns:
+              repeat(3, minmax(0, 1fr));
+          }
+
+          .case-actions .deadline-button {
+            grid-column: span 2;
+          }
+        }
+ 
+        /* AL METHER CASES PREMIUM OVERRIDE */
+
+        html,
+        body {
+          background: var(--legal-bg);
+          color: var(--legal-text);
+        }
+
+        .cases-page {
+          height: 100dvh;
+          min-height: 100dvh;
+          overflow: hidden;
+          padding: 12px 16px 72px;
+          background: var(--legal-bg);
+          color: var(--legal-text);
+        }
+
+        .cases-shell {
+          width: min(1500px, calc(100vw - 32px));
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          margin: 0 auto;
+        }
+
+        .cases-header {
+          min-height: 46px;
+          flex: 0 0 auto;
+          margin-bottom: 8px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid var(--legal-border);
+        }
+
+        .cases-title small {
+          margin-bottom: 2px;
+          color: var(--legal-gold);
+          font-size: 7px;
+          letter-spacing: 0.16em;
+        }
+
+        .cases-title h1 {
+          color: var(--legal-text);
+          font-size: 15px;
+          font-weight: 850;
+          letter-spacing: -0.02em;
+        }
+
+        .cases-title p {
+          display: none;
+        }
+
+        .header-actions {
+          gap: 6px;
+        }
+
+        .search-input {
+          width: 250px;
+          height: 32px;
+          padding: 0 10px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface);
+          color: var(--legal-text);
+          font-size: 9px;
+        }
+
+        .search-input::placeholder {
+          color: var(--legal-muted);
+        }
+
+        .search-input:focus {
+          border-color: var(--legal-gold);
+          box-shadow: 0 0 0 3px var(--legal-gold-soft);
+        }
+
+        .manual-trigger,
+        .cases-theme-button {
+          height: 32px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface-2);
+          color: var(--legal-text-soft);
+          cursor: pointer;
+        }
+
+        .manual-trigger {
+          padding: 0 11px;
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .cases-theme-button {
+          width: 32px;
+          color: var(--legal-gold);
+          font-size: 13px;
+        }
+
+        .manual-trigger:hover,
+        .cases-theme-button:hover {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+        }
+
+        .manual-form {
+          flex: 0 0 auto;
+          margin-bottom: 7px;
+          padding: 7px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-md);
+          background: var(--legal-surface);
+        }
+
+        .manual-form input {
+          height: 31px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface-2);
+          color: var(--legal-text);
+          font-size: 9px;
+        }
+
+        .manual-form button {
+          height: 31px;
+          border: 1px solid var(--legal-gold);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-light);
+          font-size: 9px;
+        }
+
+        .cases-list {
+          min-height: 0;
+          flex: 1;
+          overflow-y: auto;
+          align-content: start;
+          gap: 5px;
+          padding-right: 3px;
+        }
+
+        .case-row {
+          min-height: 48px;
+          grid-template-columns:
+            185px
+            minmax(170px, 1fr)
+            auto
+            112px;
+          gap: 10px;
+          padding: 7px 10px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-md);
+          background: var(--legal-surface);
+          box-shadow: none;
+        }
+
+        .case-row:hover {
+          border-color: var(--legal-border-strong);
+        }
+
+        .case-row.selected {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+          box-shadow: inset 3px 0 0 var(--legal-gold);
+        }
+
+        .case-number {
+          color: var(--legal-text);
+          font-size: 10.5px;
+          font-weight: 900;
+        }
+
+        .case-court {
+          margin-top: 2px;
+          color: var(--legal-muted);
+          font-size: 8px;
+        }
+
+        .case-title {
+          color: var(--legal-text-soft);
+          font-size: 9px;
+          font-weight: 700;
+        }
+
+        .case-actions {
+          gap: 4px;
+        }
+
+        .case-actions button {
+          height: 27px;
+          padding: 0 8px;
+          border: 1px solid var(--legal-border);
+          border-radius: 7px;
+          background: var(--legal-surface-2);
+          color: var(--legal-muted);
+          font-size: 8px;
+          font-weight: 800;
+        }
+
+        .case-actions button:hover {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-light);
+        }
+
+        .case-meta {
+          color: var(--legal-muted);
+          font-size: 7.5px;
+        }
+
+        .case-status {
+          margin-top: 2px;
+          color: var(--legal-success);
+          font-size: 7.5px;
+        }
+
+        .case-inline-panel {
+          margin-top: 2px;
+          padding: 8px;
+          border-top: 1px solid var(--legal-border);
+          background: var(--legal-surface-2);
+        }
+
+        .case-mail-item,
+        .case-file-item {
+          border: 1px solid var(--legal-border);
+          background: var(--legal-surface);
+          color: var(--legal-text-soft);
+        }
+
+        .case-mail-subject,
+        .case-file-item strong {
+          color: var(--legal-text);
+        }
+
+        .case-mail-sender,
+        .case-mail-date,
+        .case-file-item span,
+        .inline-empty,
+        .state-box {
+          color: var(--legal-muted);
+        }
+
+        .case-note-area {
+          border: 1px solid var(--legal-border);
+          background: var(--legal-surface);
+          color: var(--legal-text);
+        }
+
+        .inline-error,
+        .inline-actions .danger {
+          color: var(--legal-danger);
+        }
+
+        .deadline-button.warning {
+          border-color: var(--legal-warning) !important;
+          color: var(--legal-warning) !important;
+        }
+
+        .deadline-button.urgent,
+        .deadline-button.critical,
+        .deadline-button.overdue {
+          border-color: var(--legal-danger) !important;
+          color: var(--legal-danger) !important;
+        }
+
+        @media (max-width: 900px) {
+          html,
+          body {
+            overflow-y: auto;
+          }
+
+          .cases-page {
+            height: auto;
+            min-height: 100dvh;
+            overflow: visible;
+            padding: 8px 7px 74px;
+          }
+
+          .cases-shell {
+            width: 100%;
+            height: auto;
+          }
+
+          .cases-header {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 7px;
+          }
+
+          .header-actions {
+            grid-template-columns:
+              minmax(0, 1fr)
+              32px
+              auto;
+          }
+
+          .search-input,
+          .cases-theme-button,
+          .manual-trigger {
+            height: 34px;
+          }
+
+          .cases-list {
+            overflow: visible;
+          }
+
+          .case-row {
+            grid-template-columns: 1fr;
+            gap: 6px;
+            padding: 9px;
+          }
+
+          .case-actions {
+            display: grid;
+            grid-template-columns:
+              repeat(5, minmax(0, 1fr));
+            gap: 4px;
+          }
+
+          .case-actions button {
+            width: 100%;
+            height: 32px;
+            padding: 0 3px;
+            font-size: 7.5px;
+          }
+
+          .case-meta {
+            padding-top: 5px;
+            border-top: 1px solid var(--legal-border);
+          }
+        }
+
+        @media (max-width: 430px) {
+          .header-actions {
+            grid-template-columns:
+              minmax(0, 1fr)
+              32px;
+          }
+
+          .manual-trigger {
+            grid-column: 1 / -1;
+            width: 100%;
+          }
+
+          .case-actions {
+            grid-template-columns:
+              repeat(3, minmax(0, 1fr));
+          }
+
+          .case-actions .deadline-button {
+            grid-column: span 2;
+          }
+        }
+ 
+        /* AL METHER CASES PREMIUM OVERRIDE */
+
+        html,
+        body {
+          background: var(--legal-bg);
+          color: var(--legal-text);
+        }
+
+        .cases-page {
+          height: 100dvh;
+          min-height: 100dvh;
+          overflow: hidden;
+          padding: 12px 16px 72px;
+          background: var(--legal-bg);
+          color: var(--legal-text);
+        }
+
+        .cases-shell {
+          width: min(1500px, calc(100vw - 32px));
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          margin: 0 auto;
+        }
+
+        .cases-header {
+          min-height: 46px;
+          flex: 0 0 auto;
+          margin-bottom: 8px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid var(--legal-border);
+        }
+
+        .cases-title small {
+          margin-bottom: 2px;
+          color: var(--legal-gold);
+          font-size: 7px;
+          letter-spacing: 0.16em;
+        }
+
+        .cases-title h1 {
+          color: var(--legal-text);
+          font-size: 15px;
+          font-weight: 850;
+          letter-spacing: -0.02em;
+        }
+
+        .cases-title p {
+          display: none;
+        }
+
+        .header-actions {
+          gap: 6px;
+        }
+
+        .search-input {
+          width: 250px;
+          height: 32px;
+          padding: 0 10px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface);
+          color: var(--legal-text);
+          font-size: 9px;
+        }
+
+        .search-input::placeholder {
+          color: var(--legal-muted);
+        }
+
+        .search-input:focus {
+          border-color: var(--legal-gold);
+          box-shadow: 0 0 0 3px var(--legal-gold-soft);
+        }
+
+        .manual-trigger,
+        .cases-theme-button {
+          height: 32px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface-2);
+          color: var(--legal-text-soft);
+          cursor: pointer;
+        }
+
+        .manual-trigger {
+          padding: 0 11px;
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .cases-theme-button {
+          width: 32px;
+          color: var(--legal-gold);
+          font-size: 13px;
+        }
+
+        .manual-trigger:hover,
+        .cases-theme-button:hover {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+        }
+
+        .manual-form {
+          flex: 0 0 auto;
+          margin-bottom: 7px;
+          padding: 7px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-md);
+          background: var(--legal-surface);
+        }
+
+        .manual-form input {
+          height: 31px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface-2);
+          color: var(--legal-text);
+          font-size: 9px;
+        }
+
+        .manual-form button {
+          height: 31px;
+          border: 1px solid var(--legal-gold);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-light);
+          font-size: 9px;
+        }
+
+        .cases-list {
+          min-height: 0;
+          flex: 1;
+          overflow-y: auto;
+          align-content: start;
+          gap: 5px;
+          padding-right: 3px;
+        }
+
+        .case-row {
+          min-height: 48px;
+          grid-template-columns:
+            185px
+            minmax(170px, 1fr)
+            auto
+            112px;
+          gap: 10px;
+          padding: 7px 10px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-md);
+          background: var(--legal-surface);
+          box-shadow: none;
+        }
+
+        .case-row:hover {
+          border-color: var(--legal-border-strong);
+        }
+
+        .case-row.selected {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+          box-shadow: inset 3px 0 0 var(--legal-gold);
+        }
+
+        .case-number {
+          color: var(--legal-text);
+          font-size: 10.5px;
+          font-weight: 900;
+        }
+
+        .case-court {
+          margin-top: 2px;
+          color: var(--legal-muted);
+          font-size: 8px;
+        }
+
+        .case-title {
+          color: var(--legal-text-soft);
+          font-size: 9px;
+          font-weight: 700;
+        }
+
+        .case-actions {
+          gap: 4px;
+        }
+
+        .case-actions button {
+          height: 27px;
+          padding: 0 8px;
+          border: 1px solid var(--legal-border);
+          border-radius: 7px;
+          background: var(--legal-surface-2);
+          color: var(--legal-muted);
+          font-size: 8px;
+          font-weight: 800;
+        }
+
+        .case-actions button:hover {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-light);
+        }
+
+        .case-meta {
+          color: var(--legal-muted);
+          font-size: 7.5px;
+        }
+
+        .case-status {
+          margin-top: 2px;
+          color: var(--legal-success);
+          font-size: 7.5px;
+        }
+
+        .case-inline-panel {
+          margin-top: 2px;
+          padding: 8px;
+          border-top: 1px solid var(--legal-border);
+          background: var(--legal-surface-2);
+        }
+
+        .case-mail-item,
+        .case-file-item {
+          border: 1px solid var(--legal-border);
+          background: var(--legal-surface);
+          color: var(--legal-text-soft);
+        }
+
+        .case-mail-subject,
+        .case-file-item strong {
+          color: var(--legal-text);
+        }
+
+        .case-mail-sender,
+        .case-mail-date,
+        .case-file-item span,
+        .inline-empty,
+        .state-box {
+          color: var(--legal-muted);
+        }
+
+        .case-note-area {
+          border: 1px solid var(--legal-border);
+          background: var(--legal-surface);
+          color: var(--legal-text);
+        }
+
+        .inline-error,
+        .inline-actions .danger {
+          color: var(--legal-danger);
+        }
+
+        .deadline-button.warning {
+          border-color: var(--legal-warning) !important;
+          color: var(--legal-warning) !important;
+        }
+
+        .deadline-button.urgent,
+        .deadline-button.critical,
+        .deadline-button.overdue {
+          border-color: var(--legal-danger) !important;
+          color: var(--legal-danger) !important;
+        }
+
+        @media (max-width: 900px) {
+          html,
+          body {
+            overflow-y: auto;
+          }
+
+          .cases-page {
+            height: auto;
+            min-height: 100dvh;
+            overflow: visible;
+            padding: 8px 7px 74px;
+          }
+
+          .cases-shell {
+            width: 100%;
+            height: auto;
+          }
+
+          .cases-header {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 7px;
+          }
+
+          .header-actions {
+            grid-template-columns:
+              minmax(0, 1fr)
+              32px
+              auto;
+          }
+
+          .search-input,
+          .cases-theme-button,
+          .manual-trigger {
+            height: 34px;
+          }
+
+          .cases-list {
+            overflow: visible;
+          }
+
+          .case-row {
+            grid-template-columns: 1fr;
+            gap: 6px;
+            padding: 9px;
+          }
+
+          .case-actions {
+            display: grid;
+            grid-template-columns:
+              repeat(5, minmax(0, 1fr));
+            gap: 4px;
+          }
+
+          .case-actions button {
+            width: 100%;
+            height: 32px;
+            padding: 0 3px;
+            font-size: 7.5px;
+          }
+
+          .case-meta {
+            padding-top: 5px;
+            border-top: 1px solid var(--legal-border);
+          }
+        }
+
+        @media (max-width: 430px) {
+          .header-actions {
+            grid-template-columns:
+              minmax(0, 1fr)
+              32px;
+          }
+
+          .manual-trigger {
+            grid-column: 1 / -1;
+            width: 100%;
+          }
+
+          .case-actions {
+            grid-template-columns:
+              repeat(3, minmax(0, 1fr));
+          }
+
+          .case-actions .deadline-button {
+            grid-column: span 2;
+          }
+        }
+ 
+        /* AL METHER CASES PREMIUM OVERRIDE */
+
+        html,
+        body {
+          background: var(--legal-bg);
+          color: var(--legal-text);
+        }
+
+        .cases-page {
+          height: 100dvh;
+          min-height: 100dvh;
+          overflow: hidden;
+          padding: 12px 16px 72px;
+          background: var(--legal-bg);
+          color: var(--legal-text);
+        }
+
+        .cases-shell {
+          width: min(1500px, calc(100vw - 32px));
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          margin: 0 auto;
+        }
+
+        .cases-header {
+          min-height: 46px;
+          flex: 0 0 auto;
+          margin-bottom: 8px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid var(--legal-border);
+        }
+
+        .cases-title small {
+          margin-bottom: 2px;
+          color: var(--legal-gold);
+          font-size: 7px;
+          letter-spacing: 0.16em;
+        }
+
+        .cases-title h1 {
+          color: var(--legal-text);
+          font-size: 15px;
+          font-weight: 850;
+          letter-spacing: -0.02em;
+        }
+
+        .cases-title p {
+          display: none;
+        }
+
+        .header-actions {
+          gap: 6px;
+        }
+
+        .search-input {
+          width: 250px;
+          height: 32px;
+          padding: 0 10px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface);
+          color: var(--legal-text);
+          font-size: 9px;
+        }
+
+        .search-input::placeholder {
+          color: var(--legal-muted);
+        }
+
+        .search-input:focus {
+          border-color: var(--legal-gold);
+          box-shadow: 0 0 0 3px var(--legal-gold-soft);
+        }
+
+        .manual-trigger,
+        .cases-theme-button {
+          height: 32px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface-2);
+          color: var(--legal-text-soft);
+          cursor: pointer;
+        }
+
+        .manual-trigger {
+          padding: 0 11px;
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .cases-theme-button {
+          width: 32px;
+          color: var(--legal-gold);
+          font-size: 13px;
+        }
+
+        .manual-trigger:hover,
+        .cases-theme-button:hover {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+        }
+
+        .manual-form {
+          flex: 0 0 auto;
+          margin-bottom: 7px;
+          padding: 7px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-md);
+          background: var(--legal-surface);
+        }
+
+        .manual-form input {
+          height: 31px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface-2);
+          color: var(--legal-text);
+          font-size: 9px;
+        }
+
+        .manual-form button {
+          height: 31px;
+          border: 1px solid var(--legal-gold);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-light);
+          font-size: 9px;
+        }
+
+        .cases-list {
+          min-height: 0;
+          flex: 1;
+          overflow-y: auto;
+          align-content: start;
+          gap: 5px;
+          padding-right: 3px;
+        }
+
+        .case-row {
+          min-height: 48px;
+          grid-template-columns:
+            185px
+            minmax(170px, 1fr)
+            auto
+            112px;
+          gap: 10px;
+          padding: 7px 10px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-md);
+          background: var(--legal-surface);
+          box-shadow: none;
+        }
+
+        .case-row:hover {
+          border-color: var(--legal-border-strong);
+        }
+
+        .case-row.selected {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+          box-shadow: inset 3px 0 0 var(--legal-gold);
+        }
+
+        .case-number {
+          color: var(--legal-text);
+          font-size: 10.5px;
+          font-weight: 900;
+        }
+
+        .case-court {
+          margin-top: 2px;
+          color: var(--legal-muted);
+          font-size: 8px;
+        }
+
+        .case-title {
+          color: var(--legal-text-soft);
+          font-size: 9px;
+          font-weight: 700;
+        }
+
+        .case-actions {
+          gap: 4px;
+        }
+
+        .case-actions button {
+          height: 27px;
+          padding: 0 8px;
+          border: 1px solid var(--legal-border);
+          border-radius: 7px;
+          background: var(--legal-surface-2);
+          color: var(--legal-muted);
+          font-size: 8px;
+          font-weight: 800;
+        }
+
+        .case-actions button:hover {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-light);
+        }
+
+        .case-meta {
+          color: var(--legal-muted);
+          font-size: 7.5px;
+        }
+
+        .case-status {
+          margin-top: 2px;
+          color: var(--legal-success);
+          font-size: 7.5px;
+        }
+
+        .case-inline-panel {
+          margin-top: 2px;
+          padding: 8px;
+          border-top: 1px solid var(--legal-border);
+          background: var(--legal-surface-2);
+        }
+
+        .case-mail-item,
+        .case-file-item {
+          border: 1px solid var(--legal-border);
+          background: var(--legal-surface);
+          color: var(--legal-text-soft);
+        }
+
+        .case-mail-subject,
+        .case-file-item strong {
+          color: var(--legal-text);
+        }
+
+        .case-mail-sender,
+        .case-mail-date,
+        .case-file-item span,
+        .inline-empty,
+        .state-box {
+          color: var(--legal-muted);
+        }
+
+        .case-note-area {
+          border: 1px solid var(--legal-border);
+          background: var(--legal-surface);
+          color: var(--legal-text);
+        }
+
+        .inline-error,
+        .inline-actions .danger {
+          color: var(--legal-danger);
+        }
+
+        .deadline-button.warning {
+          border-color: var(--legal-warning) !important;
+          color: var(--legal-warning) !important;
+        }
+
+        .deadline-button.urgent,
+        .deadline-button.critical,
+        .deadline-button.overdue {
+          border-color: var(--legal-danger) !important;
+          color: var(--legal-danger) !important;
+        }
+
+        @media (max-width: 900px) {
+          html,
+          body {
+            overflow-y: auto;
+          }
+
+          .cases-page {
+            height: auto;
+            min-height: 100dvh;
+            overflow: visible;
+            padding: 8px 7px 74px;
+          }
+
+          .cases-shell {
+            width: 100%;
+            height: auto;
+          }
+
+          .cases-header {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 7px;
+          }
+
+          .header-actions {
+            grid-template-columns:
+              minmax(0, 1fr)
+              32px
+              auto;
+          }
+
+          .search-input,
+          .cases-theme-button,
+          .manual-trigger {
+            height: 34px;
+          }
+
+          .cases-list {
+            overflow: visible;
+          }
+
+          .case-row {
+            grid-template-columns: 1fr;
+            gap: 6px;
+            padding: 9px;
+          }
+
+          .case-actions {
+            display: grid;
+            grid-template-columns:
+              repeat(5, minmax(0, 1fr));
+            gap: 4px;
+          }
+
+          .case-actions button {
+            width: 100%;
+            height: 32px;
+            padding: 0 3px;
+            font-size: 7.5px;
+          }
+
+          .case-meta {
+            padding-top: 5px;
+            border-top: 1px solid var(--legal-border);
+          }
+        }
+
+        @media (max-width: 430px) {
+          .header-actions {
+            grid-template-columns:
+              minmax(0, 1fr)
+              32px;
+          }
+
+          .manual-trigger {
+            grid-column: 1 / -1;
+            width: 100%;
+          }
+
+          .case-actions {
+            grid-template-columns:
+              repeat(3, minmax(0, 1fr));
+          }
+
+          .case-actions .deadline-button {
+            grid-column: span 2;
+          }
+        }
+
+        /* =================================================
+           AL METHER LEGAL — MOBILE FINAL POLISH
+           ================================================= */
+
+        @media (max-width: 760px) {
+
+          html,
+          body {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+          }
+
+          button,
+          input,
+          textarea,
+          select {
+            -webkit-tap-highlight-color:
+              transparent;
+          }
+
+          button {
+            touch-action:
+              manipulation;
+          }
+
+          input,
+          textarea {
+            font-size: 16px;
+          }
+        }
+
+        @media (max-width: 520px) {
+
+          .inbox-page,
+          .cases-page,
+          .lawyer-calendar {
+            padding-bottom:
+              calc(
+                72px +
+                env(
+                  safe-area-inset-bottom
+                )
+              );
+          }
+
+          .inbox-header {
+            min-width: 0;
+          }
+
+          .brand {
+            min-width: 0;
+          }
+
+          .brand strong {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .mail-status {
+            max-width: 82px;
+
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .inbox-tools {
+            grid-template-columns:
+              minmax(0, 1fr)
+              auto
+              34px;
+          }
+
+          .mail-row {
+            min-height: 68px;
+
+            padding:
+              8px 9px;
+          }
+
+          .mail-row strong {
+            font-size: 10px;
+          }
+
+          .mail-preview {
+            -webkit-line-clamp: 1;
+
+            font-size: 8.5px;
+          }
+
+          .detail-header {
+            align-items: flex-start;
+          }
+
+          .detail-heading {
+            width: 100%;
+          }
+
+          .detail-heading h1 {
+            max-width:
+              calc(
+                100vw -
+                84px
+              );
+
+            white-space: normal;
+
+            display: -webkit-box;
+            -webkit-box-orient:
+              vertical;
+            -webkit-line-clamp: 2;
+
+            line-height: 1.3;
+          }
+
+          .detail-meta {
+            flex-wrap: wrap;
+          }
+
+          .mail-content {
+            overscroll-behavior:
+              contain;
+          }
+
+          .cases-header {
+            position: relative;
+          }
+
+          .search-input {
+            min-width: 0;
+            width: 100%;
+          }
+
+          .case-row {
+            width: 100%;
+            min-width: 0;
+          }
+
+          .case-court,
+          .case-title {
+            overflow-wrap: anywhere;
+          }
+
+          .case-actions {
+            width: 100%;
+          }
+
+          .case-actions button {
+            min-width: 0;
+
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .case-inline-panel {
+            width: 100%;
+            min-width: 0;
+
+            overflow: hidden;
+          }
+
+          .case-mail-item,
+          .case-file-item {
+            min-width: 0;
+          }
+
+          .case-file-toolbar {
+            justify-content:
+              stretch;
+          }
+
+          .case-file-upload {
+            width: 100%;
+          }
+
+          .workspace {
+            max-width: 100%;
+          }
+
+          .calendar-panel,
+          .detail-panel {
+            min-width: 0;
+            max-width: 100%;
+          }
+
+          .calendar-toolbar {
+            flex-wrap: wrap;
+          }
+
+          .calendar-navigation {
+            width: 100%;
+
+            justify-content:
+              center;
+          }
+
+          .month-title {
+            flex: 1;
+            min-width: 0;
+          }
+
+          .month-grid {
+            width: 100%;
+          }
+
+          .day-cell {
+            min-width: 0;
+          }
+
+          .event-count-chip {
+            max-width: 100%;
+
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .detail-panel {
+            margin-top: 6px;
+          }
+
+          .detail-date {
+            font-size: 12px;
+          }
+
+          .event-selector-list {
+            overflow-x: auto;
+
+            scrollbar-width: none;
+          }
+
+          .event-selector-list::-webkit-scrollbar {
+            display: none;
+          }
+
+          .event-selector-button {
+            flex:
+              0 0 120px;
+          }
+
+          .detail-tabs {
+            width: 100%;
+
+            overflow-x: auto;
+
+            scrollbar-width: none;
+          }
+
+          .detail-tabs::-webkit-scrollbar {
+            display: none;
+          }
+
+          .detail-tab {
+            min-width: 68px;
+          }
+
+          .detail-content {
+            overflow-y: visible;
+          }
+        }
+
+        @media (max-width: 390px) {
+
+          .brand-mark {
+            width: 25px;
+            height: 25px;
+          }
+
+          .mail-status {
+            max-width: 68px;
+
+            font-size: 7px;
+          }
+
+          .case-actions {
+            grid-template-columns:
+              repeat(
+                2,
+                minmax(0, 1fr)
+              );
+          }
+
+          .case-actions
+          .deadline-button {
+            grid-column: auto;
+          }
+
+          .weekday {
+            padding:
+              4px 1px;
+          }
+
+          .day-cell {
+            min-height: 49px;
+          }
+
+          .day-number {
+            width: 19px;
+            height: 19px;
+          }
+        }
+`}</style>
 
       <div className="cases-shell">
         <header className="cases-header">
@@ -1357,6 +4882,17 @@ export default function CasesPage() {
               }
               placeholder="Dava no veya mahkeme ara..."
             />
+
+            <button
+              type="button"
+              className="cases-theme-button"
+              onClick={toggleTheme}
+              title="Tema değiştir"
+            >
+              {theme === "dark"
+                ? "☀"
+                : "◐"}
+            </button>
 
             <button
               type="button"
@@ -1461,7 +4997,7 @@ export default function CasesPage() {
                   return (
                     <article
                       key={item.id}
-                      className="case-row"
+                      className={`case-row ${openCaseId === item.id ? "selected" : ""}`}
                     >
                       <div>
                         <div className="case-number">
@@ -1874,6 +5410,10 @@ export default function CasesPage() {
     </main>
   );
 }
+
+
+
+
 
 
 

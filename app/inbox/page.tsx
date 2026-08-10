@@ -1,439 +1,1194 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 
-import TopBar from "@/components/layout/TopBar";
-import LegalSessionControl from "@/components/LegalSessionControl";
 import LegalDock from "@/components/LegalDock";
-import MailInbox, { Mail } from "@/components/mail/MailInbox";
-import MailDetail from "@/components/mail/MailDetail";
-import DeadlineList from "@/components/dashboard/DeadlineList";
+import LegalSessionControl from "@/components/LegalSessionControl";
 
-type ActiveTab = "mail" | "detail" | "deadline";
+import MailInbox, {
+  type Mail,
+} from "@/components/mail/MailInbox";
 
-type DeadlineRow = {
-  id?: string | number;
-  title?: string;
-  risk?: string;
-  deadline_date?: string | null;
-  calendar_created?: boolean;
-};
+type Theme =
+  | "dark"
+  | "light";
 
-type DeadlineItem = {
-  id?: string | number;
-  title: string;
-  level: string;
-  days: number;
-  calendarCreated?: boolean;
-};
+function formatBytes(
+  value?: number
+) {
+  if (!value) {
+    return "";
+  }
 
-function calculateDays(dateValue?: string | null) {
-  if (!dateValue) return 999;
+  if (value < 1024) {
+    return `${value} B`;
+  }
 
-  const now = new Date();
-  const end = new Date(`${dateValue}T23:59:59`);
+  if (
+    value <
+    1024 * 1024
+  ) {
+    return `${(
+      value / 1024
+    ).toFixed(1)} KB`;
+  }
 
-  if (Number.isNaN(end.getTime())) return 999;
-
-  return Math.ceil(
-    (end.getTime() - now.getTime()) /
-      (1000 * 60 * 60 * 24)
-  );
+  return `${(
+    value /
+    (1024 * 1024)
+  ).toFixed(1)} MB`;
 }
 
-export default function Home() {
-  const [selectedMail, setSelectedMail] =
-    useState<Mail | null>(null);
+export default function InboxPage() {
+  const [
+    selectedMail,
+    setSelectedMail,
+  ] =
+    useState<Mail | null>(
+      null
+    );
 
-  const [isMobile, setIsMobile] = useState(false);
+  const [
+    mobileDetail,
+    setMobileDetail,
+  ] =
+    useState(false);
 
-  const [activeTab, setActiveTab] =
-    useState<ActiveTab>("mail");
-
-  const [deadlineItems, setDeadlineItems] =
-    useState<DeadlineItem[]>([]);
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 1024);
-    };
-
-    handleResize();
-
-    window.addEventListener("resize", handleResize);
-
-    return () =>
-      window.removeEventListener("resize", handleResize);
-  }, []);
+  const [
+    theme,
+    setTheme,
+  ] =
+    useState<Theme>(
+      "dark"
+    );
 
   useEffect(() => {
-    loadDeadlines();
+    const saved =
+      window.localStorage
+        .getItem(
+          "legal-theme"
+        );
 
-    const interval = window.setInterval(loadDeadlines, 5000);
+    const initial:
+      Theme =
+      saved === "light"
+        ? "light"
+        : "dark";
 
-    window.addEventListener("focus", loadDeadlines);
+    setTheme(initial);
 
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener("focus", loadDeadlines);
-    };
+    document.documentElement
+      .classList.toggle(
+        "dark",
+        initial === "dark"
+      );
   }, []);
 
-  async function loadDeadlines() {
-    try {
-      const res = await fetch("/api/deadline", {
-        method: "GET",
-        cache: "no-store",
-      });
+  function toggleTheme() {
+    const next:
+      Theme =
+      theme === "dark"
+        ? "light"
+        : "dark";
 
-      const data = await res.json();
+    setTheme(next);
 
-      if (!res.ok) {
-        console.error("DEADLINE API ERROR:", data);
-        return;
-      }
+    window.localStorage
+      .setItem(
+        "legal-theme",
+        next
+      );
 
-      const formatted = (Array.isArray(data) ? data : [])
-        .filter((item: DeadlineRow) => item.deadline_date)
-        .map((item: DeadlineRow) => ({
-          id: item.id,
-          title: item.title || "İsimsiz Dava",
-          level: item.risk || "Normal",
-          days: calculateDays(item.deadline_date),
-          calendarCreated: Boolean(item.calendar_created),
-        }))
-        .sort((a, b) => a.days - b.days);
-
-      setDeadlineItems(formatted);
-    } catch (error) {
-      console.error("DEADLINE LOAD ERROR:", error);
-    }
+    document.documentElement
+      .classList.toggle(
+        "dark",
+        next === "dark"
+      );
   }
 
-  function handleSelectMail(mail: Mail) {
+  function selectMail(
+    mail: Mail
+  ) {
     setSelectedMail(mail);
-
-    if (isMobile) {
-      setActiveTab("detail");
-    }
+    setMobileDetail(true);
   }
-
-  const criticalCount = deadlineItems.filter(
-    (item) => item.days <= 3
-  ).length;
-
-  const highRiskCount = deadlineItems.filter(
-    (item) => item.level === "Yüksek"
-  ).length;
-
-  const calendarCount = deadlineItems.filter(
-    (item) => item.calendarCreated
-  ).length;
-
-  const mailDetail = (
-    <MailDetail
-      
-      messageId={selectedMail?.id ?? ""}title={selectedMail?.subject ?? "Bir mail seçin"}
-      sender={selectedMail?.sender ?? "-"}
-      body={selectedMail?.body ?? "Soldaki listeden bir mail seçin."}
-      deadline={selectedMail?.deadline ?? "-"}
-      type={selectedMail?.type ?? "Analiz Bekliyor"}
-      risk={selectedMail?.risk ?? "Analiz Bekliyor"}
-      attachments={selectedMail?.attachments ?? []}
-    />
-  );
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background:
-          "radial-gradient(circle at top left,rgba(37,99,235,0.18),transparent 32%), linear-gradient(to bottom right,#020617,#000814,#0f172a)",
-        color: "white",
-        padding: isMobile ? "10px 10px 86px" : 16,
-        fontFamily: "Inter, Arial, sans-serif",
-      }}
-    >
-      <TopBar />
+    <main className="legal-app inbox-page">
+      <header className="inbox-header">
+        <div className="brand">
+          <span className="brand-mark">
+            AL
+          </span>
 
-      <section style={{ marginTop: 12, marginBottom: 18 }}>
-        <h1
-          style={{
-            fontSize: isMobile ? 22 : 30,
-            fontWeight: 900,
-            marginBottom: 8,
-          }}
+          <div>
+            <strong>
+              AL METHER LEGAL
+            </strong>
+
+            <span>
+              Gelen Kutusu
+            </span>
+          </div>
+        </div>
+
+        <div className="header-actions">
+          <a
+            href="/mail-connect"
+            className="mail-status"
+          >
+            <span />
+            Mail bağlı
+          </a>
+
+          <button
+            type="button"
+            className="theme-button"
+            onClick={
+              toggleTheme
+            }
+            title="Tema değiştir"
+          >
+            {theme === "dark"
+              ? "☀"
+              : "◐"}
+          </button>
+        </div>
+      </header>
+
+      <section className="workspace">
+        <aside
+          className={
+            mobileDetail
+              ? "mail-pane mobile-hidden"
+              : "mail-pane"
+          }
         >
-          ⚖️ AL Mether Legal
-        </h1>
+          <div className="pane-title">
+            <div>
+              <strong>
+                Gelen
+              </strong>
 
-        <p
-          style={{
-            color: "#94a3b8",
-            fontSize: isMobile ? 12 : 14,
-            maxWidth: 800,
-            lineHeight: 1.6,
-          }}
-        >
-          Hukuki mailleri analiz eder, kritik süreleri tespit eder,
-          takvime işler ve sizi zamanında uyarır.
-        </p>
-      </section>
+              <span>
+                Son 50 mail
+              </span>
+            </div>
+          </div>
 
-      <section style={kpiGrid(isMobile)}>
-        <KpiCard
-          icon="📨"
-          label="Seçili Mail"
-          value={selectedMail ? "1" : "0"}
-          note={selectedMail ? "Analize hazır" : "Mail seçilmedi"}
-        />
+          <MailInbox
+            selectedMailId={
+              selectedMail?.id ||
+              ""
+            }
+            onSelectMail={
+              selectMail
+            }
+          />
+        </aside>
 
-        <KpiCard
-          icon="⏳"
-          label="Kritik Süre"
-          value={String(criticalCount)}
-          note="3 gün ve altı"
-          tone={criticalCount > 0 ? "danger" : "success"}
-        />
-
-        <KpiCard
-          icon="🚨"
-          label="Yüksek Risk"
-          value={String(highRiskCount)}
-          note="Acil takip"
-          tone={highRiskCount > 0 ? "danger" : "success"}
-        />
-
-        <KpiCard
-          icon="📅"
-          label="Takvimlenen"
-          value={String(calendarCount)}
-          note="Google Calendar"
-          tone="info"
-        />
-      </section>
-
-      {!isMobile ? (
         <section
-          style={{
-            display: "grid",
-            gridTemplateColumns: "350px 1fr 320px",
-            gap: 20,
-            alignItems: "start",
-          }}
+          className={
+            mobileDetail
+              ? "detail-pane"
+              : "detail-pane mobile-hidden"
+          }
         >
-          <div style={{ minWidth: 0 }}>
-            <MailInbox onSelectMail={handleSelectMail} />
-          </div>
+          {!selectedMail ? (
+            <div className="empty-detail">
+              <div className="empty-mark">
+                ✉
+              </div>
 
-          <div style={{ minWidth: 0 }}>{mailDetail}</div>
+              <strong>
+                Mail seçin
+              </strong>
 
-          <div style={{ minWidth: 0 }}>
-            <DeadlineList items={deadlineItems} />
-          </div>
+              <span>
+                İçeriği görüntülemek için
+                soldaki listeden bir mail
+                seçin.
+              </span>
+            </div>
+          ) : (
+            <>
+              <div className="detail-header">
+                <button
+                  type="button"
+                  className="mobile-back"
+                  onClick={() =>
+                    setMobileDetail(
+                      false
+                    )
+                  }
+                >
+                  ←
+                </button>
+
+                <div className="detail-heading">
+                  <div className="detail-kicker">
+                    GELEN MAIL
+                  </div>
+
+                  <h1>
+                    {
+                      selectedMail.subject
+                    }
+                  </h1>
+
+                  <div className="detail-meta">
+                    <span>
+                      {
+                        selectedMail.sender
+                      }
+                    </span>
+
+                    {selectedMail.date && (
+                      <>
+                        <i />
+                        <span>
+                          {
+                            selectedMail.date
+                          }
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {selectedMail
+                .attachments &&
+                selectedMail
+                  .attachments
+                  .length > 0 && (
+                  <div className="attachments-strip">
+                    {selectedMail
+                      .attachments
+                      .map(
+                        (
+                          attachment,
+                          index
+                        ) => (
+                          <div
+                            className="attachment-chip"
+                            key={`${attachment.attachmentId}-${index}`}
+                          >
+                            <span className="attachment-icon">
+                              ▱
+                            </span>
+
+                            <div>
+                              <strong>
+                                {
+                                  attachment.filename
+                                }
+                              </strong>
+
+                              <span>
+                                {attachment.mimeType ||
+                                  "Dosya"}
+
+                                {attachment.size
+                                  ? ` · ${formatBytes(
+                                      attachment.size
+                                    )}`
+                                  : ""}
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      )}
+                  </div>
+                )}
+
+              <article className="mail-content">
+                {selectedMail.body ||
+                  "Mail içeriği bulunmuyor."}
+              </article>
+            </>
+          )}
         </section>
-      ) : (
-        <>
-          <section style={{ minWidth: 0 }}>
-            {activeTab === "mail" && (
-              <MailInbox onSelectMail={handleSelectMail} />
-            )}
+      </section>
 
-            {activeTab === "detail" && mailDetail}
-
-            {activeTab === "deadline" && (
-              <DeadlineList items={deadlineItems} />
-            )}
-          </section>
-
-          <nav style={mobileNav}>
-            <MobileTab
-              active={activeTab === "mail"}
-              label="Gelen"
-              icon="📥"
-              onClick={() => setActiveTab("mail")}
-            />
-
-            <MobileTab
-              active={activeTab === "detail"}
-              label="Analiz"
-              icon="🤖"
-              onClick={() => setActiveTab("detail")}
-            />
-
-            <MobileTab
-              active={activeTab === "deadline"}
-              label="Süreler"
-              icon="⏳"
-              badge={deadlineItems.length}
-              onClick={() => setActiveTab("deadline")}
-            />
-          </nav>
-        </>
-      )}
       <LegalSessionControl />
       <LegalDock />
+
+      <style jsx>{`
+        .inbox-page {
+          height: 100dvh;
+          overflow: hidden;
+
+          display: grid;
+          grid-template-rows:
+            52px
+            minmax(0, 1fr);
+
+          padding-bottom: 64px;
+
+          background:
+            var(--legal-bg);
+
+          color:
+            var(--legal-text);
+        }
+
+        .inbox-header {
+          display: flex;
+          align-items: center;
+          justify-content:
+            space-between;
+
+          padding: 0 18px;
+
+          border-bottom:
+            1px solid
+            var(--legal-border);
+
+          background:
+            var(--legal-surface);
+        }
+
+        .brand {
+          display: flex;
+          align-items: center;
+          gap: 9px;
+        }
+
+        .brand-mark {
+          width: 27px;
+          height: 27px;
+
+          display: grid;
+          place-items: center;
+
+          border:
+            1px solid
+            var(--legal-gold);
+
+          border-radius: 8px;
+
+          color:
+            var(--legal-gold);
+
+          font-size: 9px;
+          font-weight: 900;
+          letter-spacing:
+            0.05em;
+        }
+
+        .brand div {
+          display: grid;
+          gap: 1px;
+        }
+
+        .brand strong {
+          color:
+            var(--legal-text);
+
+          font-size: 10px;
+          letter-spacing:
+            0.08em;
+        }
+
+        .brand div span {
+          color:
+            var(--legal-muted);
+
+          font-size: 8px;
+        }
+
+        .header-actions {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+        }
+
+        .mail-status,
+        .theme-button {
+          height: 30px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius: 9px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-muted);
+        }
+
+        .mail-status {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+
+          padding: 0 9px;
+
+          text-decoration: none;
+
+          font-size: 8px;
+          font-weight: 800;
+        }
+
+        .mail-status span {
+          width: 5px;
+          height: 5px;
+
+          border-radius: 999px;
+
+          background:
+            var(--legal-success);
+        }
+
+        .theme-button {
+          width: 30px;
+          cursor: pointer;
+
+          color:
+            var(--legal-gold);
+
+          font-size: 13px;
+        }
+
+        .workspace {
+          min-height: 0;
+
+          display: grid;
+
+          grid-template-columns:
+            minmax(280px, 31%)
+            minmax(0, 1fr);
+
+          gap: 8px;
+
+          padding:
+            8px 12px 0;
+        }
+
+        .mail-pane,
+        .detail-pane {
+          min-height: 0;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-lg);
+
+          background:
+            var(--legal-surface);
+
+          box-shadow:
+            var(--legal-shadow-sm);
+        }
+
+        .mail-pane {
+          display: grid;
+          grid-template-rows:
+            44px
+            minmax(0, 1fr);
+
+          padding: 0 9px 9px;
+        }
+
+        .pane-title {
+          display: flex;
+          align-items: center;
+          justify-content:
+            space-between;
+
+          border-bottom:
+            1px solid
+            var(--legal-border);
+        }
+
+        .pane-title div {
+          display: flex;
+          align-items: baseline;
+          gap: 7px;
+        }
+
+        .pane-title strong {
+          font-size: 12px;
+          font-weight: 850;
+        }
+
+        .pane-title span {
+          color:
+            var(--legal-muted);
+
+          font-size: 8px;
+        }
+
+        .detail-pane {
+          position: relative;
+
+          display: flex;
+          flex-direction: column;
+
+          overflow: hidden;
+        }
+
+        .detail-header {
+          min-height: 82px;
+
+          display: flex;
+          align-items: center;
+          gap: 10px;
+
+          flex: 0 0 auto;
+
+          padding: 14px 18px;
+
+          border-bottom:
+            1px solid
+            var(--legal-border);
+        }
+
+        .detail-heading {
+          min-width: 0;
+        }
+
+        .detail-kicker {
+          margin-bottom: 4px;
+
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+          font-weight: 900;
+          letter-spacing:
+            0.16em;
+        }
+
+        .detail-heading h1 {
+          margin: 0;
+
+          overflow: hidden;
+          text-overflow:
+            ellipsis;
+          white-space: nowrap;
+
+          color:
+            var(--legal-text);
+
+          font-size:
+            clamp(
+              13px,
+              1.4vw,
+              17px
+            );
+
+          font-weight: 820;
+          letter-spacing:
+            -0.015em;
+        }
+
+        .detail-meta {
+          margin-top: 6px;
+
+          display: flex;
+          align-items: center;
+          gap: 7px;
+
+          min-width: 0;
+
+          color:
+            var(--legal-muted);
+
+          font-size: 8.5px;
+        }
+
+        .detail-meta span {
+          overflow: hidden;
+          text-overflow:
+            ellipsis;
+          white-space: nowrap;
+        }
+
+        .detail-meta i {
+          width: 3px;
+          height: 3px;
+
+          flex: 0 0 auto;
+
+          border-radius: 50%;
+
+          background:
+            var(--legal-gold);
+        }
+
+        .attachments-strip {
+          display: flex;
+          gap: 6px;
+
+          flex: 0 0 auto;
+
+          overflow-x: auto;
+
+          padding: 8px 18px;
+
+          border-bottom:
+            1px solid
+            var(--legal-border);
+
+          background:
+            var(--legal-surface-2);
+        }
+
+        .attachment-chip {
+          min-width: 160px;
+          max-width: 240px;
+
+          display: flex;
+          align-items: center;
+          gap: 8px;
+
+          padding: 7px 9px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius: 9px;
+
+          background:
+            var(--legal-surface);
+        }
+
+        .attachment-icon {
+          color:
+            var(--legal-gold);
+
+          font-size: 15px;
+        }
+
+        .attachment-chip div {
+          min-width: 0;
+          display: grid;
+          gap: 2px;
+        }
+
+        .attachment-chip strong {
+          overflow: hidden;
+          text-overflow:
+            ellipsis;
+          white-space: nowrap;
+
+          font-size: 8.5px;
+        }
+
+        .attachment-chip div span {
+          color:
+            var(--legal-muted);
+
+          font-size: 7px;
+        }
+
+        .mail-content {
+          flex: 1;
+          min-height: 0;
+
+          overflow-y: auto;
+
+          padding: 18px;
+
+          color:
+            var(--legal-text-soft);
+
+          font-size: 10.5px;
+          line-height: 1.68;
+
+          white-space:
+            pre-wrap;
+          overflow-wrap:
+            anywhere;
+        }
+
+        .empty-detail {
+          height: 100%;
+
+          display: grid;
+          place-content: center;
+
+          justify-items: center;
+
+          padding: 30px;
+
+          text-align: center;
+        }
+
+        .empty-mark {
+          width: 38px;
+          height: 38px;
+
+          display: grid;
+          place-items: center;
+
+          margin-bottom: 10px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius: 12px;
+
+          color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-surface-2);
+
+          font-size: 16px;
+        }
+
+        .empty-detail strong {
+          font-size: 11px;
+        }
+
+        .empty-detail span {
+          max-width: 280px;
+
+          margin-top: 5px;
+
+          color:
+            var(--legal-muted);
+
+          font-size: 9px;
+          line-height: 1.45;
+        }
+
+        .mobile-back {
+          display: none;
+        }
+
+        @media (
+          max-width: 760px
+        ) {
+          .inbox-page {
+            grid-template-rows:
+              48px
+              minmax(0, 1fr);
+
+            padding-bottom: 68px;
+          }
+
+          .inbox-header {
+            padding: 0 11px;
+          }
+
+          .brand strong {
+            font-size: 9px;
+          }
+
+          .brand div span {
+            display: none;
+          }
+
+          .mail-status {
+            padding: 0 7px;
+          }
+
+          .workspace {
+            display: block;
+
+            padding:
+              6px 7px 0;
+          }
+
+          .mail-pane,
+          .detail-pane {
+            height: 100%;
+            border-radius: 13px;
+          }
+
+          .mail-pane {
+            grid-template-rows:
+              40px
+              minmax(0, 1fr);
+
+            padding:
+              0 7px 7px;
+          }
+
+          .detail-header {
+            min-height: 74px;
+
+            padding:
+              11px 12px;
+          }
+
+          .mobile-hidden {
+            display: none;
+          }
+
+          .mobile-back {
+            width: 30px;
+            height: 30px;
+
+            display: grid;
+            place-items: center;
+
+            flex: 0 0 auto;
+
+            border:
+              1px solid
+              var(--legal-border);
+
+            border-radius: 9px;
+
+            background:
+              var(--legal-surface-2);
+
+            color:
+              var(--legal-gold);
+
+            cursor: pointer;
+          }
+
+          .detail-heading h1 {
+            max-width:
+              calc(
+                100vw -
+                90px
+              );
+
+            font-size: 13px;
+          }
+
+          .detail-meta {
+            max-width:
+              calc(
+                100vw -
+                90px
+              );
+          }
+
+          .attachments-strip {
+            padding:
+              7px 11px;
+          }
+
+          .mail-content {
+            padding: 13px;
+
+            font-size: 10px;
+            line-height: 1.6;
+          }
+        }
+      
+        /* =================================================
+           AL METHER LEGAL — MOBILE FINAL POLISH
+           ================================================= */
+
+        @media (max-width: 760px) {
+
+          html,
+          body {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+          }
+
+          button,
+          input,
+          textarea,
+          select {
+            -webkit-tap-highlight-color:
+              transparent;
+          }
+
+          button {
+            touch-action:
+              manipulation;
+          }
+
+          input,
+          textarea {
+            font-size: 16px;
+          }
+        }
+
+        @media (max-width: 520px) {
+
+          .inbox-page,
+          .cases-page,
+          .lawyer-calendar {
+            padding-bottom:
+              calc(
+                72px +
+                env(
+                  safe-area-inset-bottom
+                )
+              );
+          }
+
+          .inbox-header {
+            min-width: 0;
+          }
+
+          .brand {
+            min-width: 0;
+          }
+
+          .brand strong {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .mail-status {
+            max-width: 82px;
+
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .inbox-tools {
+            grid-template-columns:
+              minmax(0, 1fr)
+              auto
+              34px;
+          }
+
+          .mail-row {
+            min-height: 68px;
+
+            padding:
+              8px 9px;
+          }
+
+          .mail-row strong {
+            font-size: 10px;
+          }
+
+          .mail-preview {
+            -webkit-line-clamp: 1;
+
+            font-size: 8.5px;
+          }
+
+          .detail-header {
+            align-items: flex-start;
+          }
+
+          .detail-heading {
+            width: 100%;
+          }
+
+          .detail-heading h1 {
+            max-width:
+              calc(
+                100vw -
+                84px
+              );
+
+            white-space: normal;
+
+            display: -webkit-box;
+            -webkit-box-orient:
+              vertical;
+            -webkit-line-clamp: 2;
+
+            line-height: 1.3;
+          }
+
+          .detail-meta {
+            flex-wrap: wrap;
+          }
+
+          .mail-content {
+            overscroll-behavior:
+              contain;
+          }
+
+          .cases-header {
+            position: relative;
+          }
+
+          .search-input {
+            min-width: 0;
+            width: 100%;
+          }
+
+          .case-row {
+            width: 100%;
+            min-width: 0;
+          }
+
+          .case-court,
+          .case-title {
+            overflow-wrap: anywhere;
+          }
+
+          .case-actions {
+            width: 100%;
+          }
+
+          .case-actions button {
+            min-width: 0;
+
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .case-inline-panel {
+            width: 100%;
+            min-width: 0;
+
+            overflow: hidden;
+          }
+
+          .case-mail-item,
+          .case-file-item {
+            min-width: 0;
+          }
+
+          .case-file-toolbar {
+            justify-content:
+              stretch;
+          }
+
+          .case-file-upload {
+            width: 100%;
+          }
+
+          .workspace {
+            max-width: 100%;
+          }
+
+          .calendar-panel,
+          .detail-panel {
+            min-width: 0;
+            max-width: 100%;
+          }
+
+          .calendar-toolbar {
+            flex-wrap: wrap;
+          }
+
+          .calendar-navigation {
+            width: 100%;
+
+            justify-content:
+              center;
+          }
+
+          .month-title {
+            flex: 1;
+            min-width: 0;
+          }
+
+          .month-grid {
+            width: 100%;
+          }
+
+          .day-cell {
+            min-width: 0;
+          }
+
+          .event-count-chip {
+            max-width: 100%;
+
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .detail-panel {
+            margin-top: 6px;
+          }
+
+          .detail-date {
+            font-size: 12px;
+          }
+
+          .event-selector-list {
+            overflow-x: auto;
+
+            scrollbar-width: none;
+          }
+
+          .event-selector-list::-webkit-scrollbar {
+            display: none;
+          }
+
+          .event-selector-button {
+            flex:
+              0 0 120px;
+          }
+
+          .detail-tabs {
+            width: 100%;
+
+            overflow-x: auto;
+
+            scrollbar-width: none;
+          }
+
+          .detail-tabs::-webkit-scrollbar {
+            display: none;
+          }
+
+          .detail-tab {
+            min-width: 68px;
+          }
+
+          .detail-content {
+            overflow-y: visible;
+          }
+        }
+
+        @media (max-width: 390px) {
+
+          .brand-mark {
+            width: 25px;
+            height: 25px;
+          }
+
+          .mail-status {
+            max-width: 68px;
+
+            font-size: 7px;
+          }
+
+          .case-actions {
+            grid-template-columns:
+              repeat(
+                2,
+                minmax(0, 1fr)
+              );
+          }
+
+          .case-actions
+          .deadline-button {
+            grid-column: auto;
+          }
+
+          .weekday {
+            padding:
+              4px 1px;
+          }
+
+          .day-cell {
+            min-height: 49px;
+          }
+
+          .day-number {
+            width: 19px;
+            height: 19px;
+          }
+        }
+`}</style>
     </main>
   );
 }
 
-function KpiCard({
-  icon,
-  label,
-  value,
-  note,
-  tone = "info",
-}: {
-  icon: string;
-  label: string;
-  value: string;
-  note: string;
-  tone?: "info" | "danger" | "success";
-}) {
-  const color =
-    tone === "danger"
-      ? "#ef4444"
-      : tone === "success"
-      ? "#22c55e"
-      : "#60a5fa";
-
-  return (
-    <div style={kpiCard}>
-      <div style={kpiTop}>
-        <div style={kpiIcon(color)}>{icon}</div>
-        <div style={kpiValue}>{value}</div>
-      </div>
-
-      <div style={kpiLabel}>{label}</div>
-      <div style={kpiNote}>{note}</div>
-    </div>
-  );
-}
-
-function MobileTab({
-  active,
-  label,
-  icon,
-  badge,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  icon: string;
-  badge?: number;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        flex: 1,
-        background: active
-          ? "linear-gradient(to right,#7c3aed,#2563eb)"
-          : "rgba(255,255,255,0.04)",
-        border: active
-          ? "1px solid rgba(147,197,253,0.5)"
-          : "1px solid rgba(255,255,255,0.08)",
-        color: "white",
-        borderRadius: 18,
-        padding: "10px 8px",
-        fontWeight: 800,
-        cursor: "pointer",
-        position: "relative",
-      }}
-    >
-      <div style={{ fontSize: 18 }}>{icon}</div>
-      <div style={{ fontSize: 11, marginTop: 2 }}>{label}</div>
-
-      {badge ? (
-        <span
-          style={{
-            position: "absolute",
-            top: -7,
-            right: 8,
-            background: "#ef4444",
-            color: "white",
-            borderRadius: 999,
-            padding: "2px 7px",
-            fontSize: 11,
-            fontWeight: 900,
-          }}
-        >
-          {badge}
-        </span>
-      ) : null}
-    </button>
-  );
-}
-
-const kpiGrid = (isMobile: boolean) => ({
-  display: "grid",
-  gridTemplateColumns: isMobile
-    ? "repeat(2,1fr)"
-    : "repeat(4,1fr)",
-  gap: 12,
-  marginBottom: 20,
-});
-
-const kpiCard = {
-  background:
-    "linear-gradient(180deg,rgba(15,23,42,0.82),rgba(2,6,23,0.9))",
-  border: "1px solid rgba(148,163,184,0.16)",
-  borderRadius: 22,
-  padding: 14,
-  boxShadow: "0 16px 40px rgba(0,0,0,0.22)",
-};
-
-const kpiTop = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 10,
-  marginBottom: 10,
-};
-
-const kpiIcon = (color: string) => ({
-  width: 38,
-  height: 38,
-  borderRadius: 14,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: `${color}18`,
-  border: `1px solid ${color}33`,
-  fontSize: 18,
-});
-
-const kpiValue = {
-  fontSize: 26,
-  fontWeight: 950,
-  color: "white",
-};
-
-const kpiLabel = {
-  color: "white",
-  fontWeight: 900,
-  fontSize: 13,
-  marginBottom: 4,
-};
-
-const kpiNote = {
-  color: "#94a3b8",
-  fontSize: 12,
-};
-
-const mobileNav = {
-  position: "fixed" as const,
-  left: 10,
-  right: 10,
-  bottom: 10,
-  zIndex: 50,
-  display: "flex",
-  gap: 8,
-  padding: 8,
-  borderRadius: 24,
-  background: "rgba(2,6,23,0.92)",
-  border: "1px solid rgba(148,163,184,0.18)",
-  backdropFilter: "blur(14px)",
-  boxShadow: "0 20px 60px rgba(0,0,0,0.45)",
-};

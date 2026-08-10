@@ -1,6 +1,10 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 export type Mail = {
   id: string;
@@ -10,7 +14,9 @@ export type Mail = {
   deadline: string;
   type: string;
   risk: string;
+  date?: string;
   hasAttachment?: boolean;
+
   attachments?: {
     filename: string;
     mimeType?: string;
@@ -20,19 +26,216 @@ export type Mail = {
 };
 
 type Props = {
-  onSelectMail?: (mail: Mail) => void;
+  onSelectMail?: (
+    mail: Mail
+  ) => void;
+
+  selectedMailId?: string;
 };
 
-type FilterType = "all" | "waiting" | "attachment";
+export default function MailInbox({
+  onSelectMail,
+  selectedMailId = "",
+}: Props) {
+  const [mails, setMails] =
+    useState<Mail[]>([]);
 
-export default function MailInbox({ onSelectMail }: Props) {
-  const [mails, setMails] = useState<Mail[]>([]);
-  const [selectedId, setSelectedId] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [loading, setLoading] =
+    useState(true);
 
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<FilterType>("all");
+  const [error, setError] =
+    useState("");
+
+  const [search, setSearch] =
+    useState("");
+
+  const [attachmentsOnly, setAttachmentsOnly] =
+    useState(false);
+
+  const filteredMails =
+    useMemo(() => {
+      const term =
+        search
+          .trim()
+          .toLocaleLowerCase(
+            "tr-TR"
+          );
+
+      return mails.filter(
+        (mail) => {
+          const matchesSearch =
+            !term ||
+            mail.subject
+              .toLocaleLowerCase(
+                "tr-TR"
+              )
+              .includes(term) ||
+            mail.sender
+              .toLocaleLowerCase(
+                "tr-TR"
+              )
+              .includes(term) ||
+            mail.body
+              .toLocaleLowerCase(
+                "tr-TR"
+              )
+              .includes(term);
+
+          const matchesAttachment =
+            !attachmentsOnly ||
+            Boolean(
+              mail.hasAttachment
+            );
+
+          return (
+            matchesSearch &&
+            matchesAttachment
+          );
+        }
+      );
+    }, [
+      mails,
+      search,
+      attachmentsOnly,
+    ]);
+
+  async function runMailSync() {
+    try {
+      const response =
+        await fetch(
+          "/api/mail-sync",
+          {
+            method: "POST",
+            cache: "no-store",
+          }
+        );
+
+      if (!response.ok) {
+        const data =
+          await response
+            .json()
+            .catch(() => ({}));
+
+        console.error(
+          "MAIL SYNC ERROR:",
+          data
+        );
+      }
+    } catch (syncError) {
+      console.error(
+        "MAIL SYNC ERROR:",
+        syncError
+      );
+    }
+  }
+
+  async function loadMails() {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response =
+        await fetch(
+          "/api/gmail",
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Gmail verileri alınamadı."
+        );
+      }
+
+      const formatted:
+        Mail[] =
+        (
+          Array.isArray(data)
+            ? data
+            : []
+        ).map(
+          (mail: any) => ({
+            id:
+              mail.id || "",
+
+            subject:
+              mail.subject ||
+              "Konu yok",
+
+            sender:
+              mail.from ||
+              mail.sender ||
+              "Bilinmeyen gönderen",
+
+            body:
+              mail.body ||
+              mail.snippet ||
+              "",
+
+            deadline:
+              mail.deadline ||
+              "-",
+
+            type:
+              mail.type ||
+              "Analiz Bekliyor",
+
+            risk:
+              mail.risk ||
+              "Analiz Bekliyor",
+
+            date:
+              mail.date ||
+              "",
+
+            attachments:
+              Array.isArray(
+                mail.attachments
+              )
+                ? mail.attachments
+                : [],
+
+            hasAttachment:
+              Boolean(
+                mail.hasAttachment
+              ) ||
+              Boolean(
+                mail.has_attachment
+              ) ||
+              (
+                Array.isArray(
+                  mail.attachments
+                ) &&
+                mail.attachments
+                  .length > 0
+              ),
+          })
+        );
+
+      setMails(
+        formatted
+      );
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Mailler alınamadı."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function refreshMailSystem() {
+    await runMailSync();
+    await loadMails();
+  }
 
   useEffect(() => {
     refreshMailSystem();
@@ -64,525 +267,410 @@ export default function MailInbox({ onSelectMail }: Props) {
     };
   }, []);
 
-  const filteredMails = useMemo(() => {
-    const term = search.trim().toLowerCase();
-
-    return mails.filter((mail) => {
-      const matchesSearch =
-        !term ||
-        mail.subject.toLowerCase().includes(term) ||
-        mail.sender.toLowerCase().includes(term) ||
-        mail.body.toLowerCase().includes(term) ||
-        mail.deadline.toLowerCase().includes(term) ||
-        mail.type.toLowerCase().includes(term) ||
-        mail.risk.toLowerCase().includes(term);
-
-      const matchesFilter =
-        filter === "all" ||
-        (filter === "waiting" && mail.risk === "Analiz Bekliyor") ||
-        (filter === "attachment" && mail.hasAttachment);
-
-      return matchesSearch && matchesFilter;
-    });
-  }, [mails, search, filter]);
-
-  async function runMailSync() {
-    try {
-      const response =
-        await fetch(
-          "/api/mail-sync",
-          {
-            method: "POST",
-            cache: "no-store",
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        console.error(
-          "MAIL SYNC ERROR:",
-          data
-        );
-
-        return;
-      }
-
-      console.log(
-        "MAIL SYNC:",
-        {
-          scanned:
-            data?.scanned || 0,
-
-          new:
-            data?.new || 0,
-
-          processed:
-            data?.processed || 0,
-
-          skipped:
-            data?.skipped || 0,
-        }
-      );
-    } catch (error) {
-      console.error(
-        "MAIL SYNC ERROR:",
-        error
-      );
-    }
-  }
-
-  async function refreshMailSystem() {
-    await runMailSync();
-    await loadMails();
-  }
-  async function loadMails() {
-    try {
-      setLoading(true);
-      setError("");
-
-      const res = await fetch("/api/gmail", {
-        method: "GET",
-        cache: "no-store",
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data?.error || "Gmail verileri alınamadı");
-      }
-
-      const formatted: Mail[] = (Array.isArray(data) ? data : []).map(
-        (mail: any) => ({
-          id: mail.id,
-          subject: mail.subject || "Konu Yok",
-          sender: mail.from || mail.sender || "Bilinmeyen",
-          body: mail.body || mail.snippet || "",
-          deadline: mail.deadline || "-",
-          type: mail.type || "Analiz Bekliyor",
-          risk: mail.risk || "Analiz Bekliyor",
-          attachments:
-            Array.isArray(mail.attachments)
-              ? mail.attachments
-              : [],
-
-          hasAttachment:
-            Boolean(mail.hasAttachment) ||
-            Boolean(mail.has_attachment) ||
-            (Array.isArray(mail.attachments) && mail.attachments.length > 0),
-        })
-      );
-
-      setMails(formatted);
-    } catch (err) {
-      console.error(err);
-      setError(
-        err instanceof Error ? err.message : "Gmail yüklenirken hata oluştu"
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function selectMail(mail: Mail) {
-    setSelectedId(mail.id);
-    onSelectMail?.(mail);
-  }
-
-  function clearSearch() {
-    setSearch("");
-    setFilter("all");
-  }
-
   return (
-    <aside style={containerStyle}>
-      <div style={headerStyle}>
-        <div>
-          <div style={smallLabel}>Gmail</div>
-          <h2 style={titleStyle}>📨 Gelen Kutusu</h2>
+    <section className="inbox-list">
+      <div className="inbox-tools">
+        <div className="inbox-search">
+          <span>⌕</span>
+
+          <input
+            value={search}
+            onChange={(event) =>
+              setSearch(
+                event.target.value
+              )
+            }
+            placeholder="Mail ara..."
+          />
         </div>
 
-        <button onClick={loadMails} style={refreshBtn} disabled={loading}>
+        <button
+          type="button"
+          className={
+            attachmentsOnly
+              ? "filter-button active"
+              : "filter-button"
+          }
+          onClick={() =>
+            setAttachmentsOnly(
+              (value) => !value
+            )
+          }
+          title="Ekli mailler"
+        >
+          Ekli
+        </button>
+
+        <button
+          type="button"
+          className="refresh-button"
+          onClick={
+            refreshMailSystem
+          }
+          title="Yenile"
+        >
           ↻
         </button>
       </div>
 
-      <div style={statsRow}>
-        <div style={statBox}>
-          <span style={statValue}>{mails.length}</span>
-          <span style={statLabel}>Toplam</span>
-        </div>
-
-        <div style={statBox}>
-          <span style={statValue}>{filteredMails.length}</span>
-          <span style={statLabel}>Sonuç</span>
-        </div>
+      <div className="mail-count">
+        {filteredMails.length}
+        {" "}mail
       </div>
 
-      <div style={searchWrap}>
-        <span style={searchIcon}>🔍</span>
+      <div className="mail-scroll">
+        {loading &&
+          mails.length === 0 && (
+            <div className="mail-state">
+              Mailler yükleniyor...
+            </div>
+          )}
 
-        <input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Konu, gönderen, içerik ara..."
-          style={searchInput}
-        />
+        {!loading &&
+          error && (
+            <div className="mail-state error">
+              {error}
+            </div>
+          )}
 
-        {(search || filter !== "all") && (
-          <button onClick={clearSearch} style={clearBtn}>
-            Temizle
-          </button>
-        )}
-      </div>
-
-      <div style={filterRow}>
-        <FilterButton
-          active={filter === "all"}
-          label="Tümü"
-          onClick={() => setFilter("all")}
-        />
-
-        <FilterButton
-          active={filter === "waiting"}
-          label="Bekleyen"
-          onClick={() => setFilter("waiting")}
-        />
-
-        <FilterButton
-          active={filter === "attachment"}
-          label="📎 Ekli"
-          onClick={() => setFilter("attachment")}
-        />
-      </div>
-
-      {loading && <div style={emptyState}>Mailler yükleniyor...</div>}
-
-      {!loading && error && (
-        <div style={errorState}>
-          <div style={{ fontWeight: 800, marginBottom: 6 }}>Gmail Hatası</div>
-          <div>{error}</div>
-        </div>
-      )}
-
-      {!loading && !error && mails.length === 0 && (
-        <div style={emptyState}>Gelen kutusunda mail bulunamadı.</div>
-      )}
-
-      {!loading && !error && mails.length > 0 && filteredMails.length === 0 && (
-        <div style={emptyState}>Aramanızla eşleşen mail bulunamadı.</div>
-      )}
-
-      <div style={listStyle}>
         {!loading &&
           !error &&
-          filteredMails.map((mail) => {
-            const selected = selectedId === mail.id;
+          filteredMails.length ===
+            0 && (
+            <div className="mail-state">
+              Mail bulunamadı.
+            </div>
+          )}
+
+        {filteredMails.map(
+          (mail) => {
+            const selected =
+              selectedMailId ===
+              mail.id;
 
             return (
               <button
+                type="button"
                 key={mail.id}
-                onClick={() => selectMail(mail)}
-                style={{
-                  ...mailCardStyle,
-                  border: selected
-                    ? "1px solid rgba(96,165,250,0.65)"
-                    : "1px solid rgba(255,255,255,0.07)",
-                  background: selected
-                    ? "linear-gradient(180deg,rgba(37,99,235,0.22),rgba(255,255,255,0.04))"
-                    : "rgba(255,255,255,0.035)",
-                }}
+                className={
+                  selected
+                    ? "mail-row selected"
+                    : "mail-row"
+                }
+                onClick={() =>
+                  onSelectMail?.(
+                    mail
+                  )
+                }
               >
-                <div style={mailTopRow}>
-                  <div style={mailSubject}>{mail.subject}</div>
+                <div className="mail-row-top">
+                  <strong>
+                    {mail.subject}
+                  </strong>
 
-                  <div style={badgeGroup}>
-                    {mail.hasAttachment && <span style={attachBadge}>📎</span>}
-                    <span style={gmailBadge}>Gmail</span>
+                  {mail.hasAttachment && (
+                    <span className="attachment-mark">
+                      ⛓
+                    </span>
+                  )}
+                </div>
+
+                <div className="mail-sender">
+                  {mail.sender}
+                </div>
+
+                <div className="mail-preview">
+                  {mail.body ||
+                    "İçerik yok"}
+                </div>
+
+                {mail.date && (
+                  <div className="mail-date">
+                    {mail.date}
                   </div>
-                </div>
-
-                <div style={senderStyle}>{mail.sender}</div>
-
-                <div style={bodyPreview}>{mail.body || "İçerik yok"}</div>
-
-                <div style={footerRow}>
-                  <span style={statusBadge}>{mail.risk}</span>
-                  <span style={arrowStyle}>→</span>
-                </div>
+                )}
               </button>
             );
-          })}
+          }
+        )}
       </div>
-    </aside>
+
+      <style jsx>{`
+        .inbox-list {
+          height: 100%;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .inbox-tools {
+          height: 42px;
+          flex: 0 0 auto;
+
+          display: grid;
+          grid-template-columns:
+            minmax(0, 1fr)
+            auto
+            34px;
+
+          gap: 6px;
+          align-items: center;
+        }
+
+        .inbox-search {
+          height: 34px;
+
+          display: flex;
+          align-items: center;
+          gap: 7px;
+
+          padding: 0 10px;
+
+          border: 1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+        }
+
+        .inbox-search span {
+          color:
+            var(--legal-muted);
+
+          font-size: 14px;
+        }
+
+        .inbox-search input {
+          width: 100%;
+
+          border: 0;
+          outline: 0;
+          background: transparent;
+
+          color:
+            var(--legal-text);
+
+          font-size: 11px;
+        }
+
+        .inbox-search input::placeholder {
+          color:
+            var(--legal-muted);
+        }
+
+        .filter-button,
+        .refresh-button {
+          height: 34px;
+
+          border: 1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-muted);
+
+          cursor: pointer;
+        }
+
+        .filter-button {
+          padding: 0 10px;
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .refresh-button {
+          width: 34px;
+          font-size: 15px;
+        }
+
+        .filter-button:hover,
+        .refresh-button:hover,
+        .filter-button.active {
+          border-color:
+            var(--legal-gold);
+
+          color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+        }
+
+        .mail-count {
+          height: 24px;
+
+          display: flex;
+          align-items: center;
+
+          flex: 0 0 auto;
+
+          color:
+            var(--legal-muted);
+
+          font-size: 9px;
+          font-weight: 700;
+        }
+
+        .mail-scroll {
+          min-height: 0;
+          flex: 1;
+
+          overflow-y: auto;
+
+          display: grid;
+          align-content: start;
+          gap: 5px;
+
+          padding-right: 3px;
+        }
+
+        .mail-row {
+          width: 100%;
+          min-height: 74px;
+
+          padding: 9px 10px;
+
+          border: 1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-md);
+
+          background:
+            var(--legal-surface);
+
+          color:
+            var(--legal-text);
+
+          text-align: left;
+          cursor: pointer;
+
+          transition:
+            border-color
+              var(--legal-transition),
+            background
+              var(--legal-transition),
+            transform
+              var(--legal-transition);
+        }
+
+        .mail-row:hover {
+          border-color:
+            var(
+              --legal-border-strong
+            );
+
+          transform:
+            translateY(-1px);
+        }
+
+        .mail-row.selected {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          box-shadow:
+            inset 3px 0 0
+              var(--legal-gold);
+        }
+
+        .mail-row-top {
+          display: flex;
+          align-items: flex-start;
+          justify-content:
+            space-between;
+          gap: 8px;
+        }
+
+        .mail-row strong {
+          display: block;
+
+          min-width: 0;
+
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+
+          color:
+            var(--legal-text);
+
+          font-size: 10.5px;
+          font-weight: 800;
+        }
+
+        .attachment-mark {
+          flex: 0 0 auto;
+
+          color:
+            var(--legal-gold);
+
+          font-size: 10px;
+        }
+
+        .mail-sender {
+          margin-top: 3px;
+
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+
+          color:
+            var(--legal-muted);
+
+          font-size: 9px;
+        }
+
+        .mail-preview {
+          margin-top: 5px;
+
+          overflow: hidden;
+
+          display: -webkit-box;
+          -webkit-box-orient:
+            vertical;
+          -webkit-line-clamp: 2;
+
+          color:
+            var(--legal-text-soft);
+
+          font-size: 9px;
+          line-height: 1.35;
+        }
+
+        .mail-date {
+          margin-top: 5px;
+
+          color:
+            var(--legal-muted);
+
+          font-size: 8px;
+        }
+
+        .mail-state {
+          padding: 24px 12px;
+
+          color:
+            var(--legal-muted);
+
+          font-size: 10px;
+          text-align: center;
+        }
+
+        .mail-state.error {
+          color:
+            var(--legal-danger);
+        }
+      `}</style>
+    </section>
   );
 }
-
-function FilterButton({
-  active,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        ...filterBtn,
-        background: active
-          ? "rgba(59,130,246,0.18)"
-          : "rgba(255,255,255,0.04)",
-        border: active
-          ? "1px solid rgba(96,165,250,0.35)"
-          : "1px solid rgba(255,255,255,0.07)",
-        color: active ? "#93c5fd" : "#94a3b8",
-      }}
-    >
-      {label}
-    </button>
-  );
-}
-
-const containerStyle = {
-  background:
-    "linear-gradient(180deg,rgba(15,23,42,0.88),rgba(2,6,23,0.92))",
-  border: "1px solid rgba(148,163,184,0.18)",
-  borderRadius: 28,
-  padding: 16,
-  boxShadow: "0 20px 60px rgba(0,0,0,0.28)",
-};
-
-const headerStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 12,
-  marginBottom: 14,
-};
-
-const smallLabel = {
-  color: "#60a5fa",
-  fontSize: 12,
-  fontWeight: 900,
-  marginBottom: 4,
-};
-
-const titleStyle = {
-  color: "white",
-  fontSize: 20,
-  margin: 0,
-  fontWeight: 900,
-};
-
-const refreshBtn = {
-  width: 38,
-  height: 38,
-  borderRadius: 14,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.06)",
-  color: "white",
-  fontWeight: 900,
-  cursor: "pointer",
-};
-
-const statsRow = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: 10,
-  marginBottom: 12,
-};
-
-const statBox = {
-  background: "rgba(255,255,255,0.04)",
-  border: "1px solid rgba(255,255,255,0.07)",
-  borderRadius: 16,
-  padding: 12,
-};
-
-const statValue = {
-  display: "block",
-  color: "white",
-  fontSize: 20,
-  fontWeight: 900,
-};
-
-const statLabel = {
-  color: "#94a3b8",
-  fontSize: 12,
-};
-
-const searchWrap = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  background: "rgba(255,255,255,0.04)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  borderRadius: 16,
-  padding: "10px 12px",
-  marginBottom: 10,
-};
-
-const searchIcon = {
-  color: "#94a3b8",
-  flexShrink: 0,
-};
-
-const searchInput = {
-  flex: 1,
-  minWidth: 0,
-  background: "transparent",
-  border: "none",
-  outline: "none",
-  color: "white",
-  fontSize: 13,
-};
-
-const clearBtn = {
-  border: "none",
-  background: "rgba(239,68,68,0.13)",
-  color: "#fecaca",
-  borderRadius: 999,
-  padding: "5px 8px",
-  fontSize: 11,
-  fontWeight: 900,
-  cursor: "pointer",
-};
-
-const filterRow = {
-  display: "flex",
-  gap: 8,
-  flexWrap: "wrap" as const,
-  marginBottom: 14,
-};
-
-const filterBtn = {
-  borderRadius: 999,
-  padding: "7px 10px",
-  fontSize: 11,
-  fontWeight: 900,
-  cursor: "pointer",
-};
-
-const listStyle = {
-  display: "flex",
-  flexDirection: "column" as const,
-  gap: 10,
-  maxHeight: "calc(100vh - 330px)",
-  overflowY: "auto" as const,
-  paddingRight: 2,
-};
-
-const mailCardStyle = {
-  width: "100%",
-  textAlign: "left" as const,
-  padding: 14,
-  borderRadius: 18,
-  cursor: "pointer",
-  color: "white",
-};
-
-const mailTopRow = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: 10,
-  alignItems: "flex-start",
-  marginBottom: 8,
-};
-
-const mailSubject = {
-  fontWeight: 900,
-  fontSize: 14,
-  lineHeight: 1.35,
-};
-
-const badgeGroup = {
-  display: "flex",
-  gap: 5,
-  alignItems: "center",
-  flexShrink: 0,
-};
-
-const attachBadge = {
-  color: "#facc15",
-  background: "rgba(250,204,21,0.12)",
-  border: "1px solid rgba(250,204,21,0.22)",
-  padding: "3px 6px",
-  borderRadius: 999,
-  fontSize: 10,
-  fontWeight: 900,
-};
-
-const gmailBadge = {
-  color: "#93c5fd",
-  background: "rgba(59,130,246,0.14)",
-  border: "1px solid rgba(59,130,246,0.25)",
-  padding: "3px 7px",
-  borderRadius: 999,
-  fontSize: 10,
-  fontWeight: 900,
-  flexShrink: 0,
-};
-
-const senderStyle = {
-  color: "#94a3b8",
-  fontSize: 12,
-  marginBottom: 8,
-  whiteSpace: "nowrap" as const,
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-};
-
-const bodyPreview = {
-  color: "#64748b",
-  fontSize: 12,
-  lineHeight: 1.5,
-  marginBottom: 12,
-  display: "-webkit-box",
-  WebkitLineClamp: 2,
-  WebkitBoxOrient: "vertical" as const,
-  overflow: "hidden",
-};
-
-const footerRow = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-};
-
-const statusBadge = {
-  color: "#facc15",
-  background: "rgba(250,204,21,0.1)",
-  border: "1px solid rgba(250,204,21,0.2)",
-  borderRadius: 999,
-  padding: "5px 8px",
-  fontSize: 11,
-  fontWeight: 900,
-};
-
-const arrowStyle = {
-  color: "#94a3b8",
-  fontWeight: 900,
-};
-
-const emptyState = {
-  color: "#94a3b8",
-  background: "rgba(255,255,255,0.04)",
-  border: "1px solid rgba(255,255,255,0.07)",
-  borderRadius: 16,
-  padding: 14,
-};
-
-const errorState = {
-  color: "#fecaca",
-  background: "rgba(239,68,68,0.1)",
-  border: "1px solid rgba(239,68,68,0.2)",
-  borderRadius: 16,
-  padding: 14,
-  fontSize: 13,
-};
-
-

@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
@@ -128,3 +128,193 @@
     @apply font-sans;
   }
 }
+
+/* =========================================================
+   AL METHER LEGAL — GLOBAL DESIGN SYSTEM
+   ========================================================= */
+
+:root {
+  --legal-bg: #f6f3ec;
+  --legal-surface: #ffffff;
+  --legal-surface-2: #f0ece3;
+  --legal-surface-3: #e8e1d4;
+
+  --legal-text: #171717;
+  --legal-text-soft: #323232;
+  --legal-muted: #77716a;
+
+  --legal-border: #d8d0c4;
+  --legal-border-strong: #c6baaa;
+
+  --legal-gold: #c5a15a;
+  --legal-gold-light: #e4cd96;
+  --legal-gold-dark: #927134;
+  --legal-gold-soft: rgba(197, 161, 90, 0.12);
+
+  --legal-success: #2f8f67;
+  --legal-warning: #c58a35;
+  --legal-danger: #b94a4a;
+
+  --legal-overlay: rgba(24, 20, 15, 0.48);
+
+  --legal-radius-sm: 8px;
+  --legal-radius-md: 12px;
+  --legal-radius-lg: 16px;
+  --legal-radius-xl: 20px;
+
+  --legal-shadow-sm:
+    0 4px 14px rgba(20, 16, 10, 0.06);
+
+  --legal-shadow-md:
+    0 12px 32px rgba(20, 16, 10, 0.09);
+
+  --legal-shadow-gold:
+    0 0 0 1px rgba(197, 161, 90, 0.18),
+    0 10px 28px rgba(116, 88, 39, 0.08);
+
+  --legal-transition:
+    140ms ease;
+}
+
+.dark {
+  --legal-bg: #090c12;
+  --legal-surface: #0f141d;
+  --legal-surface-2: #141b26;
+  --legal-surface-3: #1a2230;
+
+  --legal-text: #f5f2eb;
+  --legal-text-soft: #d5d0c7;
+  --legal-muted: #8d95a3;
+
+  --legal-border: #252f3e;
+  --legal-border-strong: #344155;
+
+  --legal-gold: #c8a45f;
+  --legal-gold-light: #e7ce95;
+  --legal-gold-dark: #937139;
+  --legal-gold-soft: rgba(200, 164, 95, 0.12);
+
+  --legal-success: #4fb98a;
+  --legal-warning: #d5a04c;
+  --legal-danger: #d76666;
+
+  --legal-overlay: rgba(0, 0, 0, 0.58);
+
+  --legal-shadow-sm:
+    0 6px 18px rgba(0, 0, 0, 0.22);
+
+  --legal-shadow-md:
+    0 16px 42px rgba(0, 0, 0, 0.30);
+
+  --legal-shadow-gold:
+    0 0 0 1px rgba(200, 164, 95, 0.16),
+    0 14px 38px rgba(0, 0, 0, 0.28);
+}
+
+/* =========================================================
+   GLOBAL LEGAL PRIMITIVES
+   ========================================================= */
+
+.legal-app {
+  min-height: 100vh;
+  background: var(--legal-bg);
+  color: var(--legal-text);
+}
+
+.legal-surface {
+  background: var(--legal-surface);
+  border: 1px solid var(--legal-border);
+  border-radius: var(--legal-radius-lg);
+  box-shadow: var(--legal-shadow-sm);
+}
+
+.legal-surface-soft {
+  background: var(--legal-surface-2);
+  border: 1px solid var(--legal-border);
+  border-radius: var(--legal-radius-md);
+}
+
+.legal-gold-line {
+  border-color: var(--legal-gold);
+}
+
+.legal-title {
+  color: var(--legal-text);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.legal-muted {
+  color: var(--legal-muted);
+}
+
+.legal-input {
+  background: var(--legal-surface);
+  color: var(--legal-text);
+  border: 1px solid var(--legal-border);
+  border-radius: var(--legal-radius-md);
+  transition:
+    border-color var(--legal-transition),
+    box-shadow var(--legal-transition),
+    background var(--legal-transition);
+}
+
+.legal-input:focus {
+  outline: none;
+  border-color: var(--legal-gold);
+  box-shadow:
+    0 0 0 3px var(--legal-gold-soft);
+}
+
+.legal-button {
+  background: var(--legal-surface-2);
+  color: var(--legal-text-soft);
+  border: 1px solid var(--legal-border);
+  border-radius: var(--legal-radius-md);
+  transition:
+    border-color var(--legal-transition),
+    background var(--legal-transition),
+    color var(--legal-transition),
+    transform var(--legal-transition);
+}
+
+.legal-button:hover {
+  border-color: var(--legal-gold);
+  background: var(--legal-gold-soft);
+  color: var(--legal-text);
+}
+
+.legal-button:active {
+  transform: translateY(1px);
+}
+
+.legal-button-gold {
+  background: var(--legal-gold);
+  color: #111111;
+  border: 1px solid var(--legal-gold);
+  border-radius: var(--legal-radius-md);
+  font-weight: 800;
+}
+
+.legal-button-gold:hover {
+  background: var(--legal-gold-light);
+  border-color: var(--legal-gold-light);
+}
+
+.legal-status-success {
+  color: var(--legal-success);
+}
+
+.legal-status-warning {
+  color: var(--legal-warning);
+}
+
+.legal-status-danger {
+  color: var(--legal-danger);
+}
+
+::selection {
+  background: var(--legal-gold-soft);
+  color: var(--legal-text);
+}
+

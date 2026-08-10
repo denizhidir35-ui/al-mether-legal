@@ -1414,7 +1414,7 @@ export default function CalendarPage() {
 
   return (
     <main
-      className={`lawyer-calendar ${theme}`}
+      className={`legal-app lawyer-calendar ${theme}`}
     >
       <style jsx global>{`
         * {
@@ -2811,7 +2811,6745 @@ export default function CalendarPage() {
             font-size: 9px;
           }
         }
-      `}</style>
+        /* =================================================
+           AL METHER CALENDAR GOLD OVERRIDE
+           ================================================= */
+
+        .lawyer-calendar.dark,
+        .lawyer-calendar.light {
+          --bg:
+            var(--legal-bg);
+
+          --surface:
+            var(--legal-surface);
+
+          --surface-2:
+            var(--legal-surface-2);
+
+          --surface-3:
+            var(--legal-surface-3);
+
+          --border:
+            var(--legal-border);
+
+          --text:
+            var(--legal-text);
+
+          --muted:
+            var(--legal-muted);
+
+          --accent:
+            var(--legal-gold);
+
+          --accent-2:
+            var(--legal-gold);
+
+          --warning:
+            var(--legal-warning);
+
+          --success:
+            var(--legal-success);
+
+          --danger:
+            var(--legal-danger);
+
+          --cyan:
+            var(--legal-gold-light);
+
+          --violet-soft:
+            var(--legal-gold-soft);
+
+          --blue-soft:
+            var(--legal-gold-soft);
+
+          --cyan-soft:
+            var(--legal-gold-soft);
+
+          --danger-soft:
+            color-mix(
+              in srgb,
+              var(--legal-danger) 12%,
+              transparent
+            );
+
+          --shadow:
+            rgba(0, 0, 0, 0.22);
+
+          background:
+            var(--legal-bg);
+
+          color:
+            var(--legal-text);
+        }
+
+        .lawyer-calendar {
+          height: 100dvh;
+          min-height: 100dvh;
+
+          overflow: hidden;
+
+          padding:
+            10px 12px 72px;
+        }
+
+        .workspace {
+          width:
+            min(
+              1560px,
+              100%
+            );
+
+          height:
+            calc(
+              100dvh -
+              82px
+            );
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-lg);
+
+          background:
+            var(--legal-surface);
+
+          box-shadow:
+            var(--legal-shadow-sm);
+        }
+
+        .topbar {
+          min-height: 48px;
+
+          padding:
+            8px 12px;
+
+          gap: 10px;
+
+          border-bottom:
+            1px solid
+            var(--legal-border);
+        }
+
+        .brand-kicker {
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+          letter-spacing:
+            0.16em;
+        }
+
+        .brand-title {
+          color:
+            var(--legal-text);
+
+          font-size: 12px;
+          letter-spacing:
+            0.07em;
+
+          text-shadow: none;
+        }
+
+        .brand-subtitle {
+          display: none;
+        }
+
+        .top-actions {
+          gap: 5px;
+        }
+
+        .action-button {
+          height: 30px;
+
+          padding:
+            0 9px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text-soft);
+
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .action-button:hover {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold);
+        }
+
+        .main-grid {
+          grid-template-columns:
+            minmax(560px, 2.5fr)
+            minmax(300px, 1fr);
+        }
+
+        .calendar-panel {
+          padding:
+            10px 12px;
+
+          border-right:
+            1px solid
+            var(--legal-border);
+
+          background:
+            var(--legal-surface);
+        }
+
+        .detail-panel {
+          padding:
+            10px 12px;
+
+          background:
+            var(--legal-surface);
+        }
+
+        .section-eyebrow {
+          margin-bottom: 3px;
+
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .section-title {
+          font-size: 14px;
+        }
+
+        .calendar-toolbar {
+          margin-bottom: 8px;
+          gap: 8px;
+        }
+
+        .calendar-navigation {
+          gap: 5px;
+        }
+
+        .month-title {
+          min-width: 145px;
+
+          color:
+            var(--legal-text);
+
+          font-size: 14px;
+        }
+
+        .icon-button {
+          width: 30px;
+          height: 30px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text-soft);
+
+          font-size: 14px;
+        }
+
+        .icon-button:hover {
+          border-color:
+            var(--legal-gold);
+
+          color:
+            var(--legal-gold);
+        }
+
+        .weekdays {
+          margin-bottom: 4px;
+        }
+
+        .weekday {
+          padding: 5px 3px;
+
+          color:
+            var(--legal-muted);
+
+          font-size: 8px;
+        }
+
+        .month-grid {
+          gap: 4px;
+        }
+
+        .day-cell {
+          padding: 7px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            10px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text);
+
+          transition:
+            border-color
+              var(--legal-transition),
+            background
+              var(--legal-transition);
+        }
+
+        .day-cell::after {
+          display: none;
+        }
+
+        .day-cell:hover {
+          transform: none;
+
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          box-shadow: none;
+        }
+
+        .day-cell.selected {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          box-shadow:
+            inset 0 0 0 1px
+            var(--legal-gold);
+        }
+
+        .day-cell.today {
+          background:
+            var(--legal-surface-3);
+        }
+
+        .day-number {
+          width: 24px;
+          height: 24px;
+
+          border-radius: 7px;
+
+          font-size: 9px;
+        }
+
+        .today .day-number {
+          background:
+            var(--legal-gold);
+
+          color:
+            #111111;
+        }
+
+        .event-dots {
+          gap: 3px;
+          margin-top: 5px;
+        }
+
+        .event-count-chip {
+          padding:
+            3px 5px;
+
+          border:
+            1px solid
+            var(--legal-gold);
+
+          border-radius: 6px;
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .event-chip {
+          padding:
+            3px 5px;
+
+          border-radius: 6px;
+
+          font-size: 7px;
+        }
+
+        .event-chip.service {
+          color:
+            var(--legal-success);
+        }
+
+        .event-chip.deadline {
+          color:
+            var(--legal-danger);
+        }
+
+        .event-chip.hearing {
+          color:
+            var(--legal-warning);
+        }
+
+        .event-chip.notice {
+          color:
+            var(--legal-gold-light);
+
+          background:
+            var(--legal-gold-soft);
+        }
+
+        .detail-date {
+          margin:
+            0 0 7px;
+
+          padding-left: 9px;
+
+          border-left:
+            2px solid
+            var(--legal-gold);
+
+          color:
+            var(--legal-text);
+
+          font-size: 13px;
+        }
+
+        .detail-list {
+          gap: 6px;
+        }
+
+        .event-selector {
+          gap: 4px;
+          margin-bottom: 5px;
+        }
+
+        .event-selector-title {
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .event-selector-list {
+          gap: 4px;
+        }
+
+        .event-selector-button {
+          height: 29px;
+
+          grid-template-columns:
+            17px
+            minmax(0, 1fr);
+
+          gap: 4px;
+
+          padding:
+            0 5px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius: 7px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-muted);
+        }
+
+        .event-selector-button span {
+          width: 17px;
+          height: 17px;
+
+          border-radius: 5px;
+
+          background:
+            var(--legal-surface-3);
+
+          font-size: 7px;
+        }
+
+        .event-selector-button strong {
+          font-size: 7.5px;
+        }
+
+        .event-selector-button.active {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-text);
+        }
+
+        .detail-tabs {
+          gap: 3px;
+
+          margin:
+            4px 0 6px;
+        }
+
+        .detail-tab {
+          height: 29px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius: 7px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-muted);
+
+          font-size: 7.5px;
+        }
+
+        .detail-tab:hover {
+          transform: none;
+
+          border-color:
+            var(--legal-gold);
+
+          color:
+            var(--legal-text);
+        }
+
+        .detail-tab.active {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold-light);
+
+          box-shadow: none;
+        }
+
+        .detail-row {
+          grid-template-columns:
+            58px
+            minmax(0, 1fr);
+
+          gap: 6px;
+
+          padding:
+            5px 0;
+
+          border-bottom:
+            1px solid
+            var(--legal-border);
+
+          font-size: 8px;
+        }
+
+        .detail-row span {
+          color:
+            var(--legal-muted);
+        }
+
+        .detail-row strong {
+          color:
+            var(--legal-text);
+        }
+
+        .detail-empty {
+          border-color:
+            var(--legal-border);
+
+          color:
+            var(--legal-muted);
+        }
+
+        @media (
+          max-width: 900px
+        ) {
+          .lawyer-calendar {
+            height: auto;
+            min-height: 100dvh;
+
+            overflow: visible;
+
+            padding:
+              7px 7px 74px;
+          }
+
+          .workspace {
+            width: 100%;
+            height: auto;
+
+            min-height:
+              calc(
+                100dvh -
+                81px
+              );
+
+            overflow: visible;
+
+            border-radius: 13px;
+          }
+
+          .topbar {
+            min-height: 44px;
+            padding: 7px 8px;
+          }
+
+          .brand-title {
+            font-size: 10px;
+          }
+
+          .main-grid {
+            display: block;
+          }
+
+          .calendar-panel {
+            padding: 8px;
+
+            border-right: 0;
+          }
+
+          .detail-panel {
+            padding: 8px;
+
+            border-top:
+              1px solid
+              var(--legal-border);
+          }
+
+          .calendar-toolbar {
+            margin-bottom: 6px;
+          }
+
+          .month-title {
+            min-width: 120px;
+            font-size: 12px;
+          }
+
+          .month-grid {
+            gap: 3px;
+          }
+
+          .day-cell {
+            min-height: 62px;
+
+            padding: 5px;
+
+            border-radius: 8px;
+          }
+
+          .day-number {
+            width: 21px;
+            height: 21px;
+
+            font-size: 8px;
+          }
+
+          .event-chip {
+            padding:
+              2px 4px;
+
+            font-size: 6.5px;
+          }
+
+          .detail-tabs {
+            overflow-x: auto;
+          }
+
+          .detail-tab {
+            flex:
+              0 0 auto;
+
+            min-width: 64px;
+          }
+        }
+
+        @media (
+          max-width: 520px
+        ) {
+          .action-button {
+            padding:
+              0 7px;
+
+            font-size: 8px;
+          }
+
+          .weekday {
+            font-size: 7px;
+          }
+
+          .day-cell {
+            min-height: 54px;
+            padding: 4px;
+          }
+
+          .event-chip {
+            display: none;
+          }
+
+          .event-count-chip {
+            display: block;
+          }
+        }
+
+        /* =================================================
+           AL METHER CALENDAR GOLD OVERRIDE
+           ================================================= */
+
+        .lawyer-calendar.dark,
+        .lawyer-calendar.light {
+          --bg:
+            var(--legal-bg);
+
+          --surface:
+            var(--legal-surface);
+
+          --surface-2:
+            var(--legal-surface-2);
+
+          --surface-3:
+            var(--legal-surface-3);
+
+          --border:
+            var(--legal-border);
+
+          --text:
+            var(--legal-text);
+
+          --muted:
+            var(--legal-muted);
+
+          --accent:
+            var(--legal-gold);
+
+          --accent-2:
+            var(--legal-gold);
+
+          --warning:
+            var(--legal-warning);
+
+          --success:
+            var(--legal-success);
+
+          --danger:
+            var(--legal-danger);
+
+          --cyan:
+            var(--legal-gold-light);
+
+          --violet-soft:
+            var(--legal-gold-soft);
+
+          --blue-soft:
+            var(--legal-gold-soft);
+
+          --cyan-soft:
+            var(--legal-gold-soft);
+
+          --danger-soft:
+            color-mix(
+              in srgb,
+              var(--legal-danger) 12%,
+              transparent
+            );
+
+          --shadow:
+            rgba(0, 0, 0, 0.22);
+
+          background:
+            var(--legal-bg);
+
+          color:
+            var(--legal-text);
+        }
+
+        .lawyer-calendar {
+          height: 100dvh;
+          min-height: 100dvh;
+
+          overflow: hidden;
+
+          padding:
+            10px 12px 72px;
+        }
+
+        .workspace {
+          width:
+            min(
+              1560px,
+              100%
+            );
+
+          height:
+            calc(
+              100dvh -
+              82px
+            );
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-lg);
+
+          background:
+            var(--legal-surface);
+
+          box-shadow:
+            var(--legal-shadow-sm);
+        }
+
+        .topbar {
+          min-height: 48px;
+
+          padding:
+            8px 12px;
+
+          gap: 10px;
+
+          border-bottom:
+            1px solid
+            var(--legal-border);
+        }
+
+        .brand-kicker {
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+          letter-spacing:
+            0.16em;
+        }
+
+        .brand-title {
+          color:
+            var(--legal-text);
+
+          font-size: 12px;
+          letter-spacing:
+            0.07em;
+
+          text-shadow: none;
+        }
+
+        .brand-subtitle {
+          display: none;
+        }
+
+        .top-actions {
+          gap: 5px;
+        }
+
+        .action-button {
+          height: 30px;
+
+          padding:
+            0 9px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text-soft);
+
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .action-button:hover {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold);
+        }
+
+        .main-grid {
+          grid-template-columns:
+            minmax(560px, 2.5fr)
+            minmax(300px, 1fr);
+        }
+
+        .calendar-panel {
+          padding:
+            10px 12px;
+
+          border-right:
+            1px solid
+            var(--legal-border);
+
+          background:
+            var(--legal-surface);
+        }
+
+        .detail-panel {
+          padding:
+            10px 12px;
+
+          background:
+            var(--legal-surface);
+        }
+
+        .section-eyebrow {
+          margin-bottom: 3px;
+
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .section-title {
+          font-size: 14px;
+        }
+
+        .calendar-toolbar {
+          margin-bottom: 8px;
+          gap: 8px;
+        }
+
+        .calendar-navigation {
+          gap: 5px;
+        }
+
+        .month-title {
+          min-width: 145px;
+
+          color:
+            var(--legal-text);
+
+          font-size: 14px;
+        }
+
+        .icon-button {
+          width: 30px;
+          height: 30px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text-soft);
+
+          font-size: 14px;
+        }
+
+        .icon-button:hover {
+          border-color:
+            var(--legal-gold);
+
+          color:
+            var(--legal-gold);
+        }
+
+        .weekdays {
+          margin-bottom: 4px;
+        }
+
+        .weekday {
+          padding: 5px 3px;
+
+          color:
+            var(--legal-muted);
+
+          font-size: 8px;
+        }
+
+        .month-grid {
+          gap: 4px;
+        }
+
+        .day-cell {
+          padding: 7px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            10px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text);
+
+          transition:
+            border-color
+              var(--legal-transition),
+            background
+              var(--legal-transition);
+        }
+
+        .day-cell::after {
+          display: none;
+        }
+
+        .day-cell:hover {
+          transform: none;
+
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          box-shadow: none;
+        }
+
+        .day-cell.selected {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          box-shadow:
+            inset 0 0 0 1px
+            var(--legal-gold);
+        }
+
+        .day-cell.today {
+          background:
+            var(--legal-surface-3);
+        }
+
+        .day-number {
+          width: 24px;
+          height: 24px;
+
+          border-radius: 7px;
+
+          font-size: 9px;
+        }
+
+        .today .day-number {
+          background:
+            var(--legal-gold);
+
+          color:
+            #111111;
+        }
+
+        .event-dots {
+          gap: 3px;
+          margin-top: 5px;
+        }
+
+        .event-count-chip {
+          padding:
+            3px 5px;
+
+          border:
+            1px solid
+            var(--legal-gold);
+
+          border-radius: 6px;
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .event-chip {
+          padding:
+            3px 5px;
+
+          border-radius: 6px;
+
+          font-size: 7px;
+        }
+
+        .event-chip.service {
+          color:
+            var(--legal-success);
+        }
+
+        .event-chip.deadline {
+          color:
+            var(--legal-danger);
+        }
+
+        .event-chip.hearing {
+          color:
+            var(--legal-warning);
+        }
+
+        .event-chip.notice {
+          color:
+            var(--legal-gold-light);
+
+          background:
+            var(--legal-gold-soft);
+        }
+
+        .detail-date {
+          margin:
+            0 0 7px;
+
+          padding-left: 9px;
+
+          border-left:
+            2px solid
+            var(--legal-gold);
+
+          color:
+            var(--legal-text);
+
+          font-size: 13px;
+        }
+
+        .detail-list {
+          gap: 6px;
+        }
+
+        .event-selector {
+          gap: 4px;
+          margin-bottom: 5px;
+        }
+
+        .event-selector-title {
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .event-selector-list {
+          gap: 4px;
+        }
+
+        .event-selector-button {
+          height: 29px;
+
+          grid-template-columns:
+            17px
+            minmax(0, 1fr);
+
+          gap: 4px;
+
+          padding:
+            0 5px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius: 7px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-muted);
+        }
+
+        .event-selector-button span {
+          width: 17px;
+          height: 17px;
+
+          border-radius: 5px;
+
+          background:
+            var(--legal-surface-3);
+
+          font-size: 7px;
+        }
+
+        .event-selector-button strong {
+          font-size: 7.5px;
+        }
+
+        .event-selector-button.active {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-text);
+        }
+
+        .detail-tabs {
+          gap: 3px;
+
+          margin:
+            4px 0 6px;
+        }
+
+        .detail-tab {
+          height: 29px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius: 7px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-muted);
+
+          font-size: 7.5px;
+        }
+
+        .detail-tab:hover {
+          transform: none;
+
+          border-color:
+            var(--legal-gold);
+
+          color:
+            var(--legal-text);
+        }
+
+        .detail-tab.active {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold-light);
+
+          box-shadow: none;
+        }
+
+        .detail-row {
+          grid-template-columns:
+            58px
+            minmax(0, 1fr);
+
+          gap: 6px;
+
+          padding:
+            5px 0;
+
+          border-bottom:
+            1px solid
+            var(--legal-border);
+
+          font-size: 8px;
+        }
+
+        .detail-row span {
+          color:
+            var(--legal-muted);
+        }
+
+        .detail-row strong {
+          color:
+            var(--legal-text);
+        }
+
+        .detail-empty {
+          border-color:
+            var(--legal-border);
+
+          color:
+            var(--legal-muted);
+        }
+
+        @media (
+          max-width: 900px
+        ) {
+          .lawyer-calendar {
+            height: auto;
+            min-height: 100dvh;
+
+            overflow: visible;
+
+            padding:
+              7px 7px 74px;
+          }
+
+          .workspace {
+            width: 100%;
+            height: auto;
+
+            min-height:
+              calc(
+                100dvh -
+                81px
+              );
+
+            overflow: visible;
+
+            border-radius: 13px;
+          }
+
+          .topbar {
+            min-height: 44px;
+            padding: 7px 8px;
+          }
+
+          .brand-title {
+            font-size: 10px;
+          }
+
+          .main-grid {
+            display: block;
+          }
+
+          .calendar-panel {
+            padding: 8px;
+
+            border-right: 0;
+          }
+
+          .detail-panel {
+            padding: 8px;
+
+            border-top:
+              1px solid
+              var(--legal-border);
+          }
+
+          .calendar-toolbar {
+            margin-bottom: 6px;
+          }
+
+          .month-title {
+            min-width: 120px;
+            font-size: 12px;
+          }
+
+          .month-grid {
+            gap: 3px;
+          }
+
+          .day-cell {
+            min-height: 62px;
+
+            padding: 5px;
+
+            border-radius: 8px;
+          }
+
+          .day-number {
+            width: 21px;
+            height: 21px;
+
+            font-size: 8px;
+          }
+
+          .event-chip {
+            padding:
+              2px 4px;
+
+            font-size: 6.5px;
+          }
+
+          .detail-tabs {
+            overflow-x: auto;
+          }
+
+          .detail-tab {
+            flex:
+              0 0 auto;
+
+            min-width: 64px;
+          }
+        }
+
+        @media (
+          max-width: 520px
+        ) {
+          .action-button {
+            padding:
+              0 7px;
+
+            font-size: 8px;
+          }
+
+          .weekday {
+            font-size: 7px;
+          }
+
+          .day-cell {
+            min-height: 54px;
+            padding: 4px;
+          }
+
+          .event-chip {
+            display: none;
+          }
+
+          .event-count-chip {
+            display: block;
+          }
+        }
+
+
+        /* =================================================
+           AL METHER CALENDAR GOLD OVERRIDE
+           ================================================= */
+
+        .lawyer-calendar.dark,
+        .lawyer-calendar.light {
+          --bg:
+            var(--legal-bg);
+
+          --surface:
+            var(--legal-surface);
+
+          --surface-2:
+            var(--legal-surface-2);
+
+          --surface-3:
+            var(--legal-surface-3);
+
+          --border:
+            var(--legal-border);
+
+          --text:
+            var(--legal-text);
+
+          --muted:
+            var(--legal-muted);
+
+          --accent:
+            var(--legal-gold);
+
+          --accent-2:
+            var(--legal-gold);
+
+          --warning:
+            var(--legal-warning);
+
+          --success:
+            var(--legal-success);
+
+          --danger:
+            var(--legal-danger);
+
+          --cyan:
+            var(--legal-gold-light);
+
+          --violet-soft:
+            var(--legal-gold-soft);
+
+          --blue-soft:
+            var(--legal-gold-soft);
+
+          --cyan-soft:
+            var(--legal-gold-soft);
+
+          --danger-soft:
+            color-mix(
+              in srgb,
+              var(--legal-danger) 12%,
+              transparent
+            );
+
+          --shadow:
+            rgba(0, 0, 0, 0.22);
+
+          background:
+            var(--legal-bg);
+
+          color:
+            var(--legal-text);
+        }
+
+        .lawyer-calendar {
+          height: 100dvh;
+          min-height: 100dvh;
+
+          overflow: hidden;
+
+          padding:
+            10px 12px 72px;
+        }
+
+        .workspace {
+          width:
+            min(
+              1560px,
+              100%
+            );
+
+          height:
+            calc(
+              100dvh -
+              82px
+            );
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-lg);
+
+          background:
+            var(--legal-surface);
+
+          box-shadow:
+            var(--legal-shadow-sm);
+        }
+
+        .topbar {
+          min-height: 48px;
+
+          padding:
+            8px 12px;
+
+          gap: 10px;
+
+          border-bottom:
+            1px solid
+            var(--legal-border);
+        }
+
+        .brand-kicker {
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+          letter-spacing:
+            0.16em;
+        }
+
+        .brand-title {
+          color:
+            var(--legal-text);
+
+          font-size: 12px;
+          letter-spacing:
+            0.07em;
+
+          text-shadow: none;
+        }
+
+        .brand-subtitle {
+          display: none;
+        }
+
+        .top-actions {
+          gap: 5px;
+        }
+
+        .action-button {
+          height: 30px;
+
+          padding:
+            0 9px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text-soft);
+
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .action-button:hover {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold);
+        }
+
+        .main-grid {
+          grid-template-columns:
+            minmax(560px, 2.5fr)
+            minmax(300px, 1fr);
+        }
+
+        .calendar-panel {
+          padding:
+            10px 12px;
+
+          border-right:
+            1px solid
+            var(--legal-border);
+
+          background:
+            var(--legal-surface);
+        }
+
+        .detail-panel {
+          padding:
+            10px 12px;
+
+          background:
+            var(--legal-surface);
+        }
+
+        .section-eyebrow {
+          margin-bottom: 3px;
+
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .section-title {
+          font-size: 14px;
+        }
+
+        .calendar-toolbar {
+          margin-bottom: 8px;
+          gap: 8px;
+        }
+
+        .calendar-navigation {
+          gap: 5px;
+        }
+
+        .month-title {
+          min-width: 145px;
+
+          color:
+            var(--legal-text);
+
+          font-size: 14px;
+        }
+
+        .icon-button {
+          width: 30px;
+          height: 30px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text-soft);
+
+          font-size: 14px;
+        }
+
+        .icon-button:hover {
+          border-color:
+            var(--legal-gold);
+
+          color:
+            var(--legal-gold);
+        }
+
+        .weekdays {
+          margin-bottom: 4px;
+        }
+
+        .weekday {
+          padding: 5px 3px;
+
+          color:
+            var(--legal-muted);
+
+          font-size: 8px;
+        }
+
+        .month-grid {
+          gap: 4px;
+        }
+
+        .day-cell {
+          padding: 7px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            10px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text);
+
+          transition:
+            border-color
+              var(--legal-transition),
+            background
+              var(--legal-transition);
+        }
+
+        .day-cell::after {
+          display: none;
+        }
+
+        .day-cell:hover {
+          transform: none;
+
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          box-shadow: none;
+        }
+
+        .day-cell.selected {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          box-shadow:
+            inset 0 0 0 1px
+            var(--legal-gold);
+        }
+
+        .day-cell.today {
+          background:
+            var(--legal-surface-3);
+        }
+
+        .day-number {
+          width: 24px;
+          height: 24px;
+
+          border-radius: 7px;
+
+          font-size: 9px;
+        }
+
+        .today .day-number {
+          background:
+            var(--legal-gold);
+
+          color:
+            #111111;
+        }
+
+        .event-dots {
+          gap: 3px;
+          margin-top: 5px;
+        }
+
+        .event-count-chip {
+          padding:
+            3px 5px;
+
+          border:
+            1px solid
+            var(--legal-gold);
+
+          border-radius: 6px;
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .event-chip {
+          padding:
+            3px 5px;
+
+          border-radius: 6px;
+
+          font-size: 7px;
+        }
+
+        .event-chip.service {
+          color:
+            var(--legal-success);
+        }
+
+        .event-chip.deadline {
+          color:
+            var(--legal-danger);
+        }
+
+        .event-chip.hearing {
+          color:
+            var(--legal-warning);
+        }
+
+        .event-chip.notice {
+          color:
+            var(--legal-gold-light);
+
+          background:
+            var(--legal-gold-soft);
+        }
+
+        .detail-date {
+          margin:
+            0 0 7px;
+
+          padding-left: 9px;
+
+          border-left:
+            2px solid
+            var(--legal-gold);
+
+          color:
+            var(--legal-text);
+
+          font-size: 13px;
+        }
+
+        .detail-list {
+          gap: 6px;
+        }
+
+        .event-selector {
+          gap: 4px;
+          margin-bottom: 5px;
+        }
+
+        .event-selector-title {
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .event-selector-list {
+          gap: 4px;
+        }
+
+        .event-selector-button {
+          height: 29px;
+
+          grid-template-columns:
+            17px
+            minmax(0, 1fr);
+
+          gap: 4px;
+
+          padding:
+            0 5px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius: 7px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-muted);
+        }
+
+        .event-selector-button span {
+          width: 17px;
+          height: 17px;
+
+          border-radius: 5px;
+
+          background:
+            var(--legal-surface-3);
+
+          font-size: 7px;
+        }
+
+        .event-selector-button strong {
+          font-size: 7.5px;
+        }
+
+        .event-selector-button.active {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-text);
+        }
+
+        .detail-tabs {
+          gap: 3px;
+
+          margin:
+            4px 0 6px;
+        }
+
+        .detail-tab {
+          height: 29px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius: 7px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-muted);
+
+          font-size: 7.5px;
+        }
+
+        .detail-tab:hover {
+          transform: none;
+
+          border-color:
+            var(--legal-gold);
+
+          color:
+            var(--legal-text);
+        }
+
+        .detail-tab.active {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold-light);
+
+          box-shadow: none;
+        }
+
+        .detail-row {
+          grid-template-columns:
+            58px
+            minmax(0, 1fr);
+
+          gap: 6px;
+
+          padding:
+            5px 0;
+
+          border-bottom:
+            1px solid
+            var(--legal-border);
+
+          font-size: 8px;
+        }
+
+        .detail-row span {
+          color:
+            var(--legal-muted);
+        }
+
+        .detail-row strong {
+          color:
+            var(--legal-text);
+        }
+
+        .detail-empty {
+          border-color:
+            var(--legal-border);
+
+          color:
+            var(--legal-muted);
+        }
+
+        @media (
+          max-width: 900px
+        ) {
+          .lawyer-calendar {
+            height: auto;
+            min-height: 100dvh;
+
+            overflow: visible;
+
+            padding:
+              7px 7px 74px;
+          }
+
+          .workspace {
+            width: 100%;
+            height: auto;
+
+            min-height:
+              calc(
+                100dvh -
+                81px
+              );
+
+            overflow: visible;
+
+            border-radius: 13px;
+          }
+
+          .topbar {
+            min-height: 44px;
+            padding: 7px 8px;
+          }
+
+          .brand-title {
+            font-size: 10px;
+          }
+
+          .main-grid {
+            display: block;
+          }
+
+          .calendar-panel {
+            padding: 8px;
+
+            border-right: 0;
+          }
+
+          .detail-panel {
+            padding: 8px;
+
+            border-top:
+              1px solid
+              var(--legal-border);
+          }
+
+          .calendar-toolbar {
+            margin-bottom: 6px;
+          }
+
+          .month-title {
+            min-width: 120px;
+            font-size: 12px;
+          }
+
+          .month-grid {
+            gap: 3px;
+          }
+
+          .day-cell {
+            min-height: 62px;
+
+            padding: 5px;
+
+            border-radius: 8px;
+          }
+
+          .day-number {
+            width: 21px;
+            height: 21px;
+
+            font-size: 8px;
+          }
+
+          .event-chip {
+            padding:
+              2px 4px;
+
+            font-size: 6.5px;
+          }
+
+          .detail-tabs {
+            overflow-x: auto;
+          }
+
+          .detail-tab {
+            flex:
+              0 0 auto;
+
+            min-width: 64px;
+          }
+        }
+
+        @media (
+          max-width: 520px
+        ) {
+          .action-button {
+            padding:
+              0 7px;
+
+            font-size: 8px;
+          }
+
+          .weekday {
+            font-size: 7px;
+          }
+
+          .day-cell {
+            min-height: 54px;
+            padding: 4px;
+          }
+
+          .event-chip {
+            display: none;
+          }
+
+          .event-count-chip {
+            display: block;
+          }
+        }
+ 
+        /* =================================================
+           AL METHER CALENDAR GOLD OVERRIDE
+           ================================================= */
+
+        .lawyer-calendar.dark,
+        .lawyer-calendar.light {
+          --bg:
+            var(--legal-bg);
+
+          --surface:
+            var(--legal-surface);
+
+          --surface-2:
+            var(--legal-surface-2);
+
+          --surface-3:
+            var(--legal-surface-3);
+
+          --border:
+            var(--legal-border);
+
+          --text:
+            var(--legal-text);
+
+          --muted:
+            var(--legal-muted);
+
+          --accent:
+            var(--legal-gold);
+
+          --accent-2:
+            var(--legal-gold);
+
+          --warning:
+            var(--legal-warning);
+
+          --success:
+            var(--legal-success);
+
+          --danger:
+            var(--legal-danger);
+
+          --cyan:
+            var(--legal-gold-light);
+
+          --violet-soft:
+            var(--legal-gold-soft);
+
+          --blue-soft:
+            var(--legal-gold-soft);
+
+          --cyan-soft:
+            var(--legal-gold-soft);
+
+          --danger-soft:
+            color-mix(
+              in srgb,
+              var(--legal-danger) 12%,
+              transparent
+            );
+
+          --shadow:
+            rgba(0, 0, 0, 0.22);
+
+          background:
+            var(--legal-bg);
+
+          color:
+            var(--legal-text);
+        }
+
+        .lawyer-calendar {
+          height: 100dvh;
+          min-height: 100dvh;
+
+          overflow: hidden;
+
+          padding:
+            10px 12px 72px;
+        }
+
+        .workspace {
+          width:
+            min(
+              1560px,
+              100%
+            );
+
+          height:
+            calc(
+              100dvh -
+              82px
+            );
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-lg);
+
+          background:
+            var(--legal-surface);
+
+          box-shadow:
+            var(--legal-shadow-sm);
+        }
+
+        .topbar {
+          min-height: 48px;
+
+          padding:
+            8px 12px;
+
+          gap: 10px;
+
+          border-bottom:
+            1px solid
+            var(--legal-border);
+        }
+
+        .brand-kicker {
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+          letter-spacing:
+            0.16em;
+        }
+
+        .brand-title {
+          color:
+            var(--legal-text);
+
+          font-size: 12px;
+          letter-spacing:
+            0.07em;
+
+          text-shadow: none;
+        }
+
+        .brand-subtitle {
+          display: none;
+        }
+
+        .top-actions {
+          gap: 5px;
+        }
+
+        .action-button {
+          height: 30px;
+
+          padding:
+            0 9px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text-soft);
+
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .action-button:hover {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold);
+        }
+
+        .main-grid {
+          grid-template-columns:
+            minmax(560px, 2.5fr)
+            minmax(300px, 1fr);
+        }
+
+        .calendar-panel {
+          padding:
+            10px 12px;
+
+          border-right:
+            1px solid
+            var(--legal-border);
+
+          background:
+            var(--legal-surface);
+        }
+
+        .detail-panel {
+          padding:
+            10px 12px;
+
+          background:
+            var(--legal-surface);
+        }
+
+        .section-eyebrow {
+          margin-bottom: 3px;
+
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .section-title {
+          font-size: 14px;
+        }
+
+        .calendar-toolbar {
+          margin-bottom: 8px;
+          gap: 8px;
+        }
+
+        .calendar-navigation {
+          gap: 5px;
+        }
+
+        .month-title {
+          min-width: 145px;
+
+          color:
+            var(--legal-text);
+
+          font-size: 14px;
+        }
+
+        .icon-button {
+          width: 30px;
+          height: 30px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text-soft);
+
+          font-size: 14px;
+        }
+
+        .icon-button:hover {
+          border-color:
+            var(--legal-gold);
+
+          color:
+            var(--legal-gold);
+        }
+
+        .weekdays {
+          margin-bottom: 4px;
+        }
+
+        .weekday {
+          padding: 5px 3px;
+
+          color:
+            var(--legal-muted);
+
+          font-size: 8px;
+        }
+
+        .month-grid {
+          gap: 4px;
+        }
+
+        .day-cell {
+          padding: 7px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            10px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text);
+
+          transition:
+            border-color
+              var(--legal-transition),
+            background
+              var(--legal-transition);
+        }
+
+        .day-cell::after {
+          display: none;
+        }
+
+        .day-cell:hover {
+          transform: none;
+
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          box-shadow: none;
+        }
+
+        .day-cell.selected {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          box-shadow:
+            inset 0 0 0 1px
+            var(--legal-gold);
+        }
+
+        .day-cell.today {
+          background:
+            var(--legal-surface-3);
+        }
+
+        .day-number {
+          width: 24px;
+          height: 24px;
+
+          border-radius: 7px;
+
+          font-size: 9px;
+        }
+
+        .today .day-number {
+          background:
+            var(--legal-gold);
+
+          color:
+            #111111;
+        }
+
+        .event-dots {
+          gap: 3px;
+          margin-top: 5px;
+        }
+
+        .event-count-chip {
+          padding:
+            3px 5px;
+
+          border:
+            1px solid
+            var(--legal-gold);
+
+          border-radius: 6px;
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .event-chip {
+          padding:
+            3px 5px;
+
+          border-radius: 6px;
+
+          font-size: 7px;
+        }
+
+        .event-chip.service {
+          color:
+            var(--legal-success);
+        }
+
+        .event-chip.deadline {
+          color:
+            var(--legal-danger);
+        }
+
+        .event-chip.hearing {
+          color:
+            var(--legal-warning);
+        }
+
+        .event-chip.notice {
+          color:
+            var(--legal-gold-light);
+
+          background:
+            var(--legal-gold-soft);
+        }
+
+        .detail-date {
+          margin:
+            0 0 7px;
+
+          padding-left: 9px;
+
+          border-left:
+            2px solid
+            var(--legal-gold);
+
+          color:
+            var(--legal-text);
+
+          font-size: 13px;
+        }
+
+        .detail-list {
+          gap: 6px;
+        }
+
+        .event-selector {
+          gap: 4px;
+          margin-bottom: 5px;
+        }
+
+        .event-selector-title {
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .event-selector-list {
+          gap: 4px;
+        }
+
+        .event-selector-button {
+          height: 29px;
+
+          grid-template-columns:
+            17px
+            minmax(0, 1fr);
+
+          gap: 4px;
+
+          padding:
+            0 5px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius: 7px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-muted);
+        }
+
+        .event-selector-button span {
+          width: 17px;
+          height: 17px;
+
+          border-radius: 5px;
+
+          background:
+            var(--legal-surface-3);
+
+          font-size: 7px;
+        }
+
+        .event-selector-button strong {
+          font-size: 7.5px;
+        }
+
+        .event-selector-button.active {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-text);
+        }
+
+        .detail-tabs {
+          gap: 3px;
+
+          margin:
+            4px 0 6px;
+        }
+
+        .detail-tab {
+          height: 29px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius: 7px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-muted);
+
+          font-size: 7.5px;
+        }
+
+        .detail-tab:hover {
+          transform: none;
+
+          border-color:
+            var(--legal-gold);
+
+          color:
+            var(--legal-text);
+        }
+
+        .detail-tab.active {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold-light);
+
+          box-shadow: none;
+        }
+
+        .detail-row {
+          grid-template-columns:
+            58px
+            minmax(0, 1fr);
+
+          gap: 6px;
+
+          padding:
+            5px 0;
+
+          border-bottom:
+            1px solid
+            var(--legal-border);
+
+          font-size: 8px;
+        }
+
+        .detail-row span {
+          color:
+            var(--legal-muted);
+        }
+
+        .detail-row strong {
+          color:
+            var(--legal-text);
+        }
+
+        .detail-empty {
+          border-color:
+            var(--legal-border);
+
+          color:
+            var(--legal-muted);
+        }
+
+        @media (
+          max-width: 900px
+        ) {
+          .lawyer-calendar {
+            height: auto;
+            min-height: 100dvh;
+
+            overflow: visible;
+
+            padding:
+              7px 7px 74px;
+          }
+
+          .workspace {
+            width: 100%;
+            height: auto;
+
+            min-height:
+              calc(
+                100dvh -
+                81px
+              );
+
+            overflow: visible;
+
+            border-radius: 13px;
+          }
+
+          .topbar {
+            min-height: 44px;
+            padding: 7px 8px;
+          }
+
+          .brand-title {
+            font-size: 10px;
+          }
+
+          .main-grid {
+            display: block;
+          }
+
+          .calendar-panel {
+            padding: 8px;
+
+            border-right: 0;
+          }
+
+          .detail-panel {
+            padding: 8px;
+
+            border-top:
+              1px solid
+              var(--legal-border);
+          }
+
+          .calendar-toolbar {
+            margin-bottom: 6px;
+          }
+
+          .month-title {
+            min-width: 120px;
+            font-size: 12px;
+          }
+
+          .month-grid {
+            gap: 3px;
+          }
+
+          .day-cell {
+            min-height: 62px;
+
+            padding: 5px;
+
+            border-radius: 8px;
+          }
+
+          .day-number {
+            width: 21px;
+            height: 21px;
+
+            font-size: 8px;
+          }
+
+          .event-chip {
+            padding:
+              2px 4px;
+
+            font-size: 6.5px;
+          }
+
+          .detail-tabs {
+            overflow-x: auto;
+          }
+
+          .detail-tab {
+            flex:
+              0 0 auto;
+
+            min-width: 64px;
+          }
+        }
+
+        @media (
+          max-width: 520px
+        ) {
+          .action-button {
+            padding:
+              0 7px;
+
+            font-size: 8px;
+          }
+
+          .weekday {
+            font-size: 7px;
+          }
+
+          .day-cell {
+            min-height: 54px;
+            padding: 4px;
+          }
+
+          .event-chip {
+            display: none;
+          }
+
+          .event-count-chip {
+            display: block;
+          }
+        }
+ 
+        /* =================================================
+           AL METHER CALENDAR GOLD OVERRIDE
+           ================================================= */
+
+        .lawyer-calendar.dark,
+        .lawyer-calendar.light {
+          --bg:
+            var(--legal-bg);
+
+          --surface:
+            var(--legal-surface);
+
+          --surface-2:
+            var(--legal-surface-2);
+
+          --surface-3:
+            var(--legal-surface-3);
+
+          --border:
+            var(--legal-border);
+
+          --text:
+            var(--legal-text);
+
+          --muted:
+            var(--legal-muted);
+
+          --accent:
+            var(--legal-gold);
+
+          --accent-2:
+            var(--legal-gold);
+
+          --warning:
+            var(--legal-warning);
+
+          --success:
+            var(--legal-success);
+
+          --danger:
+            var(--legal-danger);
+
+          --cyan:
+            var(--legal-gold-light);
+
+          --violet-soft:
+            var(--legal-gold-soft);
+
+          --blue-soft:
+            var(--legal-gold-soft);
+
+          --cyan-soft:
+            var(--legal-gold-soft);
+
+          --danger-soft:
+            color-mix(
+              in srgb,
+              var(--legal-danger) 12%,
+              transparent
+            );
+
+          --shadow:
+            rgba(0, 0, 0, 0.22);
+
+          background:
+            var(--legal-bg);
+
+          color:
+            var(--legal-text);
+        }
+
+        .lawyer-calendar {
+          height: 100dvh;
+          min-height: 100dvh;
+
+          overflow: hidden;
+
+          padding:
+            10px 12px 72px;
+        }
+
+        .workspace {
+          width:
+            min(
+              1560px,
+              100%
+            );
+
+          height:
+            calc(
+              100dvh -
+              82px
+            );
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-lg);
+
+          background:
+            var(--legal-surface);
+
+          box-shadow:
+            var(--legal-shadow-sm);
+        }
+
+        .topbar {
+          min-height: 48px;
+
+          padding:
+            8px 12px;
+
+          gap: 10px;
+
+          border-bottom:
+            1px solid
+            var(--legal-border);
+        }
+
+        .brand-kicker {
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+          letter-spacing:
+            0.16em;
+        }
+
+        .brand-title {
+          color:
+            var(--legal-text);
+
+          font-size: 12px;
+          letter-spacing:
+            0.07em;
+
+          text-shadow: none;
+        }
+
+        .brand-subtitle {
+          display: none;
+        }
+
+        .top-actions {
+          gap: 5px;
+        }
+
+        .action-button {
+          height: 30px;
+
+          padding:
+            0 9px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text-soft);
+
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .action-button:hover {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold);
+        }
+
+        .main-grid {
+          grid-template-columns:
+            minmax(560px, 2.5fr)
+            minmax(300px, 1fr);
+        }
+
+        .calendar-panel {
+          padding:
+            10px 12px;
+
+          border-right:
+            1px solid
+            var(--legal-border);
+
+          background:
+            var(--legal-surface);
+        }
+
+        .detail-panel {
+          padding:
+            10px 12px;
+
+          background:
+            var(--legal-surface);
+        }
+
+        .section-eyebrow {
+          margin-bottom: 3px;
+
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .section-title {
+          font-size: 14px;
+        }
+
+        .calendar-toolbar {
+          margin-bottom: 8px;
+          gap: 8px;
+        }
+
+        .calendar-navigation {
+          gap: 5px;
+        }
+
+        .month-title {
+          min-width: 145px;
+
+          color:
+            var(--legal-text);
+
+          font-size: 14px;
+        }
+
+        .icon-button {
+          width: 30px;
+          height: 30px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text-soft);
+
+          font-size: 14px;
+        }
+
+        .icon-button:hover {
+          border-color:
+            var(--legal-gold);
+
+          color:
+            var(--legal-gold);
+        }
+
+        .weekdays {
+          margin-bottom: 4px;
+        }
+
+        .weekday {
+          padding: 5px 3px;
+
+          color:
+            var(--legal-muted);
+
+          font-size: 8px;
+        }
+
+        .month-grid {
+          gap: 4px;
+        }
+
+        .day-cell {
+          padding: 7px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            10px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text);
+
+          transition:
+            border-color
+              var(--legal-transition),
+            background
+              var(--legal-transition);
+        }
+
+        .day-cell::after {
+          display: none;
+        }
+
+        .day-cell:hover {
+          transform: none;
+
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          box-shadow: none;
+        }
+
+        .day-cell.selected {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          box-shadow:
+            inset 0 0 0 1px
+            var(--legal-gold);
+        }
+
+        .day-cell.today {
+          background:
+            var(--legal-surface-3);
+        }
+
+        .day-number {
+          width: 24px;
+          height: 24px;
+
+          border-radius: 7px;
+
+          font-size: 9px;
+        }
+
+        .today .day-number {
+          background:
+            var(--legal-gold);
+
+          color:
+            #111111;
+        }
+
+        .event-dots {
+          gap: 3px;
+          margin-top: 5px;
+        }
+
+        .event-count-chip {
+          padding:
+            3px 5px;
+
+          border:
+            1px solid
+            var(--legal-gold);
+
+          border-radius: 6px;
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .event-chip {
+          padding:
+            3px 5px;
+
+          border-radius: 6px;
+
+          font-size: 7px;
+        }
+
+        .event-chip.service {
+          color:
+            var(--legal-success);
+        }
+
+        .event-chip.deadline {
+          color:
+            var(--legal-danger);
+        }
+
+        .event-chip.hearing {
+          color:
+            var(--legal-warning);
+        }
+
+        .event-chip.notice {
+          color:
+            var(--legal-gold-light);
+
+          background:
+            var(--legal-gold-soft);
+        }
+
+        .detail-date {
+          margin:
+            0 0 7px;
+
+          padding-left: 9px;
+
+          border-left:
+            2px solid
+            var(--legal-gold);
+
+          color:
+            var(--legal-text);
+
+          font-size: 13px;
+        }
+
+        .detail-list {
+          gap: 6px;
+        }
+
+        .event-selector {
+          gap: 4px;
+          margin-bottom: 5px;
+        }
+
+        .event-selector-title {
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .event-selector-list {
+          gap: 4px;
+        }
+
+        .event-selector-button {
+          height: 29px;
+
+          grid-template-columns:
+            17px
+            minmax(0, 1fr);
+
+          gap: 4px;
+
+          padding:
+            0 5px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius: 7px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-muted);
+        }
+
+        .event-selector-button span {
+          width: 17px;
+          height: 17px;
+
+          border-radius: 5px;
+
+          background:
+            var(--legal-surface-3);
+
+          font-size: 7px;
+        }
+
+        .event-selector-button strong {
+          font-size: 7.5px;
+        }
+
+        .event-selector-button.active {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-text);
+        }
+
+        .detail-tabs {
+          gap: 3px;
+
+          margin:
+            4px 0 6px;
+        }
+
+        .detail-tab {
+          height: 29px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius: 7px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-muted);
+
+          font-size: 7.5px;
+        }
+
+        .detail-tab:hover {
+          transform: none;
+
+          border-color:
+            var(--legal-gold);
+
+          color:
+            var(--legal-text);
+        }
+
+        .detail-tab.active {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold-light);
+
+          box-shadow: none;
+        }
+
+        .detail-row {
+          grid-template-columns:
+            58px
+            minmax(0, 1fr);
+
+          gap: 6px;
+
+          padding:
+            5px 0;
+
+          border-bottom:
+            1px solid
+            var(--legal-border);
+
+          font-size: 8px;
+        }
+
+        .detail-row span {
+          color:
+            var(--legal-muted);
+        }
+
+        .detail-row strong {
+          color:
+            var(--legal-text);
+        }
+
+        .detail-empty {
+          border-color:
+            var(--legal-border);
+
+          color:
+            var(--legal-muted);
+        }
+
+        @media (
+          max-width: 900px
+        ) {
+          .lawyer-calendar {
+            height: auto;
+            min-height: 100dvh;
+
+            overflow: visible;
+
+            padding:
+              7px 7px 74px;
+          }
+
+          .workspace {
+            width: 100%;
+            height: auto;
+
+            min-height:
+              calc(
+                100dvh -
+                81px
+              );
+
+            overflow: visible;
+
+            border-radius: 13px;
+          }
+
+          .topbar {
+            min-height: 44px;
+            padding: 7px 8px;
+          }
+
+          .brand-title {
+            font-size: 10px;
+          }
+
+          .main-grid {
+            display: block;
+          }
+
+          .calendar-panel {
+            padding: 8px;
+
+            border-right: 0;
+          }
+
+          .detail-panel {
+            padding: 8px;
+
+            border-top:
+              1px solid
+              var(--legal-border);
+          }
+
+          .calendar-toolbar {
+            margin-bottom: 6px;
+          }
+
+          .month-title {
+            min-width: 120px;
+            font-size: 12px;
+          }
+
+          .month-grid {
+            gap: 3px;
+          }
+
+          .day-cell {
+            min-height: 62px;
+
+            padding: 5px;
+
+            border-radius: 8px;
+          }
+
+          .day-number {
+            width: 21px;
+            height: 21px;
+
+            font-size: 8px;
+          }
+
+          .event-chip {
+            padding:
+              2px 4px;
+
+            font-size: 6.5px;
+          }
+
+          .detail-tabs {
+            overflow-x: auto;
+          }
+
+          .detail-tab {
+            flex:
+              0 0 auto;
+
+            min-width: 64px;
+          }
+        }
+
+        @media (
+          max-width: 520px
+        ) {
+          .action-button {
+            padding:
+              0 7px;
+
+            font-size: 8px;
+          }
+
+          .weekday {
+            font-size: 7px;
+          }
+
+          .day-cell {
+            min-height: 54px;
+            padding: 4px;
+          }
+
+          .event-chip {
+            display: none;
+          }
+
+          .event-count-chip {
+            display: block;
+          }
+        }
+ 
+        /* =================================================
+           AL METHER CALENDAR GOLD OVERRIDE
+           ================================================= */
+
+        .lawyer-calendar.dark,
+        .lawyer-calendar.light {
+          --bg:
+            var(--legal-bg);
+
+          --surface:
+            var(--legal-surface);
+
+          --surface-2:
+            var(--legal-surface-2);
+
+          --surface-3:
+            var(--legal-surface-3);
+
+          --border:
+            var(--legal-border);
+
+          --text:
+            var(--legal-text);
+
+          --muted:
+            var(--legal-muted);
+
+          --accent:
+            var(--legal-gold);
+
+          --accent-2:
+            var(--legal-gold);
+
+          --warning:
+            var(--legal-warning);
+
+          --success:
+            var(--legal-success);
+
+          --danger:
+            var(--legal-danger);
+
+          --cyan:
+            var(--legal-gold-light);
+
+          --violet-soft:
+            var(--legal-gold-soft);
+
+          --blue-soft:
+            var(--legal-gold-soft);
+
+          --cyan-soft:
+            var(--legal-gold-soft);
+
+          --danger-soft:
+            color-mix(
+              in srgb,
+              var(--legal-danger) 12%,
+              transparent
+            );
+
+          --shadow:
+            rgba(0, 0, 0, 0.22);
+
+          background:
+            var(--legal-bg);
+
+          color:
+            var(--legal-text);
+        }
+
+        .lawyer-calendar {
+          height: 100dvh;
+          min-height: 100dvh;
+
+          overflow: hidden;
+
+          padding:
+            10px 12px 72px;
+        }
+
+        .workspace {
+          width:
+            min(
+              1560px,
+              100%
+            );
+
+          height:
+            calc(
+              100dvh -
+              82px
+            );
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-lg);
+
+          background:
+            var(--legal-surface);
+
+          box-shadow:
+            var(--legal-shadow-sm);
+        }
+
+        .topbar {
+          min-height: 48px;
+
+          padding:
+            8px 12px;
+
+          gap: 10px;
+
+          border-bottom:
+            1px solid
+            var(--legal-border);
+        }
+
+        .brand-kicker {
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+          letter-spacing:
+            0.16em;
+        }
+
+        .brand-title {
+          color:
+            var(--legal-text);
+
+          font-size: 12px;
+          letter-spacing:
+            0.07em;
+
+          text-shadow: none;
+        }
+
+        .brand-subtitle {
+          display: none;
+        }
+
+        .top-actions {
+          gap: 5px;
+        }
+
+        .action-button {
+          height: 30px;
+
+          padding:
+            0 9px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text-soft);
+
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .action-button:hover {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold);
+        }
+
+        .main-grid {
+          grid-template-columns:
+            minmax(560px, 2.5fr)
+            minmax(300px, 1fr);
+        }
+
+        .calendar-panel {
+          padding:
+            10px 12px;
+
+          border-right:
+            1px solid
+            var(--legal-border);
+
+          background:
+            var(--legal-surface);
+        }
+
+        .detail-panel {
+          padding:
+            10px 12px;
+
+          background:
+            var(--legal-surface);
+        }
+
+        .section-eyebrow {
+          margin-bottom: 3px;
+
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .section-title {
+          font-size: 14px;
+        }
+
+        .calendar-toolbar {
+          margin-bottom: 8px;
+          gap: 8px;
+        }
+
+        .calendar-navigation {
+          gap: 5px;
+        }
+
+        .month-title {
+          min-width: 145px;
+
+          color:
+            var(--legal-text);
+
+          font-size: 14px;
+        }
+
+        .icon-button {
+          width: 30px;
+          height: 30px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text-soft);
+
+          font-size: 14px;
+        }
+
+        .icon-button:hover {
+          border-color:
+            var(--legal-gold);
+
+          color:
+            var(--legal-gold);
+        }
+
+        .weekdays {
+          margin-bottom: 4px;
+        }
+
+        .weekday {
+          padding: 5px 3px;
+
+          color:
+            var(--legal-muted);
+
+          font-size: 8px;
+        }
+
+        .month-grid {
+          gap: 4px;
+        }
+
+        .day-cell {
+          padding: 7px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            10px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text);
+
+          transition:
+            border-color
+              var(--legal-transition),
+            background
+              var(--legal-transition);
+        }
+
+        .day-cell::after {
+          display: none;
+        }
+
+        .day-cell:hover {
+          transform: none;
+
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          box-shadow: none;
+        }
+
+        .day-cell.selected {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          box-shadow:
+            inset 0 0 0 1px
+            var(--legal-gold);
+        }
+
+        .day-cell.today {
+          background:
+            var(--legal-surface-3);
+        }
+
+        .day-number {
+          width: 24px;
+          height: 24px;
+
+          border-radius: 7px;
+
+          font-size: 9px;
+        }
+
+        .today .day-number {
+          background:
+            var(--legal-gold);
+
+          color:
+            #111111;
+        }
+
+        .event-dots {
+          gap: 3px;
+          margin-top: 5px;
+        }
+
+        .event-count-chip {
+          padding:
+            3px 5px;
+
+          border:
+            1px solid
+            var(--legal-gold);
+
+          border-radius: 6px;
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .event-chip {
+          padding:
+            3px 5px;
+
+          border-radius: 6px;
+
+          font-size: 7px;
+        }
+
+        .event-chip.service {
+          color:
+            var(--legal-success);
+        }
+
+        .event-chip.deadline {
+          color:
+            var(--legal-danger);
+        }
+
+        .event-chip.hearing {
+          color:
+            var(--legal-warning);
+        }
+
+        .event-chip.notice {
+          color:
+            var(--legal-gold-light);
+
+          background:
+            var(--legal-gold-soft);
+        }
+
+        .detail-date {
+          margin:
+            0 0 7px;
+
+          padding-left: 9px;
+
+          border-left:
+            2px solid
+            var(--legal-gold);
+
+          color:
+            var(--legal-text);
+
+          font-size: 13px;
+        }
+
+        .detail-list {
+          gap: 6px;
+        }
+
+        .event-selector {
+          gap: 4px;
+          margin-bottom: 5px;
+        }
+
+        .event-selector-title {
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .event-selector-list {
+          gap: 4px;
+        }
+
+        .event-selector-button {
+          height: 29px;
+
+          grid-template-columns:
+            17px
+            minmax(0, 1fr);
+
+          gap: 4px;
+
+          padding:
+            0 5px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius: 7px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-muted);
+        }
+
+        .event-selector-button span {
+          width: 17px;
+          height: 17px;
+
+          border-radius: 5px;
+
+          background:
+            var(--legal-surface-3);
+
+          font-size: 7px;
+        }
+
+        .event-selector-button strong {
+          font-size: 7.5px;
+        }
+
+        .event-selector-button.active {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-text);
+        }
+
+        .detail-tabs {
+          gap: 3px;
+
+          margin:
+            4px 0 6px;
+        }
+
+        .detail-tab {
+          height: 29px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius: 7px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-muted);
+
+          font-size: 7.5px;
+        }
+
+        .detail-tab:hover {
+          transform: none;
+
+          border-color:
+            var(--legal-gold);
+
+          color:
+            var(--legal-text);
+        }
+
+        .detail-tab.active {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold-light);
+
+          box-shadow: none;
+        }
+
+        .detail-row {
+          grid-template-columns:
+            58px
+            minmax(0, 1fr);
+
+          gap: 6px;
+
+          padding:
+            5px 0;
+
+          border-bottom:
+            1px solid
+            var(--legal-border);
+
+          font-size: 8px;
+        }
+
+        .detail-row span {
+          color:
+            var(--legal-muted);
+        }
+
+        .detail-row strong {
+          color:
+            var(--legal-text);
+        }
+
+        .detail-empty {
+          border-color:
+            var(--legal-border);
+
+          color:
+            var(--legal-muted);
+        }
+
+        @media (
+          max-width: 900px
+        ) {
+          .lawyer-calendar {
+            height: auto;
+            min-height: 100dvh;
+
+            overflow: visible;
+
+            padding:
+              7px 7px 74px;
+          }
+
+          .workspace {
+            width: 100%;
+            height: auto;
+
+            min-height:
+              calc(
+                100dvh -
+                81px
+              );
+
+            overflow: visible;
+
+            border-radius: 13px;
+          }
+
+          .topbar {
+            min-height: 44px;
+            padding: 7px 8px;
+          }
+
+          .brand-title {
+            font-size: 10px;
+          }
+
+          .main-grid {
+            display: block;
+          }
+
+          .calendar-panel {
+            padding: 8px;
+
+            border-right: 0;
+          }
+
+          .detail-panel {
+            padding: 8px;
+
+            border-top:
+              1px solid
+              var(--legal-border);
+          }
+
+          .calendar-toolbar {
+            margin-bottom: 6px;
+          }
+
+          .month-title {
+            min-width: 120px;
+            font-size: 12px;
+          }
+
+          .month-grid {
+            gap: 3px;
+          }
+
+          .day-cell {
+            min-height: 62px;
+
+            padding: 5px;
+
+            border-radius: 8px;
+          }
+
+          .day-number {
+            width: 21px;
+            height: 21px;
+
+            font-size: 8px;
+          }
+
+          .event-chip {
+            padding:
+              2px 4px;
+
+            font-size: 6.5px;
+          }
+
+          .detail-tabs {
+            overflow-x: auto;
+          }
+
+          .detail-tab {
+            flex:
+              0 0 auto;
+
+            min-width: 64px;
+          }
+        }
+
+        @media (
+          max-width: 520px
+        ) {
+          .action-button {
+            padding:
+              0 7px;
+
+            font-size: 8px;
+          }
+
+          .weekday {
+            font-size: 7px;
+          }
+
+          .day-cell {
+            min-height: 54px;
+            padding: 4px;
+          }
+
+          .event-chip {
+            display: none;
+          }
+
+          .event-count-chip {
+            display: block;
+          }
+        }
+ 
+        /* =================================================
+           AL METHER CALENDAR GOLD OVERRIDE
+           ================================================= */
+
+        .lawyer-calendar.dark,
+        .lawyer-calendar.light {
+          --bg:
+            var(--legal-bg);
+
+          --surface:
+            var(--legal-surface);
+
+          --surface-2:
+            var(--legal-surface-2);
+
+          --surface-3:
+            var(--legal-surface-3);
+
+          --border:
+            var(--legal-border);
+
+          --text:
+            var(--legal-text);
+
+          --muted:
+            var(--legal-muted);
+
+          --accent:
+            var(--legal-gold);
+
+          --accent-2:
+            var(--legal-gold);
+
+          --warning:
+            var(--legal-warning);
+
+          --success:
+            var(--legal-success);
+
+          --danger:
+            var(--legal-danger);
+
+          --cyan:
+            var(--legal-gold-light);
+
+          --violet-soft:
+            var(--legal-gold-soft);
+
+          --blue-soft:
+            var(--legal-gold-soft);
+
+          --cyan-soft:
+            var(--legal-gold-soft);
+
+          --danger-soft:
+            color-mix(
+              in srgb,
+              var(--legal-danger) 12%,
+              transparent
+            );
+
+          --shadow:
+            rgba(0, 0, 0, 0.22);
+
+          background:
+            var(--legal-bg);
+
+          color:
+            var(--legal-text);
+        }
+
+        .lawyer-calendar {
+          height: 100dvh;
+          min-height: 100dvh;
+
+          overflow: hidden;
+
+          padding:
+            10px 12px 72px;
+        }
+
+        .workspace {
+          width:
+            min(
+              1560px,
+              100%
+            );
+
+          height:
+            calc(
+              100dvh -
+              82px
+            );
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-lg);
+
+          background:
+            var(--legal-surface);
+
+          box-shadow:
+            var(--legal-shadow-sm);
+        }
+
+        .topbar {
+          min-height: 48px;
+
+          padding:
+            8px 12px;
+
+          gap: 10px;
+
+          border-bottom:
+            1px solid
+            var(--legal-border);
+        }
+
+        .brand-kicker {
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+          letter-spacing:
+            0.16em;
+        }
+
+        .brand-title {
+          color:
+            var(--legal-text);
+
+          font-size: 12px;
+          letter-spacing:
+            0.07em;
+
+          text-shadow: none;
+        }
+
+        .brand-subtitle {
+          display: none;
+        }
+
+        .top-actions {
+          gap: 5px;
+        }
+
+        .action-button {
+          height: 30px;
+
+          padding:
+            0 9px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text-soft);
+
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .action-button:hover {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold);
+        }
+
+        .main-grid {
+          grid-template-columns:
+            minmax(560px, 2.5fr)
+            minmax(300px, 1fr);
+        }
+
+        .calendar-panel {
+          padding:
+            10px 12px;
+
+          border-right:
+            1px solid
+            var(--legal-border);
+
+          background:
+            var(--legal-surface);
+        }
+
+        .detail-panel {
+          padding:
+            10px 12px;
+
+          background:
+            var(--legal-surface);
+        }
+
+        .section-eyebrow {
+          margin-bottom: 3px;
+
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .section-title {
+          font-size: 14px;
+        }
+
+        .calendar-toolbar {
+          margin-bottom: 8px;
+          gap: 8px;
+        }
+
+        .calendar-navigation {
+          gap: 5px;
+        }
+
+        .month-title {
+          min-width: 145px;
+
+          color:
+            var(--legal-text);
+
+          font-size: 14px;
+        }
+
+        .icon-button {
+          width: 30px;
+          height: 30px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text-soft);
+
+          font-size: 14px;
+        }
+
+        .icon-button:hover {
+          border-color:
+            var(--legal-gold);
+
+          color:
+            var(--legal-gold);
+        }
+
+        .weekdays {
+          margin-bottom: 4px;
+        }
+
+        .weekday {
+          padding: 5px 3px;
+
+          color:
+            var(--legal-muted);
+
+          font-size: 8px;
+        }
+
+        .month-grid {
+          gap: 4px;
+        }
+
+        .day-cell {
+          padding: 7px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            10px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text);
+
+          transition:
+            border-color
+              var(--legal-transition),
+            background
+              var(--legal-transition);
+        }
+
+        .day-cell::after {
+          display: none;
+        }
+
+        .day-cell:hover {
+          transform: none;
+
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          box-shadow: none;
+        }
+
+        .day-cell.selected {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          box-shadow:
+            inset 0 0 0 1px
+            var(--legal-gold);
+        }
+
+        .day-cell.today {
+          background:
+            var(--legal-surface-3);
+        }
+
+        .day-number {
+          width: 24px;
+          height: 24px;
+
+          border-radius: 7px;
+
+          font-size: 9px;
+        }
+
+        .today .day-number {
+          background:
+            var(--legal-gold);
+
+          color:
+            #111111;
+        }
+
+        .event-dots {
+          gap: 3px;
+          margin-top: 5px;
+        }
+
+        .event-count-chip {
+          padding:
+            3px 5px;
+
+          border:
+            1px solid
+            var(--legal-gold);
+
+          border-radius: 6px;
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .event-chip {
+          padding:
+            3px 5px;
+
+          border-radius: 6px;
+
+          font-size: 7px;
+        }
+
+        .event-chip.service {
+          color:
+            var(--legal-success);
+        }
+
+        .event-chip.deadline {
+          color:
+            var(--legal-danger);
+        }
+
+        .event-chip.hearing {
+          color:
+            var(--legal-warning);
+        }
+
+        .event-chip.notice {
+          color:
+            var(--legal-gold-light);
+
+          background:
+            var(--legal-gold-soft);
+        }
+
+        .detail-date {
+          margin:
+            0 0 7px;
+
+          padding-left: 9px;
+
+          border-left:
+            2px solid
+            var(--legal-gold);
+
+          color:
+            var(--legal-text);
+
+          font-size: 13px;
+        }
+
+        .detail-list {
+          gap: 6px;
+        }
+
+        .event-selector {
+          gap: 4px;
+          margin-bottom: 5px;
+        }
+
+        .event-selector-title {
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .event-selector-list {
+          gap: 4px;
+        }
+
+        .event-selector-button {
+          height: 29px;
+
+          grid-template-columns:
+            17px
+            minmax(0, 1fr);
+
+          gap: 4px;
+
+          padding:
+            0 5px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius: 7px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-muted);
+        }
+
+        .event-selector-button span {
+          width: 17px;
+          height: 17px;
+
+          border-radius: 5px;
+
+          background:
+            var(--legal-surface-3);
+
+          font-size: 7px;
+        }
+
+        .event-selector-button strong {
+          font-size: 7.5px;
+        }
+
+        .event-selector-button.active {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-text);
+        }
+
+        .detail-tabs {
+          gap: 3px;
+
+          margin:
+            4px 0 6px;
+        }
+
+        .detail-tab {
+          height: 29px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius: 7px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-muted);
+
+          font-size: 7.5px;
+        }
+
+        .detail-tab:hover {
+          transform: none;
+
+          border-color:
+            var(--legal-gold);
+
+          color:
+            var(--legal-text);
+        }
+
+        .detail-tab.active {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold-light);
+
+          box-shadow: none;
+        }
+
+        .detail-row {
+          grid-template-columns:
+            58px
+            minmax(0, 1fr);
+
+          gap: 6px;
+
+          padding:
+            5px 0;
+
+          border-bottom:
+            1px solid
+            var(--legal-border);
+
+          font-size: 8px;
+        }
+
+        .detail-row span {
+          color:
+            var(--legal-muted);
+        }
+
+        .detail-row strong {
+          color:
+            var(--legal-text);
+        }
+
+        .detail-empty {
+          border-color:
+            var(--legal-border);
+
+          color:
+            var(--legal-muted);
+        }
+
+        @media (
+          max-width: 900px
+        ) {
+          .lawyer-calendar {
+            height: auto;
+            min-height: 100dvh;
+
+            overflow: visible;
+
+            padding:
+              7px 7px 74px;
+          }
+
+          .workspace {
+            width: 100%;
+            height: auto;
+
+            min-height:
+              calc(
+                100dvh -
+                81px
+              );
+
+            overflow: visible;
+
+            border-radius: 13px;
+          }
+
+          .topbar {
+            min-height: 44px;
+            padding: 7px 8px;
+          }
+
+          .brand-title {
+            font-size: 10px;
+          }
+
+          .main-grid {
+            display: block;
+          }
+
+          .calendar-panel {
+            padding: 8px;
+
+            border-right: 0;
+          }
+
+          .detail-panel {
+            padding: 8px;
+
+            border-top:
+              1px solid
+              var(--legal-border);
+          }
+
+          .calendar-toolbar {
+            margin-bottom: 6px;
+          }
+
+          .month-title {
+            min-width: 120px;
+            font-size: 12px;
+          }
+
+          .month-grid {
+            gap: 3px;
+          }
+
+          .day-cell {
+            min-height: 62px;
+
+            padding: 5px;
+
+            border-radius: 8px;
+          }
+
+          .day-number {
+            width: 21px;
+            height: 21px;
+
+            font-size: 8px;
+          }
+
+          .event-chip {
+            padding:
+              2px 4px;
+
+            font-size: 6.5px;
+          }
+
+          .detail-tabs {
+            overflow-x: auto;
+          }
+
+          .detail-tab {
+            flex:
+              0 0 auto;
+
+            min-width: 64px;
+          }
+        }
+
+        @media (
+          max-width: 520px
+        ) {
+          .action-button {
+            padding:
+              0 7px;
+
+            font-size: 8px;
+          }
+
+          .weekday {
+            font-size: 7px;
+          }
+
+          .day-cell {
+            min-height: 54px;
+            padding: 4px;
+          }
+
+          .event-chip {
+            display: none;
+          }
+
+          .event-count-chip {
+            display: block;
+          }
+        }
+ 
+        /* =================================================
+           AL METHER CALENDAR GOLD OVERRIDE
+           ================================================= */
+
+        .lawyer-calendar.dark,
+        .lawyer-calendar.light {
+          --bg:
+            var(--legal-bg);
+
+          --surface:
+            var(--legal-surface);
+
+          --surface-2:
+            var(--legal-surface-2);
+
+          --surface-3:
+            var(--legal-surface-3);
+
+          --border:
+            var(--legal-border);
+
+          --text:
+            var(--legal-text);
+
+          --muted:
+            var(--legal-muted);
+
+          --accent:
+            var(--legal-gold);
+
+          --accent-2:
+            var(--legal-gold);
+
+          --warning:
+            var(--legal-warning);
+
+          --success:
+            var(--legal-success);
+
+          --danger:
+            var(--legal-danger);
+
+          --cyan:
+            var(--legal-gold-light);
+
+          --violet-soft:
+            var(--legal-gold-soft);
+
+          --blue-soft:
+            var(--legal-gold-soft);
+
+          --cyan-soft:
+            var(--legal-gold-soft);
+
+          --danger-soft:
+            color-mix(
+              in srgb,
+              var(--legal-danger) 12%,
+              transparent
+            );
+
+          --shadow:
+            rgba(0, 0, 0, 0.22);
+
+          background:
+            var(--legal-bg);
+
+          color:
+            var(--legal-text);
+        }
+
+        .lawyer-calendar {
+          height: 100dvh;
+          min-height: 100dvh;
+
+          overflow: hidden;
+
+          padding:
+            10px 12px 72px;
+        }
+
+        .workspace {
+          width:
+            min(
+              1560px,
+              100%
+            );
+
+          height:
+            calc(
+              100dvh -
+              82px
+            );
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-lg);
+
+          background:
+            var(--legal-surface);
+
+          box-shadow:
+            var(--legal-shadow-sm);
+        }
+
+        .topbar {
+          min-height: 48px;
+
+          padding:
+            8px 12px;
+
+          gap: 10px;
+
+          border-bottom:
+            1px solid
+            var(--legal-border);
+        }
+
+        .brand-kicker {
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+          letter-spacing:
+            0.16em;
+        }
+
+        .brand-title {
+          color:
+            var(--legal-text);
+
+          font-size: 12px;
+          letter-spacing:
+            0.07em;
+
+          text-shadow: none;
+        }
+
+        .brand-subtitle {
+          display: none;
+        }
+
+        .top-actions {
+          gap: 5px;
+        }
+
+        .action-button {
+          height: 30px;
+
+          padding:
+            0 9px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text-soft);
+
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .action-button:hover {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold);
+        }
+
+        .main-grid {
+          grid-template-columns:
+            minmax(560px, 2.5fr)
+            minmax(300px, 1fr);
+        }
+
+        .calendar-panel {
+          padding:
+            10px 12px;
+
+          border-right:
+            1px solid
+            var(--legal-border);
+
+          background:
+            var(--legal-surface);
+        }
+
+        .detail-panel {
+          padding:
+            10px 12px;
+
+          background:
+            var(--legal-surface);
+        }
+
+        .section-eyebrow {
+          margin-bottom: 3px;
+
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .section-title {
+          font-size: 14px;
+        }
+
+        .calendar-toolbar {
+          margin-bottom: 8px;
+          gap: 8px;
+        }
+
+        .calendar-navigation {
+          gap: 5px;
+        }
+
+        .month-title {
+          min-width: 145px;
+
+          color:
+            var(--legal-text);
+
+          font-size: 14px;
+        }
+
+        .icon-button {
+          width: 30px;
+          height: 30px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text-soft);
+
+          font-size: 14px;
+        }
+
+        .icon-button:hover {
+          border-color:
+            var(--legal-gold);
+
+          color:
+            var(--legal-gold);
+        }
+
+        .weekdays {
+          margin-bottom: 4px;
+        }
+
+        .weekday {
+          padding: 5px 3px;
+
+          color:
+            var(--legal-muted);
+
+          font-size: 8px;
+        }
+
+        .month-grid {
+          gap: 4px;
+        }
+
+        .day-cell {
+          padding: 7px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            10px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text);
+
+          transition:
+            border-color
+              var(--legal-transition),
+            background
+              var(--legal-transition);
+        }
+
+        .day-cell::after {
+          display: none;
+        }
+
+        .day-cell:hover {
+          transform: none;
+
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          box-shadow: none;
+        }
+
+        .day-cell.selected {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          box-shadow:
+            inset 0 0 0 1px
+            var(--legal-gold);
+        }
+
+        .day-cell.today {
+          background:
+            var(--legal-surface-3);
+        }
+
+        .day-number {
+          width: 24px;
+          height: 24px;
+
+          border-radius: 7px;
+
+          font-size: 9px;
+        }
+
+        .today .day-number {
+          background:
+            var(--legal-gold);
+
+          color:
+            #111111;
+        }
+
+        .event-dots {
+          gap: 3px;
+          margin-top: 5px;
+        }
+
+        .event-count-chip {
+          padding:
+            3px 5px;
+
+          border:
+            1px solid
+            var(--legal-gold);
+
+          border-radius: 6px;
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .event-chip {
+          padding:
+            3px 5px;
+
+          border-radius: 6px;
+
+          font-size: 7px;
+        }
+
+        .event-chip.service {
+          color:
+            var(--legal-success);
+        }
+
+        .event-chip.deadline {
+          color:
+            var(--legal-danger);
+        }
+
+        .event-chip.hearing {
+          color:
+            var(--legal-warning);
+        }
+
+        .event-chip.notice {
+          color:
+            var(--legal-gold-light);
+
+          background:
+            var(--legal-gold-soft);
+        }
+
+        .detail-date {
+          margin:
+            0 0 7px;
+
+          padding-left: 9px;
+
+          border-left:
+            2px solid
+            var(--legal-gold);
+
+          color:
+            var(--legal-text);
+
+          font-size: 13px;
+        }
+
+        .detail-list {
+          gap: 6px;
+        }
+
+        .event-selector {
+          gap: 4px;
+          margin-bottom: 5px;
+        }
+
+        .event-selector-title {
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .event-selector-list {
+          gap: 4px;
+        }
+
+        .event-selector-button {
+          height: 29px;
+
+          grid-template-columns:
+            17px
+            minmax(0, 1fr);
+
+          gap: 4px;
+
+          padding:
+            0 5px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius: 7px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-muted);
+        }
+
+        .event-selector-button span {
+          width: 17px;
+          height: 17px;
+
+          border-radius: 5px;
+
+          background:
+            var(--legal-surface-3);
+
+          font-size: 7px;
+        }
+
+        .event-selector-button strong {
+          font-size: 7.5px;
+        }
+
+        .event-selector-button.active {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-text);
+        }
+
+        .detail-tabs {
+          gap: 3px;
+
+          margin:
+            4px 0 6px;
+        }
+
+        .detail-tab {
+          height: 29px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius: 7px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-muted);
+
+          font-size: 7.5px;
+        }
+
+        .detail-tab:hover {
+          transform: none;
+
+          border-color:
+            var(--legal-gold);
+
+          color:
+            var(--legal-text);
+        }
+
+        .detail-tab.active {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold-light);
+
+          box-shadow: none;
+        }
+
+        .detail-row {
+          grid-template-columns:
+            58px
+            minmax(0, 1fr);
+
+          gap: 6px;
+
+          padding:
+            5px 0;
+
+          border-bottom:
+            1px solid
+            var(--legal-border);
+
+          font-size: 8px;
+        }
+
+        .detail-row span {
+          color:
+            var(--legal-muted);
+        }
+
+        .detail-row strong {
+          color:
+            var(--legal-text);
+        }
+
+        .detail-empty {
+          border-color:
+            var(--legal-border);
+
+          color:
+            var(--legal-muted);
+        }
+
+        @media (
+          max-width: 900px
+        ) {
+          .lawyer-calendar {
+            height: auto;
+            min-height: 100dvh;
+
+            overflow: visible;
+
+            padding:
+              7px 7px 74px;
+          }
+
+          .workspace {
+            width: 100%;
+            height: auto;
+
+            min-height:
+              calc(
+                100dvh -
+                81px
+              );
+
+            overflow: visible;
+
+            border-radius: 13px;
+          }
+
+          .topbar {
+            min-height: 44px;
+            padding: 7px 8px;
+          }
+
+          .brand-title {
+            font-size: 10px;
+          }
+
+          .main-grid {
+            display: block;
+          }
+
+          .calendar-panel {
+            padding: 8px;
+
+            border-right: 0;
+          }
+
+          .detail-panel {
+            padding: 8px;
+
+            border-top:
+              1px solid
+              var(--legal-border);
+          }
+
+          .calendar-toolbar {
+            margin-bottom: 6px;
+          }
+
+          .month-title {
+            min-width: 120px;
+            font-size: 12px;
+          }
+
+          .month-grid {
+            gap: 3px;
+          }
+
+          .day-cell {
+            min-height: 62px;
+
+            padding: 5px;
+
+            border-radius: 8px;
+          }
+
+          .day-number {
+            width: 21px;
+            height: 21px;
+
+            font-size: 8px;
+          }
+
+          .event-chip {
+            padding:
+              2px 4px;
+
+            font-size: 6.5px;
+          }
+
+          .detail-tabs {
+            overflow-x: auto;
+          }
+
+          .detail-tab {
+            flex:
+              0 0 auto;
+
+            min-width: 64px;
+          }
+        }
+
+        @media (
+          max-width: 520px
+        ) {
+          .action-button {
+            padding:
+              0 7px;
+
+            font-size: 8px;
+          }
+
+          .weekday {
+            font-size: 7px;
+          }
+
+          .day-cell {
+            min-height: 54px;
+            padding: 4px;
+          }
+
+          .event-chip {
+            display: none;
+          }
+
+          .event-count-chip {
+            display: block;
+          }
+        }
+ 
+        /* =================================================
+           AL METHER CALENDAR GOLD OVERRIDE
+           ================================================= */
+
+        .lawyer-calendar.dark,
+        .lawyer-calendar.light {
+          --bg:
+            var(--legal-bg);
+
+          --surface:
+            var(--legal-surface);
+
+          --surface-2:
+            var(--legal-surface-2);
+
+          --surface-3:
+            var(--legal-surface-3);
+
+          --border:
+            var(--legal-border);
+
+          --text:
+            var(--legal-text);
+
+          --muted:
+            var(--legal-muted);
+
+          --accent:
+            var(--legal-gold);
+
+          --accent-2:
+            var(--legal-gold);
+
+          --warning:
+            var(--legal-warning);
+
+          --success:
+            var(--legal-success);
+
+          --danger:
+            var(--legal-danger);
+
+          --cyan:
+            var(--legal-gold-light);
+
+          --violet-soft:
+            var(--legal-gold-soft);
+
+          --blue-soft:
+            var(--legal-gold-soft);
+
+          --cyan-soft:
+            var(--legal-gold-soft);
+
+          --danger-soft:
+            color-mix(
+              in srgb,
+              var(--legal-danger) 12%,
+              transparent
+            );
+
+          --shadow:
+            rgba(0, 0, 0, 0.22);
+
+          background:
+            var(--legal-bg);
+
+          color:
+            var(--legal-text);
+        }
+
+        .lawyer-calendar {
+          height: 100dvh;
+          min-height: 100dvh;
+
+          overflow: hidden;
+
+          padding:
+            10px 12px 72px;
+        }
+
+        .workspace {
+          width:
+            min(
+              1560px,
+              100%
+            );
+
+          height:
+            calc(
+              100dvh -
+              82px
+            );
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-lg);
+
+          background:
+            var(--legal-surface);
+
+          box-shadow:
+            var(--legal-shadow-sm);
+        }
+
+        .topbar {
+          min-height: 48px;
+
+          padding:
+            8px 12px;
+
+          gap: 10px;
+
+          border-bottom:
+            1px solid
+            var(--legal-border);
+        }
+
+        .brand-kicker {
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+          letter-spacing:
+            0.16em;
+        }
+
+        .brand-title {
+          color:
+            var(--legal-text);
+
+          font-size: 12px;
+          letter-spacing:
+            0.07em;
+
+          text-shadow: none;
+        }
+
+        .brand-subtitle {
+          display: none;
+        }
+
+        .top-actions {
+          gap: 5px;
+        }
+
+        .action-button {
+          height: 30px;
+
+          padding:
+            0 9px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text-soft);
+
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .action-button:hover {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold);
+        }
+
+        .main-grid {
+          grid-template-columns:
+            minmax(560px, 2.5fr)
+            minmax(300px, 1fr);
+        }
+
+        .calendar-panel {
+          padding:
+            10px 12px;
+
+          border-right:
+            1px solid
+            var(--legal-border);
+
+          background:
+            var(--legal-surface);
+        }
+
+        .detail-panel {
+          padding:
+            10px 12px;
+
+          background:
+            var(--legal-surface);
+        }
+
+        .section-eyebrow {
+          margin-bottom: 3px;
+
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .section-title {
+          font-size: 14px;
+        }
+
+        .calendar-toolbar {
+          margin-bottom: 8px;
+          gap: 8px;
+        }
+
+        .calendar-navigation {
+          gap: 5px;
+        }
+
+        .month-title {
+          min-width: 145px;
+
+          color:
+            var(--legal-text);
+
+          font-size: 14px;
+        }
+
+        .icon-button {
+          width: 30px;
+          height: 30px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text-soft);
+
+          font-size: 14px;
+        }
+
+        .icon-button:hover {
+          border-color:
+            var(--legal-gold);
+
+          color:
+            var(--legal-gold);
+        }
+
+        .weekdays {
+          margin-bottom: 4px;
+        }
+
+        .weekday {
+          padding: 5px 3px;
+
+          color:
+            var(--legal-muted);
+
+          font-size: 8px;
+        }
+
+        .month-grid {
+          gap: 4px;
+        }
+
+        .day-cell {
+          padding: 7px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            10px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text);
+
+          transition:
+            border-color
+              var(--legal-transition),
+            background
+              var(--legal-transition);
+        }
+
+        .day-cell::after {
+          display: none;
+        }
+
+        .day-cell:hover {
+          transform: none;
+
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          box-shadow: none;
+        }
+
+        .day-cell.selected {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          box-shadow:
+            inset 0 0 0 1px
+            var(--legal-gold);
+        }
+
+        .day-cell.today {
+          background:
+            var(--legal-surface-3);
+        }
+
+        .day-number {
+          width: 24px;
+          height: 24px;
+
+          border-radius: 7px;
+
+          font-size: 9px;
+        }
+
+        .today .day-number {
+          background:
+            var(--legal-gold);
+
+          color:
+            #111111;
+        }
+
+        .event-dots {
+          gap: 3px;
+          margin-top: 5px;
+        }
+
+        .event-count-chip {
+          padding:
+            3px 5px;
+
+          border:
+            1px solid
+            var(--legal-gold);
+
+          border-radius: 6px;
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .event-chip {
+          padding:
+            3px 5px;
+
+          border-radius: 6px;
+
+          font-size: 7px;
+        }
+
+        .event-chip.service {
+          color:
+            var(--legal-success);
+        }
+
+        .event-chip.deadline {
+          color:
+            var(--legal-danger);
+        }
+
+        .event-chip.hearing {
+          color:
+            var(--legal-warning);
+        }
+
+        .event-chip.notice {
+          color:
+            var(--legal-gold-light);
+
+          background:
+            var(--legal-gold-soft);
+        }
+
+        .detail-date {
+          margin:
+            0 0 7px;
+
+          padding-left: 9px;
+
+          border-left:
+            2px solid
+            var(--legal-gold);
+
+          color:
+            var(--legal-text);
+
+          font-size: 13px;
+        }
+
+        .detail-list {
+          gap: 6px;
+        }
+
+        .event-selector {
+          gap: 4px;
+          margin-bottom: 5px;
+        }
+
+        .event-selector-title {
+          color:
+            var(--legal-gold);
+
+          font-size: 7px;
+        }
+
+        .event-selector-list {
+          gap: 4px;
+        }
+
+        .event-selector-button {
+          height: 29px;
+
+          grid-template-columns:
+            17px
+            minmax(0, 1fr);
+
+          gap: 4px;
+
+          padding:
+            0 5px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius: 7px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-muted);
+        }
+
+        .event-selector-button span {
+          width: 17px;
+          height: 17px;
+
+          border-radius: 5px;
+
+          background:
+            var(--legal-surface-3);
+
+          font-size: 7px;
+        }
+
+        .event-selector-button strong {
+          font-size: 7.5px;
+        }
+
+        .event-selector-button.active {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-text);
+        }
+
+        .detail-tabs {
+          gap: 3px;
+
+          margin:
+            4px 0 6px;
+        }
+
+        .detail-tab {
+          height: 29px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius: 7px;
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-muted);
+
+          font-size: 7.5px;
+        }
+
+        .detail-tab:hover {
+          transform: none;
+
+          border-color:
+            var(--legal-gold);
+
+          color:
+            var(--legal-text);
+        }
+
+        .detail-tab.active {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold-light);
+
+          box-shadow: none;
+        }
+
+        .detail-row {
+          grid-template-columns:
+            58px
+            minmax(0, 1fr);
+
+          gap: 6px;
+
+          padding:
+            5px 0;
+
+          border-bottom:
+            1px solid
+            var(--legal-border);
+
+          font-size: 8px;
+        }
+
+        .detail-row span {
+          color:
+            var(--legal-muted);
+        }
+
+        .detail-row strong {
+          color:
+            var(--legal-text);
+        }
+
+        .detail-empty {
+          border-color:
+            var(--legal-border);
+
+          color:
+            var(--legal-muted);
+        }
+
+        @media (
+          max-width: 900px
+        ) {
+          .lawyer-calendar {
+            height: auto;
+            min-height: 100dvh;
+
+            overflow: visible;
+
+            padding:
+              7px 7px 74px;
+          }
+
+          .workspace {
+            width: 100%;
+            height: auto;
+
+            min-height:
+              calc(
+                100dvh -
+                81px
+              );
+
+            overflow: visible;
+
+            border-radius: 13px;
+          }
+
+          .topbar {
+            min-height: 44px;
+            padding: 7px 8px;
+          }
+
+          .brand-title {
+            font-size: 10px;
+          }
+
+          .main-grid {
+            display: block;
+          }
+
+          .calendar-panel {
+            padding: 8px;
+
+            border-right: 0;
+          }
+
+          .detail-panel {
+            padding: 8px;
+
+            border-top:
+              1px solid
+              var(--legal-border);
+          }
+
+          .calendar-toolbar {
+            margin-bottom: 6px;
+          }
+
+          .month-title {
+            min-width: 120px;
+            font-size: 12px;
+          }
+
+          .month-grid {
+            gap: 3px;
+          }
+
+          .day-cell {
+            min-height: 62px;
+
+            padding: 5px;
+
+            border-radius: 8px;
+          }
+
+          .day-number {
+            width: 21px;
+            height: 21px;
+
+            font-size: 8px;
+          }
+
+          .event-chip {
+            padding:
+              2px 4px;
+
+            font-size: 6.5px;
+          }
+
+          .detail-tabs {
+            overflow-x: auto;
+          }
+
+          .detail-tab {
+            flex:
+              0 0 auto;
+
+            min-width: 64px;
+          }
+        }
+
+        @media (
+          max-width: 520px
+        ) {
+          .action-button {
+            padding:
+              0 7px;
+
+            font-size: 8px;
+          }
+
+          .weekday {
+            font-size: 7px;
+          }
+
+          .day-cell {
+            min-height: 54px;
+            padding: 4px;
+          }
+
+          .event-chip {
+            display: none;
+          }
+
+          .event-count-chip {
+            display: block;
+          }
+        }
+
+        /* =================================================
+           AL METHER LEGAL — MOBILE FINAL POLISH
+           ================================================= */
+
+        @media (max-width: 760px) {
+
+          html,
+          body {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+          }
+
+          button,
+          input,
+          textarea,
+          select {
+            -webkit-tap-highlight-color:
+              transparent;
+          }
+
+          button {
+            touch-action:
+              manipulation;
+          }
+
+          input,
+          textarea {
+            font-size: 16px;
+          }
+        }
+
+        @media (max-width: 520px) {
+
+          .inbox-page,
+          .cases-page,
+          .lawyer-calendar {
+            padding-bottom:
+              calc(
+                72px +
+                env(
+                  safe-area-inset-bottom
+                )
+              );
+          }
+
+          .inbox-header {
+            min-width: 0;
+          }
+
+          .brand {
+            min-width: 0;
+          }
+
+          .brand strong {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .mail-status {
+            max-width: 82px;
+
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .inbox-tools {
+            grid-template-columns:
+              minmax(0, 1fr)
+              auto
+              34px;
+          }
+
+          .mail-row {
+            min-height: 68px;
+
+            padding:
+              8px 9px;
+          }
+
+          .mail-row strong {
+            font-size: 10px;
+          }
+
+          .mail-preview {
+            -webkit-line-clamp: 1;
+
+            font-size: 8.5px;
+          }
+
+          .detail-header {
+            align-items: flex-start;
+          }
+
+          .detail-heading {
+            width: 100%;
+          }
+
+          .detail-heading h1 {
+            max-width:
+              calc(
+                100vw -
+                84px
+              );
+
+            white-space: normal;
+
+            display: -webkit-box;
+            -webkit-box-orient:
+              vertical;
+            -webkit-line-clamp: 2;
+
+            line-height: 1.3;
+          }
+
+          .detail-meta {
+            flex-wrap: wrap;
+          }
+
+          .mail-content {
+            overscroll-behavior:
+              contain;
+          }
+
+          .cases-header {
+            position: relative;
+          }
+
+          .search-input {
+            min-width: 0;
+            width: 100%;
+          }
+
+          .case-row {
+            width: 100%;
+            min-width: 0;
+          }
+
+          .case-court,
+          .case-title {
+            overflow-wrap: anywhere;
+          }
+
+          .case-actions {
+            width: 100%;
+          }
+
+          .case-actions button {
+            min-width: 0;
+
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .case-inline-panel {
+            width: 100%;
+            min-width: 0;
+
+            overflow: hidden;
+          }
+
+          .case-mail-item,
+          .case-file-item {
+            min-width: 0;
+          }
+
+          .case-file-toolbar {
+            justify-content:
+              stretch;
+          }
+
+          .case-file-upload {
+            width: 100%;
+          }
+
+          .workspace {
+            max-width: 100%;
+          }
+
+          .calendar-panel,
+          .detail-panel {
+            min-width: 0;
+            max-width: 100%;
+          }
+
+          .calendar-toolbar {
+            flex-wrap: wrap;
+          }
+
+          .calendar-navigation {
+            width: 100%;
+
+            justify-content:
+              center;
+          }
+
+          .month-title {
+            flex: 1;
+            min-width: 0;
+          }
+
+          .month-grid {
+            width: 100%;
+          }
+
+          .day-cell {
+            min-width: 0;
+          }
+
+          .event-count-chip {
+            max-width: 100%;
+
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .detail-panel {
+            margin-top: 6px;
+          }
+
+          .detail-date {
+            font-size: 12px;
+          }
+
+          .event-selector-list {
+            overflow-x: auto;
+
+            scrollbar-width: none;
+          }
+
+          .event-selector-list::-webkit-scrollbar {
+            display: none;
+          }
+
+          .event-selector-button {
+            flex:
+              0 0 120px;
+          }
+
+          .detail-tabs {
+            width: 100%;
+
+            overflow-x: auto;
+
+            scrollbar-width: none;
+          }
+
+          .detail-tabs::-webkit-scrollbar {
+            display: none;
+          }
+
+          .detail-tab {
+            min-width: 68px;
+          }
+
+          .detail-content {
+            overflow-y: visible;
+          }
+        }
+
+        @media (max-width: 390px) {
+
+          .brand-mark {
+            width: 25px;
+            height: 25px;
+          }
+
+          .mail-status {
+            max-width: 68px;
+
+            font-size: 7px;
+          }
+
+          .case-actions {
+            grid-template-columns:
+              repeat(
+                2,
+                minmax(0, 1fr)
+              );
+          }
+
+          .case-actions
+          .deadline-button {
+            grid-column: auto;
+          }
+
+          .weekday {
+            padding:
+              4px 1px;
+          }
+
+          .day-cell {
+            min-height: 49px;
+          }
+
+          .day-number {
+            width: 19px;
+            height: 19px;
+          }
+        }
+`}</style>
 
       <section className="workspace">
         <header className="topbar">
@@ -3671,6 +10409,8 @@ export default function CalendarPage() {
 </main>
   );
 }
+
+
 
 
 
