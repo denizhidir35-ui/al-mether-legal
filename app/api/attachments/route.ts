@@ -285,6 +285,7 @@ const attachmentSource =
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "image/jpeg",
         "image/png",
+        "image/webp",
       ]);
 
     if (!allowedTypes.has(uploadedFile.type)) {
@@ -631,6 +632,7 @@ export async function PATCH(
     );
   }
 }
+
 
 
 

@@ -4,22 +4,18 @@
 } from "next/server";
 
 import {
-  createWorker,
-} from "tesseract.js";
+  extractLegalImageText,
+} from "@/lib/legal/ocr";
 
 export const runtime =
   "nodejs";
 
+export const maxDuration =
+  60;
+
 export async function POST(
   request: NextRequest
 ) {
-  let worker:
-    Awaited<
-      ReturnType<
-        typeof createWorker
-      >
-    > | null = null;
-
   try {
     const formData =
       await request.formData();
@@ -70,7 +66,9 @@ export async function POST(
 
     if (
       file.size >
-      15 * 1024 * 1024
+      15 *
+        1024 *
+        1024
     ) {
       return NextResponse.json(
         {
@@ -84,33 +82,21 @@ export async function POST(
       );
     }
 
+    const startedAt =
+      Date.now();
+
     const bytes =
       Buffer.from(
         await file.arrayBuffer()
       );
 
-    /*
-     * Türkçe + İngilizce.
-     * Hukuki belgelerde sayı,
-     * dosya no ve Latin karakterler
-     * birlikte bulunabiliyor.
-     */
-    worker =
-      await createWorker(
-        "tur+eng"
-      );
-
     const result =
-      await worker.recognize(
-        bytes
+      await extractLegalImageText(
+        bytes,
+        file.type
       );
 
-    const text =
-      result.data.text
-        ?.trim() ||
-      "";
-
-    if (!text) {
+    if (!result.text) {
       return NextResponse.json(
         {
           ok: false,
@@ -126,13 +112,15 @@ export async function POST(
     return NextResponse.json({
       ok: true,
 
-      text,
+      text:
+        result.text,
 
-      confidence:
-        Math.round(
-          result.data
-            .confidence || 0
-        ),
+      engine:
+        result.engine,
+
+      durationMs:
+        Date.now() -
+        startedAt,
     });
   } catch (
     error: unknown
@@ -150,13 +138,5 @@ export async function POST(
         status: 500,
       }
     );
-  } finally {
-    if (worker) {
-      await worker
-        .terminate()
-        .catch(
-          () => {}
-        );
-    }
   }
 }

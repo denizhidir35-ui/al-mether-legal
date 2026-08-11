@@ -244,6 +244,126 @@ function parsePageExpression(
   return result;
 }
 
+async function optimizeImageForOcr(
+  file: File
+): Promise<File> {
+  if (
+    !file.type.startsWith(
+      "image/"
+    )
+  ) {
+    return file;
+  }
+
+  const bitmap =
+    await createImageBitmap(
+      file
+    );
+
+  try {
+    const maxDimension =
+      1800;
+
+    const scale =
+      Math.min(
+        1,
+        maxDimension /
+          Math.max(
+            bitmap.width,
+            bitmap.height
+          )
+      );
+
+    const width =
+      Math.max(
+        1,
+        Math.round(
+          bitmap.width *
+          scale
+        )
+      );
+
+    const height =
+      Math.max(
+        1,
+        Math.round(
+          bitmap.height *
+          scale
+        )
+      );
+
+    const canvas =
+      document.createElement(
+        "canvas"
+      );
+
+    canvas.width =
+      width;
+
+    canvas.height =
+      height;
+
+    const context =
+      canvas.getContext(
+        "2d",
+        {
+          alpha: false,
+        }
+      );
+
+    if (!context) {
+      return file;
+    }
+
+    context.drawImage(
+      bitmap,
+      0,
+      0,
+      width,
+      height
+    );
+
+    const blob =
+      await new Promise<Blob | null>(
+        (resolve) =>
+          canvas.toBlob(
+            resolve,
+            "image/jpeg",
+            0.86
+          )
+      );
+
+    if (!blob) {
+      return file;
+    }
+
+    if (
+      blob.size >=
+      file.size
+    ) {
+      return file;
+    }
+
+    const base =
+      file.name.replace(
+        /\.[^.]+$/,
+        ""
+      );
+
+    return new File(
+      [blob],
+      `${base}-ocr.jpg`,
+      {
+        type:
+          "image/jpeg",
+        lastModified:
+          Date.now(),
+      }
+    );
+  } finally {
+    bitmap.close();
+  }
+}
 export default function ConverterPage() {
   const [
     activeTool,
@@ -442,6 +562,15 @@ export default function ConverterPage() {
         );
 
       if (!response.ok) {
+        const raw =
+          await response.text();
+
+        console.error(
+          "CONVERSION HISTORY SAVE ERROR:",
+          response.status,
+          raw
+        );
+
         return;
       }
 
@@ -804,35 +933,103 @@ export default function ConverterPage() {
       );
     }
 
+    const optimizedFile =
+      await optimizeImageForOcr(
+        file
+      );
+
     const formData =
       new FormData();
 
     formData.append(
       "file",
-      file
+      optimizedFile
     );
 
-    const response =
-      await fetch(
-        "/api/convert/image-to-text",
-        {
-          method: "POST",
-          body: formData,
-        }
+    const controller =
+      new AbortController();
+
+    const timeout =
+      window.setTimeout(
+        () =>
+          controller.abort(),
+        30000
       );
 
-    const data =
-      await response.json();
+    const startedAt =
+      performance.now();
+
+    let response:
+      Response;
+
+    try {
+      response =
+        await fetch(
+          "/api/convert/image-to-text",
+          {
+            method: "POST",
+            body: formData,
+            signal:
+              controller.signal,
+          }
+        );
+    } finally {
+      window.clearTimeout(
+        timeout
+      );
+    }
+
+    console.info(
+      "OCR duration:",
+      Math.round(
+        performance.now() -
+        startedAt
+      ),
+      "ms",
+      "original:",
+      file.size,
+      "optimized:",
+      optimizedFile.size
+    );
+
+    const raw =
+      await response.text();
+
+    let data:
+      {
+        ok?: boolean;
+        text?: string;
+        error?: string;
+        engine?: string;
+      } = {};
+
+    try {
+      data =
+        raw
+          ? JSON.parse(raw)
+          : {};
+    } catch {
+      throw new Error(
+        raw ||
+        `Görsel → Metin sunucu hatası (${response.status}).`
+      );
+    }
 
     if (!response.ok) {
       throw new Error(
         data?.error ||
-        "Görsel → Metin işlemi başarısız."
+        `Görsel → Metin işlemi başarısız (${response.status}).`
+      );
+    }
+
+    if (!data?.text) {
+      throw new Error(
+        "OCR tamamlandı ancak metin dönmedi."
       );
     }
 
     setTextResult(
-      data?.text || ""
+      data.text
     );
 
     setTextCopied(false);
@@ -915,35 +1112,87 @@ export default function ConverterPage() {
       );
     }
 
+    const optimizedFile =
+      await optimizeImageForOcr(
+        file
+      );
+
     const formData =
       new FormData();
 
     formData.append(
       "file",
-      file
+      optimizedFile
     );
 
-    const response =
-      await fetch(
-        "/api/convert/image-to-word",
-        {
-          method: "POST",
-          body: formData,
-        }
+    const controller =
+      new AbortController();
+
+    const timeout =
+      window.setTimeout(
+        () =>
+          controller.abort(),
+        30000
       );
 
+    const startedAt =
+      performance.now();
+
+    let response:
+      Response;
+
+    try {
+      response =
+        await fetch(
+          "/api/convert/image-to-word",
+          {
+            method: "POST",
+
+            body:
+              formData,
+
+            signal:
+              controller.signal,
+          }
+        );
+    } finally {
+      window.clearTimeout(
+        timeout
+      );
+    }
+
+    console.info(
+      "WORD OCR duration:",
+      Math.round(
+        performance.now() -
+        startedAt
+      ),
+      "ms",
+      "original:",
+      file.size,
+      "optimized:",
+      optimizedFile.size
+    );
+
     if (!response.ok) {
+      const raw =
+        await response.text();
+
       let message =
         "Görsel → Word dönüşümü başarısız.";
 
       try {
         const data =
-          await response.json();
+          JSON.parse(raw);
 
         message =
           data?.error ||
           message;
-      } catch {}
+      } catch {
+        if (raw) {
+          message = raw;
+        }
+      }
 
       throw new Error(
         message
@@ -3201,6 +3450,10 @@ export default function ConverterPage() {
     </main>
   );
 }
+
+
+
+
 
 
 

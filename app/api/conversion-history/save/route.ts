@@ -110,13 +110,31 @@ export async function POST(
     const now =
       new Date();
 
+    /*
+     * Storage key kullanıcı dosya adından bağımsızdır.
+     * Türkçe karakter, boşluk ve özel karakter problemi oluşmaz.
+     * Gerçek dosya adı conversion_history.output_name içinde korunur.
+     */
+    const extensionMatch =
+      outputName.match(
+        /\.([a-zA-Z0-9]{1,10})$/
+      );
+
+    const extension =
+      extensionMatch
+        ? `.${extensionMatch[1].toLowerCase()}`
+        : "";
+
+    const storageFileName =
+      `${crypto.randomUUID()}${extension}`;
+
     const storagePath =
       `${appUser.id}/${now.getFullYear()}/${String(
         now.getMonth() + 1
       ).padStart(
         2,
         "0"
-      )}/${crypto.randomUUID()}-${outputName}`;
+      )}/${storageFileName}`;
 
     const bytes =
       Buffer.from(
@@ -147,6 +165,10 @@ export async function POST(
     if (
       upload.error
     ) {
+      console.error(
+        "CONVERSION STORAGE UPLOAD ERROR:",
+        upload.error
+      );
       return NextResponse.json(
         {
           ok: false,
@@ -191,6 +213,19 @@ export async function POST(
     if (
       insert.error
     ) {
+      console.error(
+        "CONVERSION HISTORY INSERT ERROR:",
+        insert.error,
+        {
+          userId:
+            appUser.id,
+          outputName,
+          conversionType,
+          storagePath,
+          fileSize:
+            file.size,
+        }
+      );
       await supabase
         .storage
         .from(
@@ -234,3 +269,5 @@ export async function POST(
     );
   }
 }
+
+

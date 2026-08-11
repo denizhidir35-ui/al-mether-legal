@@ -4,18 +4,21 @@
 } from "next/server";
 
 import {
-  createWorker,
-} from "tesseract.js";
-
-import {
   Document,
   Packer,
   Paragraph,
   TextRun,
 } from "docx";
 
+import {
+  extractLegalImageText,
+} from "@/lib/legal/ocr";
+
 export const runtime =
   "nodejs";
+
+export const maxDuration =
+  60;
 
 function cleanName(
   value: string
@@ -35,13 +38,6 @@ function cleanName(
 export async function POST(
   request: NextRequest
 ) {
-  let worker:
-    Awaited<
-      ReturnType<
-        typeof createWorker
-      >
-    > | null = null;
-
   try {
     const formData =
       await request.formData();
@@ -90,27 +86,36 @@ export async function POST(
       );
     }
 
+    if (
+      file.size >
+      15 *
+        1024 *
+        1024
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Dosya 15 MB sınırını aşıyor.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
     const bytes =
       Buffer.from(
         await file.arrayBuffer()
       );
 
-    worker =
-      await createWorker(
-        "tur+eng"
-      );
-
     const recognized =
-      await worker.recognize(
-        bytes
+      await extractLegalImageText(
+        bytes,
+        file.type
       );
 
-    const text =
-      recognized.data.text
-        ?.trim() ||
-      "";
-
-    if (!text) {
+    if (!recognized.text) {
       return NextResponse.json(
         {
           ok: false,
@@ -124,7 +129,7 @@ export async function POST(
     }
 
     const paragraphs =
-      text
+      recognized.text
         .replace(
           /\r\n/g,
           "\n"
@@ -139,9 +144,12 @@ export async function POST(
             new Paragraph({
               children: [
                 new TextRun({
-                  text: line,
+                  text:
+                    line,
+
                   font:
                     "Arial",
+
                   size:
                     22,
                 }),
@@ -198,6 +206,9 @@ export async function POST(
           "Content-Disposition":
             `attachment; filename="${baseName}.docx"`,
 
+          "X-OCR-Engine":
+            recognized.engine,
+
           "Cache-Control":
             "no-store",
         },
@@ -219,13 +230,5 @@ export async function POST(
         status: 500,
       }
     );
-  } finally {
-    if (worker) {
-      await worker
-        .terminate()
-        .catch(
-          () => {}
-        );
-    }
   }
 }

@@ -4,10 +4,6 @@
 } from "next/server";
 
 import {
-  createWorker,
-} from "tesseract.js";
-
-import {
   Document,
   Packer,
   Paragraph,
@@ -22,8 +18,15 @@ import {
   createCanvas,
 } from "canvas";
 
+import {
+  extractLegalImageText,
+} from "@/lib/legal/ocr";
+
 export const runtime =
   "nodejs";
+
+export const maxDuration =
+  60;
 
 function cleanName(
   value: string
@@ -43,13 +46,6 @@ function cleanName(
 export async function POST(
   request: NextRequest
 ) {
-  let worker:
-    Awaited<
-      ReturnType<
-        typeof createWorker
-      >
-    > | null = null;
-
   try {
     const formData =
       await request.formData();
@@ -77,7 +73,9 @@ export async function POST(
     if (
       !file.name
         .toLowerCase()
-        .endsWith(".pdf")
+        .endsWith(
+          ".pdf"
+        )
     ) {
       return NextResponse.json(
         {
@@ -91,6 +89,27 @@ export async function POST(
       );
     }
 
+    if (
+      file.size >
+      20 *
+        1024 *
+        1024
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "PDF 20 MB sınırını aşıyor.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const startedAt =
+      Date.now();
+
     const bytes =
       new Uint8Array(
         await file.arrayBuffer()
@@ -101,13 +120,31 @@ export async function POST(
         data: bytes,
       }).promise;
 
-    worker =
-      await createWorker(
-        "tur+eng"
+    /*
+     * Serverless ortamını korumak için
+     * tek işlemde sınırsız OCR yapmıyoruz.
+     */
+    if (
+      pdf.numPages >
+      30
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Taranmış PDF OCR işlemi tek seferde en fazla 30 sayfa destekliyor.",
+        },
+        {
+          status: 400,
+        }
       );
+    }
 
     const pageTexts:
       string[] = [];
+
+    const engines =
+      new Set<string>();
 
     for (
       let pageNo = 1;
@@ -120,9 +157,15 @@ export async function POST(
           pageNo
         );
 
+      /*
+       * 1.55 scale:
+       * Eski 2x render'a göre
+       * RAM ve CPU daha düşük,
+       * OCR için yeterli kalite.
+       */
       const viewport =
         page.getViewport({
-          scale: 2,
+          scale: 1.55,
         });
 
       const canvas =
@@ -143,40 +186,52 @@ export async function POST(
       await page.render({
         canvas:
           canvas as any,
+
         canvasContext:
           context as any,
+
         viewport,
       }).promise;
 
+      /*
+       * PNG yerine JPEG:
+       * Gemini upload boyutu ve RAM kullanımı düşer.
+       */
       const imageBuffer =
         canvas.toBuffer(
-          "image/png"
+          "image/jpeg",
+          {
+            quality: 0.86,
+          }
         );
 
       const recognized =
-        await worker.recognize(
-          imageBuffer
+        await extractLegalImageText(
+          imageBuffer,
+          "image/jpeg"
         );
 
-      const text =
-        recognized.data.text
-          ?.trim() ||
-        "";
+      engines.add(
+        recognized.engine
+      );
 
       pageTexts.push(
-        text
+        recognized.text
+          ? `SAYFA ${pageNo}\n\n${recognized.text}`
+          : `SAYFA ${pageNo}\n\n[Metin okunamadı]`
       );
     }
 
     const fullText =
       pageTexts
-        .filter(Boolean)
         .join(
-          "\n\n--- SAYFA ---\n\n"
+          "\n\n--------------------\n\n"
         )
         .trim();
 
-    if (!fullText) {
+    if (
+      !fullText
+    ) {
       return NextResponse.json(
         {
           ok: false,
@@ -195,22 +250,34 @@ export async function POST(
           /\r\n/g,
           "\n"
         )
-        .split("\n")
+        .replace(
+          /\r/g,
+          "\n"
+        )
+        .split(
+          "\n"
+        )
         .map(
-          (line) =>
+          (
+            line
+          ) =>
             new Paragraph({
               children: [
                 new TextRun({
-                  text: line,
+                  text:
+                    line,
+
                   font:
                     "Arial",
+
                   size:
                     22,
                 }),
               ],
 
               spacing: {
-                after: 80,
+                after:
+                  70,
               },
             })
         );
@@ -222,10 +289,17 @@ export async function POST(
             properties: {
               page: {
                 margin: {
-                  top: 1134,
-                  right: 1134,
-                  bottom: 1134,
-                  left: 1134,
+                  top:
+                    1134,
+
+                  right:
+                    1134,
+
+                  bottom:
+                    1134,
+
+                  left:
+                    1134,
                 },
               },
             },
@@ -258,7 +332,20 @@ export async function POST(
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 
           "Content-Disposition":
-            `attachment; filename="${baseName}-ocr.docx"`,
+            `attachment; filename="${baseName}.docx"`,
+
+          "X-OCR-Engine":
+            Array.from(
+              engines
+            ).join(
+              ","
+            ),
+
+          "X-OCR-Duration":
+            String(
+              Date.now() -
+              startedAt
+            ),
 
           "Cache-Control":
             "no-store",
@@ -275,20 +362,11 @@ export async function POST(
         error:
           error instanceof Error
             ? error.message
-            : "Taranmış PDF → Word dönüşümü başarısız.",
+            : "Taranmış PDF OCR işlemi başarısız.",
       },
       {
         status: 500,
       }
     );
-  } finally {
-    if (worker) {
-      await worker
-        .terminate()
-        .catch(
-          () => {}
-        );
-    }
   }
 }
-

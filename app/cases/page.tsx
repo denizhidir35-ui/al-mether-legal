@@ -459,6 +459,144 @@ export default function CasesPage() {
     }
   }
 
+  async function createCasePhotoOcr(
+    caseId: string,
+    file: File
+  ) {
+    if (
+      !file.type.startsWith(
+        "image/"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      /*
+       * OCR ayrı çalışır.
+       * Orijinal dosyanın davaya eklenmesini bekletmez.
+       */
+      const ocrForm =
+        new FormData();
+
+      ocrForm.append(
+        "file",
+        file
+      );
+
+      const startedAt =
+        performance.now();
+
+      const ocrResponse =
+        await fetch(
+          "/api/convert/image-to-word",
+          {
+            method:
+              "POST",
+
+            body:
+              ocrForm,
+          }
+        );
+
+      if (
+        !ocrResponse.ok
+      ) {
+        const raw =
+          await ocrResponse
+            .text();
+
+        console.error(
+          "CASE PHOTO OCR ERROR:",
+          raw
+        );
+
+        return;
+      }
+
+      const ocrBlob =
+        await ocrResponse
+          .blob();
+
+      const baseName =
+        file.name.replace(
+          /\.[^.]+$/,
+          ""
+        );
+
+      const ocrFile =
+        new File(
+          [
+            ocrBlob,
+          ],
+          `${baseName}-OCR.docx`,
+          {
+            type:
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          }
+        );
+
+      const uploadForm =
+        new FormData();
+
+      uploadForm.append(
+        "caseId",
+        caseId
+      );
+
+      uploadForm.append(
+        "file",
+        ocrFile
+      );
+
+      const uploadResponse =
+        await fetch(
+          "/api/attachments",
+          {
+            method:
+              "POST",
+
+            body:
+              uploadForm,
+          }
+        );
+
+      if (
+        !uploadResponse.ok
+      ) {
+        const raw =
+          await uploadResponse
+            .text();
+
+        console.error(
+          "CASE OCR ATTACHMENT ERROR:",
+          raw
+        );
+
+        return;
+      }
+
+      console.info(
+        "CASE PHOTO OCR duration:",
+        Math.round(
+          performance.now() -
+          startedAt
+        ),
+        "ms"
+      );
+
+      await loadCaseFiles(
+        caseId
+      );
+    } catch (
+      error
+    ) {
+      console.error(
+        "CASE PHOTO OCR ERROR:",
+        error
+      );
+    }
+  }
   async function uploadCaseFile(
     caseId: string,
     file: File
@@ -502,6 +640,21 @@ export default function CasesPage() {
       }
 
       await loadCaseFiles(caseId);
+
+      if (
+        file.type.startsWith(
+          "image/"
+        )
+      ) {
+        /*
+         * Await YOK.
+         * Kullanıcı dosyanın yüklenmesini OCR yüzünden beklemez.
+         */
+        void createCasePhotoOcr(
+          caseId,
+          file
+        );
+      }
     } catch (error) {
       setCaseFileError(
         error instanceof Error
@@ -5155,7 +5308,35 @@ export default function CasesPage() {
                           {openCaseTab === "file" && (
                             <div className="case-file-panel">
                               <div className="case-file-toolbar">
-                                <label className="case-file-upload">
+                                <label className="case-file-upload case-photo-capture">
+  Fotoğraf çek
+
+  <input
+    type="file"
+    accept="image/jpeg,image/png,image/webp"
+    capture="environment"
+    onChange={(
+      event
+    ) => {
+      const photo =
+        event.target.files?.[0];
+
+      if (
+        photo &&
+        openCaseId
+      ) {
+        void uploadCaseFile(
+          openCaseId,
+          photo
+        );
+      }
+
+      event.currentTarget.value =
+        "";
+    }}
+  />
+</label>
+<label className="case-file-upload">
                                   <input
                                     type="file"
                                     accept=".pdf,.doc,.docx,image/jpeg,image/png"
@@ -5360,6 +5541,7 @@ export default function CasesPage() {
     </main>
   );
 }
+
 
 
 
