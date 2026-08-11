@@ -318,3 +318,30 @@
   color: var(--legal-text);
 }
 
+/* =========================================================
+   GLOBAL LEGAL THEME ROOT
+   ========================================================= */
+
+html,
+body {
+  background:
+    var(--legal-bg);
+
+  color:
+    var(--legal-text);
+}
+
+body {
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+
+html[data-legal-theme="light"] {
+  color-scheme: light;
+}
+
+html[data-legal-theme="dark"] {
+  color-scheme: dark;
+}
+

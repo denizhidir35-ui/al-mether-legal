@@ -1,6 +1,7 @@
-import type { Metadata, Viewport } from "next";
+﻿import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Providers from "./providers";
+import GlobalLegalTheme from "@/components/GlobalLegalTheme";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 
@@ -33,8 +34,10 @@ export default function RootLayout({
   return (
     <html lang="tr" className={cn("font-sans", geist.variable)}>
       <body>
+        <GlobalLegalTheme />
         <Providers>{children}</Providers>
       </body>
     </html>
   );
 }
+

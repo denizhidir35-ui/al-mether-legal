@@ -112,10 +112,7 @@ export async function getOrCreateAppUser(): Promise<GetOrCreateAppUserResult> {
           .from("app_users")
           .update({
             name:
-              sessionUser.name,
-
-            updated_at:
-              new Date().toISOString(),
+              sessionUser.name
           })
           .eq(
             "id",
@@ -176,4 +173,5 @@ export async function getOrCreateAppUser(): Promise<GetOrCreateAppUserResult> {
     };
   }
 }
+
 
