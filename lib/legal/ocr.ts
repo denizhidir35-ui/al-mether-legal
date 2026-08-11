@@ -14,7 +14,7 @@ export type LegalOcrResult = {
 
 const GEMINI_MODEL =
   process.env.GEMINI_OCR_MODEL ||
-  "gemini-2.5-flash-lite";
+  "gemini-3.5-flash-lite";
 
 function withTimeout<T>(
   promise: Promise<T>,
@@ -99,11 +99,6 @@ async function geminiExtract(
         ],
 
         config: {
-          temperature: 0,
-
-          thinkingConfig: {
-            thinkingBudget: 0,
-          },
 
           maxOutputTokens:
             32768,
@@ -254,3 +249,4 @@ export async function extractLegalPdfText(
       "gemini-flash-lite",
   };
 }
+
