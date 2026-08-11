@@ -36,6 +36,101 @@ export const runtime =
 const TEST_TIMEOUT =
   10000;
 
+type ImapResultCode =
+  | "AUTH_FAILED"
+  | "TLS_FAILED"
+  | "TIMEOUT"
+  | "CONNECTION_REFUSED";
+
+type ImapErrorShape = {
+  code?: unknown;
+  message?: unknown;
+  authenticationFailed?: unknown;
+  serverResponseCode?: unknown;
+  tlsFailed?: unknown;
+};
+
+function classifyImapError(
+  error: unknown
+): ImapResultCode {
+  const details =
+    error &&
+    typeof error === "object"
+      ? error as ImapErrorShape
+      : {};
+
+  const code =
+    typeof details.code === "string"
+      ? details.code.toUpperCase()
+      : "";
+
+  const message =
+    typeof details.message === "string"
+      ? details.message.toLowerCase()
+      : "";
+
+  const serverResponseCode =
+    typeof details
+      .serverResponseCode === "string"
+      ? details
+          .serverResponseCode
+          .toUpperCase()
+      : "";
+
+  if (
+    details.authenticationFailed ===
+      true ||
+    serverResponseCode ===
+      "AUTHENTICATIONFAILED"
+  ) {
+    return "AUTH_FAILED";
+  }
+
+  if (
+    [
+      "CONNECT_TIMEOUT",
+      "ETIMEDOUT",
+      "ETIMEOUT",
+      "GREETING_TIMEOUT",
+      "UPGRADE_TIMEOUT",
+    ].includes(code) ||
+    message.includes("timed out")
+  ) {
+    return "TIMEOUT";
+  }
+
+  if (
+    [
+      "ECONNREFUSED",
+      "ENOTFOUND",
+      "ENODATA",
+      "EAI_AGAIN",
+      "EAI_FAIL",
+      "EHOSTUNREACH",
+      "ENETUNREACH",
+    ].includes(code)
+  ) {
+    return "CONNECTION_REFUSED";
+  }
+
+  if (
+    details.tlsFailed === true ||
+    code.startsWith("ERR_TLS") ||
+    code.startsWith("ERR_SSL") ||
+    code.startsWith("CERT_") ||
+    code.startsWith("DEPTH_") ||
+    code === "STARTTLS_INJECTION" ||
+    message.includes("certificate") ||
+    message.includes("starttls") ||
+    message.includes("tls") ||
+    message.includes("ssl")
+  ) {
+    return "TLS_FAILED";
+  }
+
+  return "TLS_FAILED";
+}
+
 function cleanSecret(
   value: unknown
 ) {
@@ -138,6 +233,10 @@ async function testImapCandidates(
       ImapFlow |
       null = null;
 
+    console.info(
+      `IMAP TRY: ${candidate.host}:${candidate.port} secure=${candidate.secure} starttls=${candidate.starttls}`
+    );
+
     try {
       const host =
         await assertPublicMailHostname(
@@ -159,7 +258,7 @@ async function testImapCandidates(
         greetingTimeout:
           TEST_TIMEOUT,
         socketTimeout:
-          TEST_TIMEOUT,
+          12000,
         logger: false,
       });
 
@@ -167,18 +266,44 @@ async function testImapCandidates(
       await client.logout();
       client = null;
 
+      console.info(
+        "IMAP RESULT: PASS"
+      );
+
       return {
-        ...candidate,
-        host,
+        candidate: {
+          ...candidate,
+          host,
+        },
+        authFailed: false,
       };
-    } catch {
+    } catch (error: unknown) {
+      const resultCode =
+        classifyImapError(error);
+
+      console.info(
+        `IMAP RESULT: ${resultCode}`
+      );
+
       try {
-        await client?.logout();
+        client?.close();
       } catch {}
+
+      if (
+        resultCode === "AUTH_FAILED"
+      ) {
+        return {
+          candidate: null,
+          authFailed: true,
+        };
+      }
     }
   }
 
-  return null;
+  return {
+    candidate: null,
+    authFailed: false,
+  };
 }
 
 async function testSmtpCandidates(
@@ -320,19 +445,35 @@ export async function POST(
   const email =
     parsedEmail.email;
 
-  const imap =
+  const imapResult =
     await testImapCandidates(
       imapCandidates,
       email,
       password
     );
 
+  if (imapResult.authFailed) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "E-posta adresi veya parola doğrulanamadı.",
+      },
+      {
+        status: 422,
+      }
+    );
+  }
+
+  const imap =
+    imapResult.candidate;
+
   if (!imap) {
     return NextResponse.json(
       {
         ok: false,
         error:
-          "IMAP bağlantısı doğrulanamadı.",
+          "IMAP sunucusuna güvenli bağlantı kurulamadı.",
       },
       {
         status: 422,

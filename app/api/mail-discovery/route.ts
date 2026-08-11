@@ -71,13 +71,16 @@ function sortedSrvCandidates(
 
 function fallbackCandidates(
   domain: string,
-  protocol: "imap" | "smtp"
+  protocol: "imap" | "smtp",
+  mxHosts: string[]
 ) {
   const specs =
     protocol === "imap"
       ? [
           ["imap", 993, true, false],
           ["mail", 993, true, false],
+          ["imap", 143, false, true],
+          ["mail", 143, false, true],
         ] as const
       : [
           ["smtp", 465, true, false],
@@ -86,7 +89,7 @@ function fallbackCandidates(
           ["mail", 587, false, true],
         ] as const;
 
-  return specs.map(
+  const candidates = specs.map(
     ([
       prefix,
       port,
@@ -99,6 +102,47 @@ function fallbackCandidates(
       starttls,
     })
   );
+
+  const usesHostinger =
+    mxHosts.some(
+      (host) =>
+        host === "mx1.hostinger.com" ||
+        host === "mx2.hostinger.com"
+    );
+
+  if (!usesHostinger) {
+    return candidates;
+  }
+
+  return [
+    ...candidates,
+    ...(protocol === "imap"
+      ? [
+          {
+            host:
+              "imap.hostinger.com",
+            port: 993,
+            secure: true,
+            starttls: false,
+          },
+        ]
+      : [
+          {
+            host:
+              "smtp.hostinger.com",
+            port: 465,
+            secure: true,
+            starttls: false,
+          },
+          {
+            host:
+              "smtp.hostinger.com",
+            port: 587,
+            secure: false,
+            starttls: true,
+          },
+        ]),
+  ];
 }
 
 function discoveryResponse(
@@ -299,7 +343,8 @@ export async function POST(
         ? imapFromSrv
         : fallbackCandidates(
             domain,
-            "imap"
+            "imap",
+            mxHosts
           )
     );
 
@@ -309,7 +354,8 @@ export async function POST(
         ? smtpFromSrv
         : fallbackCandidates(
             domain,
-            "smtp"
+            "smtp",
+            mxHosts
           )
     );
 
