@@ -37,6 +37,10 @@ const WORD_CONVERTER_URL =
   process.env.WORD_CONVERTER_URL ||
   "";
 
+const WORD_CONVERTER_SECRET =
+  process.env.WORD_CONVERTER_SECRET ||
+  "";
+
 function sanitizeFileName(
   value: string
 ) {
@@ -177,7 +181,17 @@ export async function POST(
           WORD_CONVERTER_URL,
           {
             method: "POST",
-            body: remoteForm,
+
+            headers:
+              WORD_CONVERTER_SECRET
+                ? {
+                    "x-worker-secret":
+                      WORD_CONVERTER_SECRET,
+                  }
+                : undefined,
+
+            body:
+              remoteForm,
           }
         );
 
@@ -325,5 +339,6 @@ export async function POST(
     );
   }
 }
+
 
 
