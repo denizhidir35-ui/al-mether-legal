@@ -931,9 +931,7 @@ export async function POST(
           eventType,
 
         reminderDays: [
-          14,
           7,
-          5,
           3,
           1,
         ],
@@ -947,7 +945,13 @@ export async function POST(
           true,
 
         includeOverdue:
-          true,
+          false,
+
+        notificationHour:
+          9,
+
+        notificationMinute:
+          0,
 
         skipPastAdvanceAlarms:
           true,
@@ -1032,6 +1036,7 @@ export async function POST(
     );
   }
 }
+
 
 
 

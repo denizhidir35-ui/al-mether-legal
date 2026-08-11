@@ -2,6 +2,8 @@
 import "./globals.css";
 import Providers from "./providers";
 import GlobalLegalTheme from "@/components/GlobalLegalTheme";
+import LegalAlarmNotifier from "@/components/LegalAlarmNotifier";
+import LegalPushRegistration from "@/components/LegalPushRegistration";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 
@@ -35,9 +37,13 @@ export default function RootLayout({
     <html lang="tr" className={cn("font-sans", geist.variable)}>
       <body>
         <GlobalLegalTheme />
+        <LegalAlarmNotifier />
+        <LegalPushRegistration />
         <Providers>{children}</Providers>
       </body>
     </html>
   );
 }
+
+
 

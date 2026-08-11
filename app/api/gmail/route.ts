@@ -234,41 +234,96 @@ export async function GET() {
       maxResults: 50,
     });
 
-    const result = [];
+    const messageRefs =
+      messages.data.messages || [];
 
-    for (const msg of messages.data.messages || []) {
-      const detail = await gmail.users.messages.get({
-        userId: "me",
-        id: msg.id!,
-        format: "full",
-      });
+    const result: any[] = [];
 
-      const headers = detail.data.payload?.headers || [];
+    const batchSize = 10;
 
-      const subject =
-        headers.find((h) => h.name?.toLowerCase() === "subject")?.value || "";
+    for (
+      let index = 0;
+      index < messageRefs.length;
+      index += batchSize
+    ) {
+      const batch =
+        messageRefs.slice(
+          index,
+          index + batchSize
+        );
 
-      const from =
-        headers.find((h) => h.name?.toLowerCase() === "from")?.value || "";
+      const batchResults =
+        await Promise.all(
+          batch.map(
+            async (msg) => {
+              const detail =
+                await gmail.users.messages.get({
+                  userId: "me",
+                  id: msg.id!,
+                  format: "full",
+                });
 
-      const date =
-        headers.find((h) => h.name?.toLowerCase() === "date")?.value || "";
+              const headers =
+                detail.data.payload?.headers ||
+                [];
 
-      const body = getBody(detail.data.payload);
-      const attachments = collectAttachments(detail.data.payload);
+              const subject =
+                headers.find(
+                  (h) =>
+                    h.name?.toLowerCase() ===
+                    "subject"
+                )?.value || "";
 
-      result.push({
-        id: msg.id,
-        subject,
-        from,
-        sender: from,
-        date,
-        body: body || detail.data.snippet || "",
-        snippet: detail.data.snippet || "",
-        hasAttachment: attachments.length > 0,
-        has_attachment: attachments.length > 0,
-        attachments,
-      });
+              const from =
+                headers.find(
+                  (h) =>
+                    h.name?.toLowerCase() ===
+                    "from"
+                )?.value || "";
+
+              const date =
+                headers.find(
+                  (h) =>
+                    h.name?.toLowerCase() ===
+                    "date"
+                )?.value || "";
+
+              const body =
+                getBody(
+                  detail.data.payload
+                );
+
+              const attachments =
+                collectAttachments(
+                  detail.data.payload
+                );
+
+              return {
+                id: msg.id,
+                subject,
+                from,
+                sender: from,
+                date,
+                body:
+                  body ||
+                  detail.data.snippet ||
+                  "",
+                snippet:
+                  detail.data.snippet ||
+                  "",
+                hasAttachment:
+                  attachments.length > 0,
+                has_attachment:
+                  attachments.length > 0,
+                attachments,
+              };
+            }
+          )
+        );
+
+      result.push(
+        ...batchResults
+      );
     }
 
     return Response.json(result);
@@ -284,4 +339,5 @@ export async function GET() {
     );
   }
 }
+
 

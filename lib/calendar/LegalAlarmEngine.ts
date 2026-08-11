@@ -98,9 +98,7 @@ export type LegalAlarmPlanResult = {
 };
 
 const DEFAULT_REMINDER_DAYS = [
-  14,
   7,
-  5,
   3,
   1,
 ];
@@ -847,3 +845,4 @@ export function createLegalAlarmEngine(
       createTurkishBusinessCalendar()
   );
 }
+

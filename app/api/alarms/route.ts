@@ -1,85 +1,135 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+﻿import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 
-import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { getOrCreateAppUser } from "@/lib/alUser";
+import {
+  getSupabaseAdmin,
+} from "@/lib/supabaseAdmin";
+
+import {
+  getOrCreateAppUser,
+} from "@/lib/alUser";
+
+async function requireUser() {
+  const {
+    appUser,
+    error,
+  } =
+    await getOrCreateAppUser();
+
+  if (
+    error ||
+    !appUser
+  ) {
+    return {
+      appUser: null,
+      response:
+        NextResponse.json(
+          {
+            ok: false,
+            error:
+              error ||
+              "Kullanıcı oturumu bulunamadı.",
+          },
+          {
+            status: 401,
+          }
+        ),
+    };
+  }
+
+  return {
+    appUser,
+    response: null,
+  };
+}
 
 export async function GET(
   request: NextRequest
 ) {
   try {
-    const { appUser, error } =
-      await getOrCreateAppUser();
+    const auth =
+      await requireUser();
 
-    if (error || !appUser) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            error ||
-            "Kullanıcı oturumu bulunamadı.",
-          alarms: [],
-        },
-        { status: 401 }
-      );
+    if (
+      auth.response ||
+      !auth.appUser
+    ) {
+      return auth.response;
     }
 
-    const { searchParams } =
-      new URL(request.url);
+    const {
+      searchParams,
+    } =
+      new URL(
+        request.url
+      );
 
     const calendarEventId =
       searchParams
-        .get("calendarEventId")
+        .get(
+          "calendarEventId"
+        )
         ?.trim() || "";
-
-    if (!calendarEventId) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "calendarEventId zorunludur.",
-          alarms: [],
-        },
-        { status: 400 }
-      );
-    }
 
     const supabase =
       getSupabaseAdmin();
 
-    const result =
-      await supabase
+    let query =
+      supabase
         .from("alarms")
         .select(
           "id, calendar_event_id, legal_deadline_id, alarm_time, alarm_type, message, status"
         )
-        .eq("user_id", appUser.id)
         .eq(
+          "user_id",
+          auth.appUser.id
+        );
+
+    if (
+      calendarEventId
+    ) {
+      query =
+        query.eq(
           "calendar_event_id",
           calendarEventId
-        )
-        .order("alarm_time", {
+        );
+    }
+
+    const result =
+      await query.order(
+        "alarm_time",
+        {
           ascending: true,
-        });
+        }
+      );
 
     if (result.error) {
       return NextResponse.json(
         {
           ok: false,
-          error: result.error.message,
+          error:
+            result.error.message,
           alarms: [],
         },
-        { status: 500 }
+        {
+          status: 500,
+        }
       );
     }
 
     return NextResponse.json({
       ok: true,
       count:
-        result.data?.length || 0,
+        result.data
+          ?.length || 0,
       alarms:
         result.data || [],
     });
-  } catch (error: unknown) {
+  } catch (
+    error: unknown
+  ) {
     return NextResponse.json(
       {
         ok: false,
@@ -89,7 +139,9 @@ export async function GET(
             : "Alarm kayıtları alınamadı.",
         alarms: [],
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }

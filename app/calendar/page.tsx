@@ -274,6 +274,9 @@ export default function CalendarPage() {
   const [alarmsError, setAlarmsError] =
     useState("");
 
+  const [alarmChangingId, setAlarmChangingId] =
+    useState("");
+
   const [checklist, setChecklist] =
     useState({
       mailRead: false,
@@ -1344,6 +1347,73 @@ export default function CalendarPage() {
     loadAlarms();
   }, [selectedEvent?.id]);
 
+  async function changeAlarmStatus(
+    alarm: AlarmRow
+  ) {
+    const nextStatus =
+      alarm.status === "active"
+        ? "disabled"
+        : "active";
+
+    try {
+      setAlarmChangingId(
+        alarm.id
+      );
+
+      setAlarmsError("");
+
+      const response =
+        await fetch(
+          "/api/alarms",
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              alarmId:
+                alarm.id,
+
+              status:
+                nextStatus,
+            }),
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (
+        !response.ok ||
+        !data?.ok
+      ) {
+        throw new Error(
+          data?.error ||
+            "Alarm durumu değiştirilemedi."
+        );
+      }
+
+      setAlarms(
+        (current) =>
+          current.map(
+            (item) =>
+              item.id ===
+              alarm.id
+                ? data.alarm
+                : item
+          )
+      );
+    } catch (error) {
+      setAlarmsError(
+        error instanceof Error
+          ? error.message
+          : "Alarm durumu değiştirilemedi."
+      );
+    } finally {
+      setAlarmChangingId("");
+    }
+  }
   const todayEvents =
     eventsByDate.get(todayIso()) || [];
 
@@ -9702,6 +9772,157 @@ export default function CalendarPage() {
             font-size: 0 !important;
           }
         }
+
+        /* AUTOMATIC LEGAL ALARM UI */
+
+        .alarm-plan-info {
+          display: grid;
+          gap: 2px;
+
+          margin-bottom: 8px;
+          padding-bottom: 8px;
+
+          border-bottom:
+            1px solid
+            var(--legal-border);
+        }
+
+        .alarm-plan-info strong {
+          color:
+            var(--legal-text);
+
+          font-size: 9px;
+        }
+
+        .alarm-plan-info span {
+          color:
+            var(--legal-muted);
+
+          font-size: 7.5px;
+        }
+
+        .alarm-list {
+          display: grid;
+          gap: 5px;
+        }
+
+        .alarm-item {
+          min-height: 48px;
+
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+
+          gap: 10px;
+
+          padding: 7px 9px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+        }
+
+        .alarm-item.active {
+          border-left:
+            2px solid
+            var(--legal-gold);
+        }
+
+        .alarm-item.disabled {
+          opacity: 0.55;
+        }
+
+        .alarm-main {
+          min-width: 0;
+
+          display: grid;
+          gap: 3px;
+        }
+
+        .alarm-main strong {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+
+          color:
+            var(--legal-text);
+
+          font-size: 8.5px;
+        }
+
+        .alarm-main span {
+          color:
+            var(--legal-muted);
+
+          font-size: 7.5px;
+        }
+
+        .alarm-controls {
+          flex: 0 0 auto;
+
+          display: flex;
+          align-items: center;
+
+          gap: 6px;
+        }
+
+        .alarm-status {
+          font-size: 7px;
+          font-weight: 850;
+        }
+
+        .alarm-status.active {
+          color:
+            var(--legal-success);
+        }
+
+        .alarm-status.disabled {
+          color:
+            var(--legal-muted);
+        }
+
+        .alarm-controls button {
+          width: 42px;
+          height: 27px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius: 7px;
+
+          background:
+            var(--legal-surface);
+
+          color:
+            var(--legal-text-soft);
+
+          font-size: 7px;
+          font-weight: 800;
+
+          cursor: pointer;
+        }
+
+        .alarm-controls button:hover:not(:disabled) {
+          border-color:
+            var(--legal-gold);
+
+          color:
+            var(--legal-gold);
+        }
+
+        .alarm-error {
+          color:
+            var(--legal-danger);
+
+          font-size: 7.5px;
+        }
 `}</style>
 
       <section className="workspace">
@@ -10423,26 +10644,40 @@ export default function CalendarPage() {
 
                   {activeDetailTab === "alarm" && (
                     <section className="detail-section">
+                      <div className="alarm-plan-info">
+                        <strong>
+                          Otomatik hukuki süre hatırlatmaları
+                        </strong>
+
+                        <span>
+                          7 gün · 3 gün · 1 gün · son gün 09:00
+                        </span>
+                      </div>
+
                       {alarmsLoading ? (
                         <div className="detail-empty">
                           Alarm kayıtları yükleniyor...
                         </div>
                       ) : alarmsError ? (
-                        <div className="detail-empty">
+                        <div className="alarm-error">
                           {alarmsError}
                         </div>
                       ) : alarms.length === 0 ? (
                         <div className="detail-empty">
-                          Bu kayıt için alarm planı bulunmuyor.
+                          Bu kayıt için otomatik alarm bulunmuyor.
                         </div>
                       ) : (
                         <div className="alarm-list">
                           {alarms.map((alarm) => (
                             <div
                               key={alarm.id}
-                              className="alarm-item"
+                              className={
+                                alarm.status === "active"
+                                  ? "alarm-item active"
+                                  : "alarm-item disabled"
+                              }
                             >
-                              <div>
+                              <div className="alarm-main">
                                 <strong>
                                   {alarm.message}
                                 </strong>
@@ -10451,14 +10686,54 @@ export default function CalendarPage() {
                                   {new Date(
                                     alarm.alarm_time
                                   ).toLocaleString(
-                                    "tr-TR"
+                                    "tr-TR",
+                                    {
+                                      day: "2-digit",
+                                      month: "long",
+                                      year: "numeric",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                      timeZone:
+                                        "Europe/Istanbul",
+                                    }
                                   )}
                                 </span>
                               </div>
 
-                              <span className="alarm-status">
-                                {alarm.status}
-                              </span>
+                              <div className="alarm-controls">
+                                <span
+                                  className={
+                                    alarm.status === "active"
+                                      ? "alarm-status active"
+                                      : "alarm-status disabled"
+                                  }
+                                >
+                                  {alarm.status === "active"
+                                    ? "Aktif"
+                                    : "Pasif"}
+                                </span>
+
+                                <button
+                                  type="button"
+                                  disabled={
+                                    alarmChangingId ===
+                                    alarm.id
+                                  }
+                                  onClick={() =>
+                                    changeAlarmStatus(
+                                      alarm
+                                    )
+                                  }
+                                >
+                                  {alarmChangingId ===
+                                  alarm.id
+                                    ? "..."
+                                    : alarm.status ===
+                                        "active"
+                                      ? "Kapat"
+                                      : "Aç"}
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -10562,6 +10837,7 @@ export default function CalendarPage() {
 </main>
   );
 }
+
 
 
 
