@@ -35,6 +35,47 @@ function cleanName(
     .trim();
 }
 
+function createParagraphs(
+  text: string
+) {
+  return text
+    .replace(
+      /\r\n/g,
+      "\n"
+    )
+    .replace(
+      /\r/g,
+      "\n"
+    )
+    .split(
+      "\n"
+    )
+    .map(
+      (
+        line
+      ) =>
+        new Paragraph({
+          children: [
+            new TextRun({
+              text:
+                line,
+
+              font:
+                "Arial",
+
+              size:
+                22,
+            }),
+          ],
+
+          spacing: {
+            after:
+              80,
+          },
+        })
+    );
+}
+
 export async function POST(
   request: NextRequest
 ) {
@@ -67,6 +108,8 @@ export async function POST(
         "image/jpeg",
         "image/png",
         "image/webp",
+        "image/heic",
+        "image/heif",
       ]);
 
     if (
@@ -78,7 +121,7 @@ export async function POST(
         {
           ok: false,
           error:
-            "JPG, PNG veya WEBP destekleniyor.",
+            "JPG, PNG, WEBP, HEIC veya HEIF destekleniyor.",
         },
         {
           status: 400,
@@ -115,7 +158,9 @@ export async function POST(
         file.type
       );
 
-    if (!recognized.text) {
+    if (
+      !recognized.text
+    ) {
       return NextResponse.json(
         {
           ok: false,
@@ -128,39 +173,6 @@ export async function POST(
       );
     }
 
-    const paragraphs =
-      recognized.text
-        .replace(
-          /\r\n/g,
-          "\n"
-        )
-        .replace(
-          /\r/g,
-          "\n"
-        )
-        .split("\n")
-        .map(
-          (line) =>
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text:
-                    line,
-
-                  font:
-                    "Arial",
-
-                  size:
-                    22,
-                }),
-              ],
-
-              spacing: {
-                after: 80,
-              },
-            })
-        );
-
     const document =
       new Document({
         sections: [
@@ -168,16 +180,25 @@ export async function POST(
             properties: {
               page: {
                 margin: {
-                  top: 1134,
-                  right: 1134,
-                  bottom: 1134,
-                  left: 1134,
+                  top:
+                    1134,
+
+                  right:
+                    1134,
+
+                  bottom:
+                    1134,
+
+                  left:
+                    1134,
                 },
               },
             },
 
             children:
-              paragraphs,
+              createParagraphs(
+                recognized.text
+              ),
           },
         ],
       });

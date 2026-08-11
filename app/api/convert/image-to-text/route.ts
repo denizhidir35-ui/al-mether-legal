@@ -45,6 +45,8 @@ export async function POST(
         "image/jpeg",
         "image/png",
         "image/webp",
+        "image/heic",
+        "image/heif",
       ]);
 
     if (
@@ -56,7 +58,7 @@ export async function POST(
         {
           ok: false,
           error:
-            "JPG, PNG veya WEBP destekleniyor.",
+            "JPG, PNG, WEBP, HEIC veya HEIF destekleniyor.",
         },
         {
           status: 400,

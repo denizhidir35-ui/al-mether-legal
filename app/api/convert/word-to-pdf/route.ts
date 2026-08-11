@@ -228,6 +228,24 @@ export async function POST(
       );
     }
 
+    if (
+      process.env.NODE_ENV ===
+        "production" &&
+      !WORD_CONVERTER_URL
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+
+          error:
+            "Word → PDF production dönüştürme servisi henüz bağlı değil.",
+        },
+        {
+          status: 503,
+        }
+      );
+    }
+
     await execFileAsync(
       SOFFICE,
       [
@@ -307,4 +325,5 @@ export async function POST(
     );
   }
 }
+
 

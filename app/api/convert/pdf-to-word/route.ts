@@ -4,18 +4,21 @@
 } from "next/server";
 
 import {
-  PDFParse,
-} from "pdf-parse";
-
-import {
   Document,
   Packer,
   Paragraph,
   TextRun,
 } from "docx";
 
+import {
+  extractLegalPdfText,
+} from "@/lib/legal/ocr";
+
 export const runtime =
   "nodejs";
+
+export const maxDuration =
+  60;
 
 function cleanName(
   value: string
@@ -30,6 +33,47 @@ function cleanName(
       "_"
     )
     .trim();
+}
+
+function paragraphsFromText(
+  text: string
+) {
+  return text
+    .replace(
+      /\r\n/g,
+      "\n"
+    )
+    .replace(
+      /\r/g,
+      "\n"
+    )
+    .split(
+      "\n"
+    )
+    .map(
+      (
+        line
+      ) =>
+        new Paragraph({
+          children: [
+            new TextRun({
+              text:
+                line,
+
+              font:
+                "Arial",
+
+              size:
+                22,
+            }),
+          ],
+
+          spacing: {
+            after:
+              80,
+          },
+        })
+    );
 }
 
 export async function POST(
@@ -80,13 +124,15 @@ export async function POST(
 
     if (
       file.size >
-      20 * 1024 * 1024
+      20 *
+        1024 *
+        1024
     ) {
       return NextResponse.json(
         {
           ok: false,
           error:
-            "Dosya boyutu 20 MB sınırını aşıyor.",
+            "PDF 20 MB sınırını aşıyor.",
         },
         {
           status: 400,
@@ -94,69 +140,14 @@ export async function POST(
       );
     }
 
-    const buffer =
+    const bytes =
       Buffer.from(
         await file.arrayBuffer()
       );
 
-    const parser =
-      new PDFParse({
-        data: buffer,
-      });
-
-    const result =
-      await parser.getText();
-
-    await parser.destroy();
-
-    const rawText =
-      result.text || "";
-
-    if (
-      !rawText.trim()
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "PDF içerisinden metin çıkarılamadı. Belge taranmış olabilir; OCR gerekir.",
-        },
-        {
-          status: 422,
-        }
-      );
-    }
-
-    const lines =
-      rawText
-        .replace(
-          /\r\n/g,
-          "\n"
-        )
-        .replace(
-          /\r/g,
-          "\n"
-        )
-        .split("\n");
-
-    const paragraphs =
-      lines.map(
-        (line) =>
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: line,
-                font:
-                  "Arial",
-                size:
-                  22,
-              }),
-            ],
-
-            spacing: {
-              after: 80,
-            },
-          })
+    const extracted =
+      await extractLegalPdfText(
+        bytes
       );
 
     const document =
@@ -166,16 +157,25 @@ export async function POST(
             properties: {
               page: {
                 margin: {
-                  top: 1134,
-                  right: 1134,
-                  bottom: 1134,
-                  left: 1134,
+                  top:
+                    1134,
+
+                  right:
+                    1134,
+
+                  bottom:
+                    1134,
+
+                  left:
+                    1134,
                 },
               },
             },
 
             children:
-              paragraphs,
+              paragraphsFromText(
+                extracted.text
+              ),
           },
         ],
       });
@@ -203,6 +203,9 @@ export async function POST(
 
           "Content-Disposition":
             `attachment; filename="${baseName}.docx"`,
+
+          "X-OCR-Engine":
+            extracted.engine,
 
           "Cache-Control":
             "no-store",

@@ -4,11 +4,14 @@
 } from "next/server";
 
 import {
-  PDFParse,
-} from "pdf-parse";
+  extractLegalPdfText,
+} from "@/lib/legal/ocr";
 
 export const runtime =
   "nodejs";
+
+export const maxDuration =
+  60;
 
 export async function POST(
   request: NextRequest
@@ -18,7 +21,9 @@ export async function POST(
       await request.formData();
 
     const file =
-      formData.get("file");
+      formData.get(
+        "file"
+      );
 
     if (
       !(file instanceof File)
@@ -29,14 +34,18 @@ export async function POST(
           error:
             "PDF dosyası bulunamadı.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
     if (
       !file.name
         .toLowerCase()
-        .endsWith(".pdf")
+        .endsWith(
+          ".pdf"
+        )
     ) {
       return NextResponse.json(
         {
@@ -44,13 +53,17 @@ export async function POST(
           error:
             "Yalnızca PDF destekleniyor.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
     if (
       file.size >
-      20 * 1024 * 1024
+      20 *
+        1024 *
+        1024
     ) {
       return NextResponse.json(
         {
@@ -58,41 +71,30 @@ export async function POST(
           error:
             "Dosya 20 MB sınırını aşıyor.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
-    const parser =
-      new PDFParse({
-        data:
-          Buffer.from(
-            await file.arrayBuffer()
-          ),
-      });
+    const bytes =
+      Buffer.from(
+        await file.arrayBuffer()
+      );
 
     const result =
-      await parser.getText();
-
-    await parser.destroy();
-
-    const text =
-      result.text
-        ?.trim() || "";
-
-    if (!text) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "PDF metin içermiyor. Belge taranmış olabilir; OCR gerekir.",
-        },
-        { status: 422 }
+      await extractLegalPdfText(
+        bytes
       );
-    }
 
     return NextResponse.json({
       ok: true,
-      text,
+
+      text:
+        result.text,
+
+      engine:
+        result.engine,
     });
   } catch (
     error: unknown
@@ -100,12 +102,15 @@ export async function POST(
     return NextResponse.json(
       {
         ok: false,
+
         error:
           error instanceof Error
             ? error.message
             : "PDF metni çıkarılamadı.",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }

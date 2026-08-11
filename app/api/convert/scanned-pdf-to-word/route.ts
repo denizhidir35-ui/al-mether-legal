@@ -11,15 +11,7 @@ import {
 } from "docx";
 
 import {
-  getDocument,
-} from "pdfjs-dist/legacy/build/pdf.mjs";
-
-import {
-  createCanvas,
-} from "canvas";
-
-import {
-  extractLegalImageText,
+  extractLegalPdfText,
 } from "@/lib/legal/ocr";
 
 export const runtime =
@@ -107,145 +99,18 @@ export async function POST(
       );
     }
 
-    const startedAt =
-      Date.now();
-
     const bytes =
-      new Uint8Array(
+      Buffer.from(
         await file.arrayBuffer()
       );
 
-    const pdf =
-      await getDocument({
-        data: bytes,
-      }).promise;
-
-    /*
-     * Serverless ortamını korumak için
-     * tek işlemde sınırsız OCR yapmıyoruz.
-     */
-    if (
-      pdf.numPages >
-      30
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Taranmış PDF OCR işlemi tek seferde en fazla 30 sayfa destekliyor.",
-        },
-        {
-          status: 400,
-        }
+    const recognized =
+      await extractLegalPdfText(
+        bytes
       );
-    }
-
-    const pageTexts:
-      string[] = [];
-
-    const engines =
-      new Set<string>();
-
-    for (
-      let pageNo = 1;
-      pageNo <=
-      pdf.numPages;
-      pageNo += 1
-    ) {
-      const page =
-        await pdf.getPage(
-          pageNo
-        );
-
-      /*
-       * 1.55 scale:
-       * Eski 2x render'a göre
-       * RAM ve CPU daha düşük,
-       * OCR için yeterli kalite.
-       */
-      const viewport =
-        page.getViewport({
-          scale: 1.55,
-        });
-
-      const canvas =
-        createCanvas(
-          Math.ceil(
-            viewport.width
-          ),
-          Math.ceil(
-            viewport.height
-          )
-        );
-
-      const context =
-        canvas.getContext(
-          "2d"
-        );
-
-      await page.render({
-        canvas:
-          canvas as any,
-
-        canvasContext:
-          context as any,
-
-        viewport,
-      }).promise;
-
-      /*
-       * PNG yerine JPEG:
-       * Gemini upload boyutu ve RAM kullanımı düşer.
-       */
-      const imageBuffer =
-        canvas.toBuffer(
-          "image/jpeg",
-          {
-            quality: 0.86,
-          }
-        );
-
-      const recognized =
-        await extractLegalImageText(
-          imageBuffer,
-          "image/jpeg"
-        );
-
-      engines.add(
-        recognized.engine
-      );
-
-      pageTexts.push(
-        recognized.text
-          ? `SAYFA ${pageNo}\n\n${recognized.text}`
-          : `SAYFA ${pageNo}\n\n[Metin okunamadı]`
-      );
-    }
-
-    const fullText =
-      pageTexts
-        .join(
-          "\n\n--------------------\n\n"
-        )
-        .trim();
-
-    if (
-      !fullText
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Taranmış PDF'den metin çıkarılamadı.",
-        },
-        {
-          status: 422,
-        }
-      );
-    }
 
     const paragraphs =
-      fullText
+      recognized.text
         .replace(
           /\r\n/g,
           "\n"
@@ -277,7 +142,7 @@ export async function POST(
 
               spacing: {
                 after:
-                  70,
+                  80,
               },
             })
         );
@@ -332,20 +197,10 @@ export async function POST(
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 
           "Content-Disposition":
-            `attachment; filename="${baseName}.docx"`,
+            `attachment; filename="${baseName}-ocr.docx"`,
 
           "X-OCR-Engine":
-            Array.from(
-              engines
-            ).join(
-              ","
-            ),
-
-          "X-OCR-Duration":
-            String(
-              Date.now() -
-              startedAt
-            ),
+            recognized.engine,
 
           "Cache-Control":
             "no-store",
@@ -362,7 +217,7 @@ export async function POST(
         error:
           error instanceof Error
             ? error.message
-            : "Taranmış PDF OCR işlemi başarısız.",
+            : "Taranmış PDF → Word dönüşümü başarısız.",
       },
       {
         status: 500,

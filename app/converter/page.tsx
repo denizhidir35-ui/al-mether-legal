@@ -255,39 +255,147 @@ async function optimizeImageForOcr(
     return file;
   }
 
-  const bitmap =
-    await createImageBitmap(
-      file
-    );
+  /*
+   * HEIC / HEIF Gemini tarafından doğrudan okunabilir.
+   * Browser canvas decode edemezse orijinali yollarız.
+   */
+  const maxDimension =
+    1600;
+
+  let source:
+    CanvasImageSource | null =
+      null;
+
+  let width =
+    0;
+
+  let height =
+    0;
+
+  let close:
+    (() => void) | null =
+      null;
 
   try {
-    const maxDimension =
-      1800;
+    if (
+      typeof createImageBitmap ===
+      "function"
+    ) {
+      try {
+        const bitmap =
+          await createImageBitmap(
+            file
+          );
+
+        source =
+          bitmap;
+
+        width =
+          bitmap.width;
+
+        height =
+          bitmap.height;
+
+        close =
+          () =>
+            bitmap.close();
+      } catch {
+        // iOS fallback aşağıda.
+      }
+    }
+
+    if (!source) {
+      const objectUrl =
+        URL.createObjectURL(
+          file
+        );
+
+      try {
+        const image =
+          await new Promise<HTMLImageElement>(
+            (
+              resolve,
+              reject
+            ) => {
+              const element =
+                new Image();
+
+              element.onload =
+                () =>
+                  resolve(
+                    element
+                  );
+
+              element.onerror =
+                () =>
+                  reject(
+                    new Error(
+                      "Görsel tarayıcıda açılamadı."
+                    )
+                  );
+
+              element.src =
+                objectUrl;
+            }
+          );
+
+        source =
+          image;
+
+        width =
+          image.naturalWidth;
+
+        height =
+          image.naturalHeight;
+
+        close =
+          () =>
+            URL.revokeObjectURL(
+              objectUrl
+            );
+      } catch {
+        URL.revokeObjectURL(
+          objectUrl
+        );
+
+        return file;
+      }
+    }
+
+    if (
+      !width ||
+      !height
+    ) {
+      return file;
+    }
 
     const scale =
       Math.min(
         1,
+
         maxDimension /
           Math.max(
-            bitmap.width,
-            bitmap.height
+            width,
+            height
           )
       );
 
-    const width =
+    const outputWidth =
       Math.max(
         1,
+
         Math.round(
-          bitmap.width *
+          width *
           scale
         )
       );
 
-    const height =
+    const outputHeight =
       Math.max(
         1,
+
         Math.round(
-          bitmap.height *
+          height *
           scale
         )
       );
@@ -298,10 +406,10 @@ async function optimizeImageForOcr(
       );
 
     canvas.width =
-      width;
+      outputWidth;
 
     canvas.height =
-      height;
+      outputHeight;
 
     const context =
       canvas.getContext(
@@ -316,30 +424,31 @@ async function optimizeImageForOcr(
     }
 
     context.drawImage(
-      bitmap,
+      source,
       0,
       0,
-      width,
-      height
+      outputWidth,
+      outputHeight
     );
 
     const blob =
       await new Promise<Blob | null>(
-        (resolve) =>
+        (
+          resolve
+        ) =>
           canvas.toBlob(
             resolve,
+
             "image/jpeg",
-            0.86
+
+            0.82
           )
       );
 
-    if (!blob) {
-      return file;
-    }
-
     if (
+      !blob ||
       blob.size >=
-      file.size
+        file.size
     ) {
       return file;
     }
@@ -351,19 +460,27 @@ async function optimizeImageForOcr(
       );
 
     return new File(
-      [blob],
+      [
+        blob,
+      ],
+
       `${base}-ocr.jpg`,
+
       {
         type:
           "image/jpeg",
+
         lastModified:
           Date.now(),
       }
     );
+  } catch {
+    return file;
   } finally {
-    bitmap.close();
+    close?.();
   }
 }
+
 export default function ConverterPage() {
   const [
     activeTool,
@@ -458,7 +575,7 @@ export default function ConverterPage() {
           "image_word" ||
         activeTool ===
           "image_text"
-        ? "image/jpeg,image/png,image/webp"
+        ? "image/jpeg,image/png,image/webp,image/heic,image/heif"
         : activeTool ===
             "image_pdf"
           ? "image/jpeg,image/png"
@@ -735,7 +852,9 @@ export default function ConverterPage() {
           (file) =>
             file.type === "image/jpeg" ||
             file.type === "image/png" ||
-            file.type === "image/webp"
+            file.type === "image/webp" ||
+            file.type === "image/heic" ||
+            file.type === "image/heif"
         );
 
       if (
@@ -762,7 +881,9 @@ export default function ConverterPage() {
           (file) =>
             file.type === "image/jpeg" ||
             file.type === "image/png" ||
-            file.type === "image/webp"
+            file.type === "image/webp" ||
+            file.type === "image/heic" ||
+            file.type === "image/heif"
         );
 
       if (
@@ -905,18 +1026,49 @@ export default function ConverterPage() {
         }
       );
 
-    const data =
-      await response.json();
+    const raw =
+      await response.text();
 
-    if (!response.ok) {
+    let data:
+      {
+        ok?: boolean;
+        text?: string;
+        error?: string;
+        engine?: string;
+      } = {};
+
+    try {
+      data =
+        raw
+          ? JSON.parse(
+              raw
+            )
+          : {};
+    } catch {
+      throw new Error(
+        `PDF → Metin sunucu hatası (${response.status}).`
+      );
+    }
+
+    if (
+      !response.ok
+    ) {
       throw new Error(
         data?.error ||
-        "PDF → Metin işlemi başarısız."
+        `PDF → Metin işlemi başarısız (${response.status}).`
+      );
+    }
+
+    if (
+      !data.text
+    ) {
+      throw new Error(
+        "PDF okundu ancak metin dönmedi."
       );
     }
 
     setTextResult(
-      data?.text || ""
+      data.text
     );
 
     setTextCopied(false);
@@ -3450,6 +3602,7 @@ export default function ConverterPage() {
     </main>
   );
 }
+
 
 
 

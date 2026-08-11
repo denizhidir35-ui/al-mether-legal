@@ -4,98 +4,187 @@ import {
   GoogleGenAI,
 } from "@google/genai";
 
-import {
-  createWorker,
-} from "tesseract.js";
-
 export type LegalOcrResult = {
   text: string;
+
   engine:
-    | "gemini"
+    | "gemini-flash-lite"
     | "tesseract";
 };
 
-export async function extractLegalImageText(
-  bytes: Buffer,
-  mimeType: string
-): Promise<LegalOcrResult> {
+const GEMINI_MODEL =
+  process.env.GEMINI_OCR_MODEL ||
+  "gemini-2.5-flash-lite";
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number
+): Promise<T> {
+  return Promise.race([
+    promise,
+
+    new Promise<T>(
+      (
+        _resolve,
+        reject
+      ) => {
+        const timeout =
+          setTimeout(
+            () => {
+              clearTimeout(
+                timeout
+              );
+
+              reject(
+                new Error(
+                  "OCR servisi zaman aşımına uğradı."
+                )
+              );
+            },
+            timeoutMs
+          );
+      }
+    ),
+  ]);
+}
+
+function getAi() {
   const apiKey =
     process.env
       .GEMINI_API_KEY ||
     "";
 
-  if (apiKey) {
-    try {
-      const ai =
-        new GoogleGenAI({
-          apiKey,
-        });
+  if (!apiKey) {
+    throw new Error(
+      "GEMINI_API_KEY tanımlı değil."
+    );
+  }
 
-      const response =
-        await ai.models
-          .generateContent({
-            model:
-              "gemini-2.5-flash",
+  return new GoogleGenAI({
+    apiKey,
+  });
+}
 
-            contents: [
-              {
-                inlineData: {
-                  mimeType,
+async function geminiExtract(
+  bytes: Buffer,
+  mimeType: string,
+  prompt: string,
+  timeoutMs = 25000
+) {
+  const ai =
+    getAi();
 
-                  data:
-                    bytes.toString(
-                      "base64"
-                    ),
-                },
-              },
+  const response =
+    await withTimeout(
+      ai.models.generateContent({
+        model:
+          GEMINI_MODEL,
 
-              {
-                text:
-                  [
-                    "Bu bir hukuk ofisi OCR işlemidir.",
-                    "Görselde gerçekten görünen tüm metni eksiksiz çıkar.",
-                    "Türkçe karakterleri koru.",
-                    "Mahkeme adı, dosya numarası, esas numarası, karar numarası, tarihler, kişi ve şirket adlarını aynen koru.",
-                    "Satır yapısını mümkün olduğunca koru.",
-                    "Özetleme yapma.",
-                    "Yorum ekleme.",
-                    "Markdown kullanma.",
-                    "Sadece görseldeki metni döndür.",
-                  ].join(" "),
-              },
-            ],
+        contents: [
+          {
+            inlineData: {
+              mimeType,
 
-            config: {
-              temperature: 0,
+              data:
+                bytes.toString(
+                  "base64"
+                ),
             },
-          });
+          },
 
-      const text =
-        response.text
-          ?.trim() ||
-        "";
+          {
+            text:
+              prompt,
+          },
+        ],
 
-      if (text) {
-        return {
-          text,
-          engine:
-            "gemini",
-        };
-      }
-    } catch (
-      error
-    ) {
-      console.error(
-        "LEGAL GEMINI OCR:",
-        error
+        config: {
+          temperature: 0,
+
+          thinkingConfig: {
+            thinkingBudget: 0,
+          },
+
+          maxOutputTokens:
+            32768,
+        },
+      }),
+
+      timeoutMs
+    );
+
+  return (
+    response.text
+      ?.trim() ||
+    ""
+  );
+}
+
+export async function extractLegalImageText(
+  bytes: Buffer,
+  mimeType: string
+): Promise<LegalOcrResult> {
+  try {
+    const text =
+      await geminiExtract(
+        bytes,
+
+        mimeType,
+
+        [
+          "Bu bir hukuk ofisi OCR işlemidir.",
+          "Görselde gerçekten görünen tüm metni eksiksiz çıkar.",
+          "Türkçe karakterleri aynen koru.",
+          "Mahkeme adı, dosya numarası, esas numarası, karar numarası, tarihler, T.C. kimlik numarası, kişi ve şirket adlarını değiştirme.",
+          "Satır yapısını mümkün olduğunca koru.",
+          "Özetleme yapma.",
+          "Yorum ekleme.",
+          "Markdown kullanma.",
+          "Sadece belgede gerçekten görünen metni döndür.",
+        ].join(" "),
+
+        20000
       );
+
+    if (text) {
+      return {
+        text,
+
+        engine:
+          "gemini-flash-lite",
+      };
+    }
+  } catch (
+    error
+  ) {
+    console.error(
+      "LEGAL GEMINI IMAGE OCR:",
+      error
+    );
+
+    /*
+     * Production'da Tesseract fallback YOK.
+     * Serverless RAM/CPU ve uzun bekleme yaratmasını istemiyoruz.
+     */
+    if (
+      process.env
+        .NODE_ENV ===
+      "production"
+    ) {
+      throw error;
     }
   }
 
   /*
-   * Gemini başarısız olursa
-   * yerel fallback.
+   * Sadece localhost geliştirme fallback.
    */
+  const {
+    createWorker,
+  } =
+    await import(
+      "tesseract.js"
+    );
+
   const worker =
     await createWorker(
       "tur+eng"
@@ -114,6 +203,7 @@ export async function extractLegalImageText(
 
     return {
       text,
+
       engine:
         "tesseract",
     };
@@ -124,4 +214,43 @@ export async function extractLegalImageText(
         () => {}
       );
   }
+}
+
+export async function extractLegalPdfText(
+  bytes: Buffer
+): Promise<LegalOcrResult> {
+  const text =
+    await geminiExtract(
+      bytes,
+
+      "application/pdf",
+
+      [
+        "Bu bir hukuk ofisi belge okuma işlemidir.",
+        "PDF içindeki tüm okunabilir metni eksiksiz çıkar.",
+        "PDF taranmış görüntülerden oluşuyorsa OCR uygula.",
+        "Türkçe karakterleri aynen koru.",
+        "Mahkeme adı, dosya numarası, esas ve karar numaraları, tarihler, taraf adları ve diğer hukuki bilgileri değiştirme.",
+        "Sayfa sırasını ve paragraf yapısını mümkün olduğunca koru.",
+        "Özetleme yapma.",
+        "Yorum veya açıklama ekleme.",
+        "Markdown kullanma.",
+        "Sadece belgede bulunan metni döndür.",
+      ].join(" "),
+
+      30000
+    );
+
+  if (!text) {
+    throw new Error(
+      "PDF içerisinden okunabilir metin çıkarılamadı."
+    );
+  }
+
+  return {
+    text,
+
+    engine:
+      "gemini-flash-lite",
+  };
 }
