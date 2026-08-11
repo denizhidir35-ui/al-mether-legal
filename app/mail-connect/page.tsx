@@ -1,5 +1,8 @@
 ﻿"use client";
 
+import LegalBrand
+  from "@/components/LegalBrand";
+
 import {
   signIn,
   signOut,
@@ -20,7 +23,12 @@ type MailConnection = {
   provider: string;
   email?: string | null;
   status?: string | null;
-  updated_at?: string | null;
+};
+
+type Capabilities = {
+  google: boolean;
+  microsoft: boolean;
+  imap: boolean;
 };
 
 export default function MailConnectPage() {
@@ -30,422 +38,314 @@ export default function MailConnectPage() {
   const {
     data: session,
     status,
-  } = useSession();
+  } =
+    useSession();
 
   const [
     connections,
     setConnections,
-  ] = useState<
-    MailConnection[]
-  >([]);
+  ] =
+    useState<
+      MailConnection[]
+    >([]);
 
   const [
-    loadingConnections,
-    setLoadingConnections,
-  ] = useState(true);
+    capabilities,
+    setCapabilities,
+  ] =
+    useState<Capabilities>({
+      google: false,
+      microsoft: false,
+      imap: false,
+    });
 
   const [
-    connectionError,
-    setConnectionError,
-  ] = useState("");
+    loading,
+    setLoading,
+  ] =
+    useState(true);
+
+  const [
+    error,
+    setError,
+  ] =
+    useState("");
+
+  const [
+    imapOpen,
+    setImapOpen,
+  ] =
+    useState(false);
+
+  const [
+    imapSaving,
+    setImapSaving,
+  ] =
+    useState(false);
+
+  const [
+    imapForm,
+    setImapForm,
+  ] =
+    useState({
+      email: "",
+      password: "",
+
+      imapHost: "",
+      imapPort: "993",
+      imapSecure: true,
+
+      smtpHost: "",
+      smtpPort: "465",
+      smtpSecure: true,
+    });
+
+  async function loadConnections() {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response =
+        await fetch(
+          "/api/mail-connection",
+          {
+            cache:
+              "no-store",
+          }
+        );
+
+      const data =
+        await response
+          .json();
+
+      if (
+        !response.ok ||
+        data?.ok !== true
+      ) {
+        throw new Error(
+          data?.error ||
+          "Mail bağlantıları alınamadı."
+        );
+      }
+
+      setConnections(
+        Array.isArray(
+          data.connections
+        )
+          ? data.connections
+          : []
+      );
+
+      setCapabilities({
+        google:
+          Boolean(
+            data
+              ?.capabilities
+              ?.google
+          ),
+
+        microsoft:
+          Boolean(
+            data
+              ?.capabilities
+              ?.microsoft
+          ),
+
+        imap:
+          Boolean(
+            data
+              ?.capabilities
+              ?.imap
+          ),
+      });
+    } catch (
+      loadError
+    ) {
+      setError(
+        loadError instanceof
+        Error
+          ? loadError.message
+          : "Mail bağlantıları alınamadı."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (
-      status === "unauthenticated"
+      status ===
+      "unauthenticated"
     ) {
-      router.replace("/login");
+      router.replace(
+        "/login"
+      );
+
       return;
     }
 
     if (
-      status !== "authenticated"
+      status ===
+      "authenticated"
     ) {
-      return;
+      loadConnections();
     }
-
-    let active = true;
-
-    async function loadConnections() {
-      try {
-        setLoadingConnections(true);
-        setConnectionError("");
-
-        const response =
-          await fetch(
-            "/api/mail-connection",
-            {
-              cache: "no-store",
-            }
-          );
-
-        const text =
-          await response.text();
-
-        let data: any = {};
-
-        if (text) {
-          try {
-            data =
-              JSON.parse(text);
-          } catch {
-            data = {};
-          }
-        }
-
-        if (!active) {
-          return;
-        }
-
-        if (
-          !response.ok ||
-          data?.ok !== true
-        ) {
-          throw new Error(
-            data?.error ||
-              "Mail bağlantıları alınamadı."
-          );
-        }
-
-        setConnections(
-          Array.isArray(
-            data.connections
-          )
-            ? data.connections
-            : []
-        );
-      } catch (error) {
-        if (!active) {
-          return;
-        }
-
-        setConnections([]);
-
-        setConnectionError(
-          error instanceof Error
-            ? error.message
-            : "Mail bağlantıları alınamadı."
-        );
-      } finally {
-        if (active) {
-          setLoadingConnections(false);
-        }
-      }
-    }
-
-    loadConnections();
-
-    return () => {
-      active = false;
-    };
   }, [
     status,
     router,
   ]);
 
   if (
-    status === "loading"
+    status ===
+    "loading"
   ) {
     return (
       <main className="connect-page">
-        <div className="connect-loading">
-          Oturum kontrol ediliyor...
-        </div>
+        Oturum kontrol ediliyor...
       </main>
     );
   }
 
   if (
-    status !== "authenticated"
+    status !==
+    "authenticated"
   ) {
     return null;
   }
 
-  const googleConnection =
+  const google =
     connections.find(
-      (item) =>
+      (
+        item
+      ) =>
         item.provider ===
-          "google" &&
-        item.status ===
-          "connected"
+        "google"
     );
 
-  const googleConnected =
-    Boolean(
-      googleConnection
+  const microsoft =
+    connections.find(
+      (
+        item
+      ) =>
+        item.provider ===
+        "microsoft"
     );
 
-  async function connectGoogle() {
-    await signIn(
-      "google-mail",
-      {
-        callbackUrl:
-          "/calendar",
+  const imap =
+    connections.find(
+      (
+        item
+      ) =>
+        item.provider ===
+        "imap"
+    );
+
+  async function saveImap() {
+    try {
+      setImapSaving(true);
+      setError("");
+
+      const response =
+        await fetch(
+          "/api/mail-connection/imap",
+          {
+            method:
+              "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                ...imapForm,
+
+                imapPort:
+                  Number(
+                    imapForm.imapPort
+                  ),
+
+                smtpPort:
+                  Number(
+                    imapForm.smtpPort
+                  ),
+              }),
+          }
+        );
+
+      const data =
+        await response
+          .json();
+
+      if (
+        !response.ok ||
+        data?.ok !== true
+      ) {
+        throw new Error(
+          data?.error ||
+          "Bağlantı kurulamadı."
+        );
       }
-    );
+
+      setImapOpen(false);
+
+      setImapForm({
+        email: "",
+        password: "",
+
+        imapHost: "",
+        imapPort: "993",
+        imapSecure: true,
+
+        smtpHost: "",
+        smtpPort: "465",
+        smtpSecure: true,
+      });
+
+      await loadConnections();
+    } catch (
+      saveError
+    ) {
+      setError(
+        saveError instanceof
+        Error
+          ? saveError.message
+          : "Kurumsal mail bağlanamadı."
+      );
+    } finally {
+      setImapSaving(false);
+    }
   }
 
   return (
     <main className="connect-page">
-      <style jsx>{`
-        .connect-page {
-          min-height: 100vh;
-          display: grid;
-          place-items: center;
-          padding: 18px;
-          background:
-            var(--legal-bg);
-          color: var(--legal-text);
-        }
-
-        .connect-shell {
-          width: min(
-            620px,
-            100%
-          );
-        }
-
-        .connect-header {
-          margin-bottom: 18px;
-          text-align: center;
-        }
-
-        .connect-kicker {
-          margin-bottom: 7px;
-          color: var(--legal-gold);
-          font-size: 9px;
-          font-weight: 900;
-          letter-spacing: 0.18em;
-        }
-
-        h1 {
-          margin: 0;
-          font-size: 24px;
-        }
-
-        .connect-header p {
-          margin:
-            9px
-            auto
-            0;
-          max-width: 460px;
-          color: var(--legal-muted);
-          font-size: 11px;
-          line-height: 1.55;
-        }
-
-        .account {
-          margin-bottom: 10px;
-          padding: 10px 13px;
-          border: 1px solid var(--legal-border);
-          border-radius: 12px;
-          background: var(--legal-surface-2);
-          color: var(--legal-muted);
-          font-size: 10px;
-          text-align: center;
-        }
-
-        .providers {
-          display: grid;
-          gap: 8px;
-        }
-
-        .provider {
-          width: 100%;
-          min-height: 64px;
-          display: grid;
-          grid-template-columns:
-            40px
-            minmax(0, 1fr)
-            auto;
-          align-items: center;
-          gap: 11px;
-          padding: 10px 13px;
-          border: 1px solid var(--legal-border);
-          border-radius: 15px;
-          background: var(--legal-surface);
-          color: var(--legal-text);
-          text-align: left;
-        }
-
-        button.provider {
-          cursor: pointer;
-        }
-
-        button.provider:hover {
-          border-color:
-            var(--legal-gold);
-          background:
-            var(--legal-gold-soft);
-        }
-
-        .provider.connected {
-          border-color:
-            rgba(
-              65,
-              217,
-              166,
-              0.38
-            );
-
-          background:
-            rgba(
-              65,
-              217,
-              166,
-              0.055
-            );
-        }
-
-        .provider-icon {
-          width: 38px;
-          height: 38px;
-          display: grid;
-          place-items: center;
-          border: 1px solid var(--legal-border);
-          border-radius: 11px;
-          background: var(--legal-surface-2);
-          font-size: 16px;
-          font-weight: 900;
-        }
-
-        .provider strong {
-          display: block;
-          margin-bottom: 3px;
-          font-size: 11px;
-        }
-
-        .provider span {
-          color: var(--legal-muted);
-          font-size: 9px;
-          line-height: 1.4;
-        }
-
-        .provider-action {
-          color:
-            var(--legal-gold) !important;
-          font-size:
-            9px !important;
-          font-weight: 900;
-          white-space: nowrap;
-        }
-
-        .provider.connected
-        .provider-action {
-          color:
-            #63d6b0 !important;
-        }
-
-        .connection-email {
-          margin-top: 3px;
-          color:
-            #63d6b0 !important;
-        }
-
-        .disabled {
-          opacity: 0.48;
-          cursor: default;
-        }
-
-        .connection-error {
-          margin-bottom: 10px;
-          padding: 9px 11px;
-          border: 1px solid
-            rgba(
-              255,
-              89,
-              115,
-              0.25
-            );
-          border-radius: 10px;
-          background:
-            rgba(
-              255,
-              89,
-              115,
-              0.06
-            );
-          color: #ff8296;
-          font-size: 9px;
-          text-align: center;
-        }
-
-        .footer-actions {
-          display: flex;
-          justify-content: center;
-          gap: 8px;
-          margin-top: 14px;
-        }
-
-        .footer-button {
-          height: 34px;
-          padding: 0 12px;
-          border: 1px solid var(--legal-border);
-          border-radius: 10px;
-          background: transparent;
-          color: var(--legal-muted);
-          cursor: pointer;
-          font-size: 9px;
-          font-weight: 800;
-        }
-
-        .connect-loading {
-          color: var(--legal-muted);
-          font-size: 11px;
-        }
-
-        @media (
-          max-width: 500px
-        ) {
-          .connect-page {
-            align-items: start;
-            padding:
-              36px
-              12px
-              20px;
-          }
-
-          h1 {
-            font-size: 21px;
-          }
-
-          .provider {
-            min-height: 62px;
-            grid-template-columns:
-              38px
-              minmax(0, 1fr)
-              auto;
-            padding: 9px 10px;
-          }
-        }
-      `}</style>
-
       <section className="connect-shell">
-        <header className="connect-header">
-          <div className="connect-kicker">
-            AL METHER LEGAL
-          </div>
+        <header>
+          <LegalBrand />
 
           <h1>
-            E-posta hesabını bağla
+            E-posta hesapları
           </h1>
 
           <p>
-            Hukuki bildirimleri ve dava
-            e-postalarını algılayabilmemiz
-            için kullandığınız e-posta
+            METHER Legal içinde
+            kullanacağınız e-posta
             hesabını bağlayın.
           </p>
         </header>
 
         <div className="account">
-          Giriş yapılan hesap:{" "}
-          {session?.user?.email ||
-            "—"}
+          Oturum:{" "}
+          {session
+            ?.user
+            ?.email ||
+          "—"}
         </div>
 
-        {connectionError && (
-          <div className="connection-error">
-            {connectionError}
+        {error && (
+          <div className="error">
+            {error}
           </div>
         )}
 
@@ -453,20 +353,25 @@ export default function MailConnectPage() {
           <button
             type="button"
             className={`provider ${
-              googleConnected
+              google
                 ? "connected"
                 : ""
             }`}
             disabled={
-              loadingConnections
+              loading ||
+              !capabilities.google
             }
-            onClick={
-              connectGoogle
+            onClick={() =>
+              signIn(
+                "google-mail",
+                {
+                  callbackUrl:
+                    "/mail-connect",
+                }
+              )
             }
           >
-            <div className="provider-icon">
-              G
-            </div>
+            <b>G</b>
 
             <div>
               <strong>
@@ -474,30 +379,49 @@ export default function MailConnectPage() {
               </strong>
 
               <span>
-                Gmail veya Google Workspace
-                hesabınızı bağlayın.
+                Gmail ve Google
+                Workspace
               </span>
 
-              {googleConnection?.email && (
-                <span className="connection-email">
-                  {googleConnection.email}
-                </span>
+              {google?.email && (
+                <em>
+                  {google.email}
+                </em>
               )}
             </div>
 
-            <span className="provider-action">
-              {loadingConnections
-                ? "Kontrol..."
-                : googleConnected
-                  ? "Bağlı · Yenile"
-                  : "Bağla →"}
-            </span>
+            <small>
+              {google
+                ? "Bağlı · Yenile"
+                : capabilities.google
+                  ? "Bağla →"
+                  : "Yapılandırma gerekli"}
+            </small>
           </button>
 
-          <div className="provider disabled">
-            <div className="provider-icon">
-              M
-            </div>
+          <button
+            type="button"
+            className={`provider ${
+              microsoft
+                ? "connected"
+                : ""
+            }`}
+            disabled={
+              loading ||
+              !capabilities
+                .microsoft
+            }
+            onClick={() =>
+              signIn(
+                "microsoft-mail",
+                {
+                  callbackUrl:
+                    "/mail-connect",
+                }
+              )
+            }
+          >
+            <b>M</b>
 
             <div>
               <strong>
@@ -505,56 +429,268 @@ export default function MailConnectPage() {
               </strong>
 
               <span>
-                Outlook, Hotmail veya
-                Microsoft 365.
+                Outlook, Hotmail
+                ve Microsoft 365
               </span>
+
+              {microsoft
+                ?.email && (
+                <em>
+                  {
+                    microsoft.email
+                  }
+                </em>
+              )}
             </div>
 
-            <span className="provider-action">
-              Hazırlanıyor
-            </span>
-          </div>
-
-          <div className="provider disabled">
-            <div className="provider-icon">
-              @
-            </div>
-
-            <div>
-              <strong>
-                Diğer E-posta
-              </strong>
-
-              <span>
-                Kurumsal domain ve
-                IMAP hesapları.
-              </span>
-            </div>
-
-            <span className="provider-action">
-              Hazırlanıyor
-            </span>
-          </div>
-        </div>
-
-        <div className="footer-actions">
-          {googleConnected && (
-            <button
-              type="button"
-              className="footer-button"
-              onClick={() =>
-                router.push(
-                  "/calendar"
-                )
-              }
-            >
-              Takvime Git
-            </button>
-          )}
+            <small>
+              {microsoft
+                ? "Bağlı · Yenile"
+                : capabilities
+                    .microsoft
+                  ? "Bağla →"
+                  : "Yapılandırma gerekli"}
+            </small>
+          </button>
 
           <button
             type="button"
-            className="footer-button"
+            className={`provider ${
+              imap
+                ? "connected"
+                : ""
+            }`}
+            disabled={
+              loading ||
+              !capabilities.imap
+            }
+            onClick={() =>
+              setImapOpen(
+                (
+                  value
+                ) => !value
+              )
+            }
+          >
+            <b>@</b>
+
+            <div>
+              <strong>
+                Kurumsal E-posta
+              </strong>
+
+              <span>
+                IMAP + SMTP
+              </span>
+
+              {imap?.email && (
+                <em>
+                  {imap.email}
+                </em>
+              )}
+            </div>
+
+            <small>
+              {imap
+                ? "Bağlı · Düzenle"
+                : "Bağla →"}
+            </small>
+          </button>
+        </div>
+
+        {imapOpen && (
+          <div className="imap-form">
+            <input
+              type="email"
+              placeholder="E-posta"
+              value={
+                imapForm.email
+              }
+              onChange={(
+                event
+              ) =>
+                setImapForm({
+                  ...imapForm,
+                  email:
+                    event
+                      .target
+                      .value,
+                })
+              }
+            />
+
+            <input
+              type="password"
+              placeholder="Şifre / uygulama parolası"
+              value={
+                imapForm.password
+              }
+              onChange={(
+                event
+              ) =>
+                setImapForm({
+                  ...imapForm,
+                  password:
+                    event
+                      .target
+                      .value,
+                })
+              }
+            />
+
+            <div className="row">
+              <input
+                placeholder="IMAP sunucusu"
+                value={
+                  imapForm.imapHost
+                }
+                onChange={(
+                  event
+                ) =>
+                  setImapForm({
+                    ...imapForm,
+                    imapHost:
+                      event
+                        .target
+                        .value,
+                  })
+                }
+              />
+
+              <input
+                placeholder="993"
+                value={
+                  imapForm.imapPort
+                }
+                onChange={(
+                  event
+                ) =>
+                  setImapForm({
+                    ...imapForm,
+                    imapPort:
+                      event
+                        .target
+                        .value,
+                  })
+                }
+              />
+            </div>
+
+            <div className="row">
+              <input
+                placeholder="SMTP sunucusu"
+                value={
+                  imapForm.smtpHost
+                }
+                onChange={(
+                  event
+                ) =>
+                  setImapForm({
+                    ...imapForm,
+                    smtpHost:
+                      event
+                        .target
+                        .value,
+                  })
+                }
+              />
+
+              <input
+                placeholder="465"
+                value={
+                  imapForm.smtpPort
+                }
+                onChange={(
+                  event
+                ) =>
+                  setImapForm({
+                    ...imapForm,
+                    smtpPort:
+                      event
+                        .target
+                        .value,
+                  })
+                }
+              />
+            </div>
+
+            <div className="checks">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={
+                    imapForm
+                      .imapSecure
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setImapForm({
+                      ...imapForm,
+                      imapSecure:
+                        event
+                          .target
+                          .checked,
+                    })
+                  }
+                />
+                IMAP SSL
+              </label>
+
+              <label>
+                <input
+                  type="checkbox"
+                  checked={
+                    imapForm
+                      .smtpSecure
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setImapForm({
+                      ...imapForm,
+                      smtpSecure:
+                        event
+                          .target
+                          .checked,
+                    })
+                  }
+                />
+                SMTP SSL
+              </label>
+            </div>
+
+            <button
+              type="button"
+              className="save"
+              disabled={
+                imapSaving
+              }
+              onClick={
+                saveImap
+              }
+            >
+              {imapSaving
+                ? "Bağlantı test ediliyor..."
+                : "Bağlantıyı Test Et ve Kaydet"}
+            </button>
+          </div>
+        )}
+
+        <footer>
+          <button
+            type="button"
+            onClick={() =>
+              router.push(
+                "/inbox"
+              )
+            }
+          >
+            Mailbox'a Git
+          </button>
+
+          <button
+            type="button"
             onClick={() =>
               signOut({
                 callbackUrl:
@@ -564,8 +700,223 @@ export default function MailConnectPage() {
           >
             Çıkış
           </button>
-        </div>
+        </footer>
       </section>
+
+      <style jsx>{`
+        .connect-page {
+          min-height: 100dvh;
+          display: grid;
+          place-items: center;
+          padding: 20px;
+          background: var(--legal-bg);
+          color: var(--legal-text);
+        }
+
+        .connect-shell {
+          width: min(680px, 100%);
+        }
+
+        header {
+          display: grid;
+          justify-items: center;
+          margin-bottom: 16px;
+          text-align: center;
+        }
+
+        h1 {
+          margin: 12px 0 4px;
+          font-size: 23px;
+        }
+
+        header p {
+          margin: 0;
+          color: var(--legal-muted);
+          font-size: 10px;
+        }
+
+        .account,
+        .error {
+          margin-bottom: 9px;
+          padding: 9px 12px;
+          border: 1px solid var(--legal-border);
+          border-radius: 10px;
+          text-align: center;
+          font-size: 9px;
+        }
+
+        .account {
+          color: var(--legal-muted);
+          background: var(--legal-surface-2);
+        }
+
+        .error {
+          color: var(--legal-danger);
+        }
+
+        .providers {
+          display: grid;
+          gap: 8px;
+        }
+
+        .provider {
+          min-height: 66px;
+          display: grid;
+          grid-template-columns:
+            40px
+            minmax(0, 1fr)
+            auto;
+          align-items: center;
+          gap: 11px;
+          padding: 10px 12px;
+          border: 1px solid var(--legal-border);
+          border-radius: 14px;
+          background: var(--legal-surface);
+          color: var(--legal-text);
+          text-align: left;
+          cursor: pointer;
+        }
+
+        .provider:disabled {
+          opacity: .5;
+          cursor: default;
+        }
+
+        .provider.connected {
+          border-color: var(--legal-success);
+        }
+
+        .provider b {
+          width: 38px;
+          height: 38px;
+          display: grid;
+          place-items: center;
+          border: 1px solid var(--legal-border);
+          border-radius: 10px;
+          background: var(--legal-surface-2);
+          font-size: 15px;
+        }
+
+        .provider strong,
+        .provider span,
+        .provider em {
+          display: block;
+        }
+
+        .provider strong {
+          font-size: 11px;
+        }
+
+        .provider span {
+          margin-top: 2px;
+          color: var(--legal-muted);
+          font-size: 8.5px;
+        }
+
+        .provider em {
+          margin-top: 3px;
+          color: var(--legal-success);
+          font-size: 8px;
+          font-style: normal;
+        }
+
+        .provider small {
+          color: var(--legal-gold);
+          font-size: 8px;
+          font-weight: 850;
+        }
+
+        .imap-form {
+          display: grid;
+          gap: 7px;
+          margin-top: 9px;
+          padding: 12px;
+          border: 1px solid var(--legal-border);
+          border-radius: 14px;
+          background: var(--legal-surface);
+        }
+
+        .imap-form input {
+          width: 100%;
+          height: 34px;
+          padding: 0 10px;
+          border: 1px solid var(--legal-border);
+          border-radius: 8px;
+          outline: 0;
+          background: var(--legal-surface-2);
+          color: var(--legal-text);
+        }
+
+        .row {
+          display: grid;
+          grid-template-columns:
+            minmax(0, 1fr)
+            90px;
+          gap: 7px;
+        }
+
+        .checks {
+          display: flex;
+          gap: 16px;
+          color: var(--legal-muted);
+          font-size: 9px;
+        }
+
+        .checks label {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+        }
+
+        .checks input {
+          width: auto;
+          height: auto;
+        }
+
+        .save {
+          height: 36px;
+          border: 1px solid var(--legal-gold);
+          border-radius: 9px;
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-light);
+          font-weight: 850;
+          cursor: pointer;
+        }
+
+        footer {
+          display: flex;
+          justify-content: center;
+          gap: 7px;
+          margin-top: 12px;
+        }
+
+        footer button {
+          height: 34px;
+          padding: 0 12px;
+          border: 1px solid var(--legal-border);
+          border-radius: 9px;
+          background: var(--legal-surface-2);
+          color: var(--legal-text-soft);
+          cursor: pointer;
+        }
+
+        @media (max-width: 600px) {
+          .connect-page {
+            align-items: start;
+            padding: 38px 12px 20px;
+          }
+
+          .provider {
+            grid-template-columns:
+              38px
+              minmax(0, 1fr);
+          }
+
+          .provider small {
+            grid-column: 2;
+          }
+        }
+      `}</style>
     </main>
   );
 }

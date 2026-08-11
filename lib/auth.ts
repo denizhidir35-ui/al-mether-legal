@@ -1,19 +1,28 @@
-﻿import { NextAuthOptions } from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
+﻿import {
+  NextAuthOptions,
+} from "next-auth";
 
-import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import GoogleProvider
+  from "next-auth/providers/google";
+
+import {
+  getSupabaseAdmin,
+} from "@/lib/supabaseAdmin";
 
 const googleLoginProvider =
   GoogleProvider({
     clientId:
-      process.env.GOOGLE_CLIENT_ID!,
+      process.env
+        .GOOGLE_CLIENT_ID!,
 
     clientSecret:
-      process.env.GOOGLE_CLIENT_SECRET!,
+      process.env
+        .GOOGLE_CLIENT_SECRET!,
 
     authorization: {
       params: {
-        prompt: "select_account",
+        prompt:
+          "select_account",
 
         scope:
           "openid email profile",
@@ -24,42 +33,147 @@ const googleLoginProvider =
 const googleMailProvider = {
   ...GoogleProvider({
     clientId:
-      process.env.GOOGLE_CLIENT_ID!,
+      process.env
+        .GOOGLE_CLIENT_ID!,
 
     clientSecret:
-      process.env.GOOGLE_CLIENT_SECRET!,
+      process.env
+        .GOOGLE_CLIENT_SECRET!,
 
     authorization: {
       params: {
-        prompt: "consent",
-        access_type: "offline",
-        response_type: "code",
+        prompt:
+          "consent",
+
+        access_type:
+          "offline",
+
+        response_type:
+          "code",
 
         scope:
-          "openid email profile https://www.googleapis.com/auth/gmail.readonly",
+          [
+            "openid",
+            "email",
+            "profile",
+            "https://www.googleapis.com/auth/gmail.readonly",
+            "https://www.googleapis.com/auth/gmail.send",
+          ].join(" "),
       },
     },
   }),
 
-  id: "google-mail",
-  name: "Google Mail",
+  id:
+    "google-mail",
+
+  name:
+    "Google Mail",
+};
+
+const microsoftMailProvider:
+  any = {
+  id:
+    "microsoft-mail",
+
+  name:
+    "Microsoft Mail",
+
+  type:
+    "oauth",
+
+  wellKnown:
+    "https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration",
+
+  clientId:
+    process.env
+      .MICROSOFT_CLIENT_ID ||
+    "",
+
+  clientSecret:
+    process.env
+      .MICROSOFT_CLIENT_SECRET ||
+    "",
+
+  authorization: {
+    params: {
+      scope: [
+        "openid",
+        "profile",
+        "email",
+        "offline_access",
+        "User.Read",
+        "Mail.ReadWrite",
+        "Mail.Send",
+      ].join(" "),
+    },
+  },
+
+  idToken:
+    true,
+
+  checks: [
+    "pkce",
+    "state",
+  ],
+
+  profile(
+    profile: any
+  ) {
+    return {
+      id:
+        profile.sub,
+
+      name:
+        profile.name ||
+        profile
+          .preferred_username,
+
+      email:
+        profile.email ||
+        profile
+          .preferred_username,
+
+      image:
+        null,
+    };
+  },
 };
 
 function cleanEmail(
   value: unknown
 ) {
-  return typeof value === "string"
+  return typeof value ===
+    "string"
     ? value
         .trim()
-        .toLocaleLowerCase("tr-TR")
+        .toLocaleLowerCase(
+          "tr-TR"
+        )
     : "";
 }
 
-export const authOptions: NextAuthOptions = {
-  providers: [
+const providers:
+  NextAuthOptions[
+    "providers"
+  ] = [
     googleLoginProvider,
     googleMailProvider,
-  ],
+  ];
+
+if (
+  process.env
+    .MICROSOFT_CLIENT_ID &&
+  process.env
+    .MICROSOFT_CLIENT_SECRET
+) {
+  providers.push(
+    microsoftMailProvider
+  );
+}
+
+export const authOptions:
+  NextAuthOptions = {
+  providers,
 
   callbacks: {
     async signIn({
@@ -68,7 +182,9 @@ export const authOptions: NextAuthOptions = {
     }) {
       try {
         const email =
-          cleanEmail(user?.email);
+          cleanEmail(
+            user?.email
+          );
 
         if (!email) {
           return false;
@@ -79,23 +195,36 @@ export const authOptions: NextAuthOptions = {
 
         const existingUser =
           await supabase
-            .from("app_users")
+            .from(
+              "app_users"
+            )
             .select("*")
-            .eq("email", email)
+            .eq(
+              "email",
+              email
+            )
             .maybeSingle();
 
-        if (existingUser.error) {
+        if (
+          existingUser.error
+        ) {
           console.error(
             "APP USER LOGIN ERROR:",
-            existingUser.error.message
+            existingUser
+              .error
+              .message
           );
 
           return false;
         }
 
         if (
-          existingUser.data?.status &&
-          existingUser.data.status !==
+          existingUser
+            .data
+            ?.status &&
+          existingUser
+            .data
+            .status !==
             "active"
         ) {
           return false;
@@ -107,16 +236,28 @@ export const authOptions: NextAuthOptions = {
         if (!appUser) {
           const created =
             await supabase
-              .from("app_users")
+              .from(
+                "app_users"
+              )
               .insert({
                 email,
-                google_id: email,
+
+                google_id:
+                  email,
+
                 name:
                   user?.name ||
-                  email.split("@")[0] ||
+                  email
+                    .split(
+                      "@"
+                    )[0] ||
                   "Avukat",
-                role: "lawyer",
-                status: "active",
+
+                role:
+                  "lawyer",
+
+                status:
+                  "active",
               })
               .select("*")
               .single();
@@ -125,11 +266,6 @@ export const authOptions: NextAuthOptions = {
             created.error ||
             !created.data
           ) {
-            console.error(
-              "APP USER CREATE ERROR:",
-              created.error?.message
-            );
-
             return false;
           }
 
@@ -137,19 +273,32 @@ export const authOptions: NextAuthOptions = {
             created.data;
         }
 
-        if (
-          account?.provider ===
+        const accountProvider =
+          account?.provider ||
+          "";
+
+        const mailProvider =
+          accountProvider ===
           "google-mail"
+            ? "google"
+            : accountProvider ===
+                "microsoft-mail"
+              ? "microsoft"
+              : "";
+
+        if (
+          mailProvider
         ) {
           const expiresAt =
-            account.expires_at
+            account?.expires_at
               ? new Date(
-                  account.expires_at *
+                  account
+                    .expires_at *
                     1000
                 ).toISOString()
               : null;
 
-          const existingConnection =
+          const previous =
             await supabase
               .from(
                 "mail_connections"
@@ -163,29 +312,24 @@ export const authOptions: NextAuthOptions = {
               )
               .eq(
                 "provider",
-                "google"
+                mailProvider
               )
               .maybeSingle();
 
           if (
-            existingConnection.error
+            previous.error
           ) {
-            console.error(
-              "MAIL CONNECTION READ ERROR:",
-              existingConnection.error
-                .message
-            );
-
             return false;
           }
 
           const refreshToken =
-            account.refresh_token ||
-            existingConnection.data
+            account
+              ?.refresh_token ||
+            previous.data
               ?.refresh_token ||
             null;
 
-          const connection =
+          const saved =
             await supabase
               .from(
                 "mail_connections"
@@ -196,7 +340,7 @@ export const authOptions: NextAuthOptions = {
                     appUser.id,
 
                   provider:
-                    "google",
+                    mailProvider,
 
                   email,
 
@@ -204,7 +348,8 @@ export const authOptions: NextAuthOptions = {
                     "connected",
 
                   access_token:
-                    account.access_token ||
+                    account
+                      ?.access_token ||
                     null,
 
                   refresh_token:
@@ -223,10 +368,14 @@ export const authOptions: NextAuthOptions = {
                 }
               );
 
-          if (connection.error) {
+          if (
+            saved.error
+          ) {
             console.error(
               "MAIL CONNECTION SAVE ERROR:",
-              connection.error.message
+              saved
+                .error
+                .message
             );
 
             return false;
@@ -234,10 +383,13 @@ export const authOptions: NextAuthOptions = {
         }
 
         return true;
-      } catch (error) {
+      } catch (
+        error
+      ) {
         console.error(
           "NEXTAUTH SIGNIN ERROR:",
-          error instanceof Error
+          error instanceof
+          Error
             ? error.message
             : "Unknown error"
         );
@@ -250,7 +402,10 @@ export const authOptions: NextAuthOptions = {
       token,
       account,
     }) {
-      if (account?.provider) {
+      if (
+        account
+          ?.provider
+      ) {
         token.connectedProvider =
           account.provider;
       }
@@ -265,16 +420,19 @@ export const authOptions: NextAuthOptions = {
       (
         session as any
       ).connectedProvider =
-        token.connectedProvider;
+        token
+          .connectedProvider;
 
       return session;
     },
   },
 
   debug:
-    process.env.NODE_ENV !==
+    process.env
+      .NODE_ENV !==
     "production",
 
   secret:
-    process.env.NEXTAUTH_SECRET,
+    process.env
+      .NEXTAUTH_SECRET,
 };
