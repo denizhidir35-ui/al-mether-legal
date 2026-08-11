@@ -10,31 +10,84 @@ import { cn } from "@/lib/utils";
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata: Metadata = {
-  title: "AL Mether Legal",
+  title: "Mether Legal",
   description: "Avukatın hukuki süre kaçırmasını engelleyen sistem.",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/brand/legal-app-icon-light.png",
+    shortcut: "/brand/legal-app-icon-light.png",
+    apple: "/brand/legal-app-icon-light.png",
+  },
   appleWebApp: {
     capable: true,
-    title: "AL Mether Legal",
+    title: "Mether Legal",
     statusBarStyle: "black-translucent",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#050816",
+  themeColor: "#090c12",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
   viewportFit: "cover",
 };
 
+
+const LEGAL_THEME_BOOTSTRAP = `
+(function () {
+  try {
+    var saved =
+      localStorage.getItem(
+        "legal-theme"
+      );
+
+    var theme =
+      saved === "light"
+        ? "light"
+        : "dark";
+
+    var root =
+      document.documentElement;
+
+    root.classList.toggle(
+      "dark",
+      theme === "dark"
+    );
+
+    root.setAttribute(
+      "data-legal-theme",
+      theme
+    );
+
+    root.style.colorScheme =
+      theme;
+  } catch (_) {}
+})();
+`;
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="tr" className={cn("font-sans", geist.variable)}>
+    <html
+      lang="tr"
+      className={cn(
+        "font-sans",
+        geist.variable
+      )}
+      suppressHydrationWarning
+    >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              LEGAL_THEME_BOOTSTRAP,
+          }}
+        />
+      </head>
+
       <body>
         <GlobalLegalTheme />
         <LegalAlarmNotifier />
@@ -44,6 +97,9 @@ export default function RootLayout({
     </html>
   );
 }
+
+
+
 
 
 

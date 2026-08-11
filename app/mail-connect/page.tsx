@@ -193,18 +193,8 @@ export default function MailConnectPage() {
           place-items: center;
           padding: 18px;
           background:
-            radial-gradient(
-              circle at 50% 12%,
-              rgba(
-                91,
-                88,
-                255,
-                0.14
-              ),
-              transparent 32%
-            ),
-            #060b18;
-          color: white;
+            var(--legal-bg);
+          color: var(--legal-text);
         }
 
         .connect-shell {
@@ -221,7 +211,7 @@ export default function MailConnectPage() {
 
         .connect-kicker {
           margin-bottom: 7px;
-          color: #66a4ff;
+          color: var(--legal-gold);
           font-size: 9px;
           font-weight: 900;
           letter-spacing: 0.18em;
@@ -238,7 +228,7 @@ export default function MailConnectPage() {
             auto
             0;
           max-width: 460px;
-          color: #8294b0;
+          color: var(--legal-muted);
           font-size: 11px;
           line-height: 1.55;
         }
@@ -246,10 +236,10 @@ export default function MailConnectPage() {
         .account {
           margin-bottom: 10px;
           padding: 10px 13px;
-          border: 1px solid #20304a;
+          border: 1px solid var(--legal-border);
           border-radius: 12px;
-          background: #0b1423;
-          color: #8ea2bf;
+          background: var(--legal-surface-2);
+          color: var(--legal-muted);
           font-size: 10px;
           text-align: center;
         }
@@ -270,10 +260,10 @@ export default function MailConnectPage() {
           align-items: center;
           gap: 11px;
           padding: 10px 13px;
-          border: 1px solid #22324b;
+          border: 1px solid var(--legal-border);
           border-radius: 15px;
-          background: #0e1829;
-          color: white;
+          background: var(--legal-surface);
+          color: var(--legal-text);
           text-align: left;
         }
 
@@ -283,9 +273,9 @@ export default function MailConnectPage() {
 
         button.provider:hover {
           border-color:
-            #675cff;
+            var(--legal-gold);
           background:
-            #121d32;
+            var(--legal-gold-soft);
         }
 
         .provider.connected {
@@ -311,9 +301,9 @@ export default function MailConnectPage() {
           height: 38px;
           display: grid;
           place-items: center;
-          border: 1px solid #283a56;
+          border: 1px solid var(--legal-border);
           border-radius: 11px;
-          background: #111d30;
+          background: var(--legal-surface-2);
           font-size: 16px;
           font-weight: 900;
         }
@@ -325,14 +315,14 @@ export default function MailConnectPage() {
         }
 
         .provider span {
-          color: #7187a7;
+          color: var(--legal-muted);
           font-size: 9px;
           line-height: 1.4;
         }
 
         .provider-action {
           color:
-            #9aaeff !important;
+            var(--legal-gold) !important;
           font-size:
             9px !important;
           font-weight: 900;
@@ -389,17 +379,17 @@ export default function MailConnectPage() {
         .footer-button {
           height: 34px;
           padding: 0 12px;
-          border: 1px solid #273852;
+          border: 1px solid var(--legal-border);
           border-radius: 10px;
           background: transparent;
-          color: #8295b3;
+          color: var(--legal-muted);
           cursor: pointer;
           font-size: 9px;
           font-weight: 800;
         }
 
         .connect-loading {
-          color: #8ca0bd;
+          color: var(--legal-muted);
           font-size: 11px;
         }
 

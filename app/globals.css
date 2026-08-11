@@ -345,3 +345,368 @@ html[data-legal-theme="dark"] {
   color-scheme: dark;
 }
 
+/* =========================================================
+   MOBILE SAFE AREA HEADER FIX
+   ========================================================= */
+
+@media (max-width: 720px) {
+  body {
+    padding-top:
+      env(safe-area-inset-top);
+  }
+
+  .legal-app {
+    padding-top:
+      max(
+        6px,
+        env(safe-area-inset-top)
+      );
+  }
+
+  header {
+    min-height: 54px;
+  }
+
+  header > div:first-child {
+    min-width: 0;
+  }
+
+  header h1,
+  header h2,
+  header strong {
+    max-width: 58vw;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .legal-session-control {
+    top:
+      calc(
+        env(safe-area-inset-top) +
+        8px
+      );
+
+    right: 8px;
+  }
+}
+
+/* =========================================================
+   LEGAL FIRST PAINT
+   ========================================================= */
+
+html {
+  background:
+    var(--legal-bg);
+
+  color-scheme: light;
+}
+
+html.dark {
+  background:
+    #090c12;
+
+  color-scheme: dark;
+}
+
+html,
+body,
+.legal-app {
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+/* =========================================================
+   LEGAL BRAND
+   ========================================================= */
+
+.legal-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  min-width: 0;
+}
+
+.legal-brand picture {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.legal-brand img {
+  display: block;
+
+  width: 34px;
+  height: 34px;
+
+  object-fit: contain;
+}
+
+.legal-brand-copy {
+  min-width: 0;
+
+  display: grid;
+  gap: 1px;
+}
+
+.legal-brand-copy strong {
+  color: var(--legal-text);
+
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+
+  white-space: nowrap;
+}
+
+.legal-brand-copy span {
+  color: var(--legal-gold);
+
+  font-size: 6.5px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
+.legal-brand.compact img {
+  width: 28px;
+  height: 28px;
+}
+
+.legal-brand.compact .legal-brand-copy strong {
+  font-size: 10px;
+}
+
+/*
+ * Tema localStorage ile yönetildiği için picture/prefers-color-scheme
+ * tek başına yeterli değil.
+ */
+
+html[data-legal-theme="dark"] .legal-brand picture img {
+  content:
+    url("/brand/legal-icon-dark.png");
+}
+
+html[data-legal-theme="light"] .legal-brand picture img {
+  content:
+    url("/brand/legal-icon-light.png");
+}
+
+@media (max-width: 720px) {
+  .legal-brand {
+    gap: 6px;
+  }
+
+  .legal-brand img {
+    width: 28px;
+    height: 28px;
+  }
+
+  .legal-brand-copy strong {
+    font-size: 9px;
+  }
+
+  .legal-brand-copy span {
+    display: none;
+  }
+}
+
+/* =========================================================
+   LEGAL MOBILE HEADER FINAL
+   ========================================================= */
+
+@media (max-width: 720px) {
+
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  body {
+    padding-top:
+      env(safe-area-inset-top);
+  }
+
+  .legal-app {
+    min-height: 100dvh;
+
+    padding-top:
+      max(
+        5px,
+        env(safe-area-inset-top)
+      );
+  }
+
+  /*
+   * Marka
+   */
+
+  .legal-brand {
+    min-width: 0;
+    max-width: 100%;
+
+    gap: 5px;
+  }
+
+  .legal-brand img {
+    width: 31px;
+    height: 31px;
+
+    object-fit: contain;
+
+    flex: 0 0 auto;
+  }
+
+  .legal-brand.compact img {
+    width: 28px;
+    height: 28px;
+  }
+
+  .legal-brand-copy {
+    min-width: 0;
+  }
+
+  .legal-brand-copy strong {
+    max-width: 145px;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    font-size: 9px;
+    line-height: 1.1;
+  }
+
+  .legal-brand-copy span {
+    display: none;
+  }
+
+  /*
+   * Ana headerlar
+   */
+
+  .converter-header,
+  .settings-header,
+  .cases-header {
+    min-height: 52px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 8px;
+
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+
+  .converter-brand,
+  .settings-brand,
+  .cases-title {
+    min-width: 0;
+  }
+
+  .converter-brand h1,
+  .settings-brand h1,
+  .cases-title h1 {
+    margin-top: 2px;
+
+    font-size: 13px;
+    line-height: 1.1;
+  }
+
+  /*
+   * Gelen ekranı marka alanı
+   */
+
+  .brand {
+    min-width: 0;
+
+    display: flex;
+    align-items: center;
+
+    gap: 6px;
+  }
+
+  .brand-context {
+    max-width: 92px;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    color:
+      var(--legal-text-soft);
+
+    font-size: 10px;
+  }
+
+  /*
+   * Sağ üst session kontrolleri
+   */
+
+  .legal-session-control {
+    top:
+      calc(
+        env(safe-area-inset-top) +
+        6px
+      ) !important;
+
+    right: 6px !important;
+
+    max-width: 46vw;
+  }
+
+  .legal-session-control button,
+  .legal-session-control a {
+    min-height: 30px;
+
+    padding-left: 8px;
+    padding-right: 8px;
+
+    font-size: 7.5px;
+    white-space: nowrap;
+  }
+
+  /*
+   * iPhone alt safe area
+   */
+
+  .legal-dock-zone {
+    padding-bottom:
+      env(safe-area-inset-bottom);
+  }
+
+  .legal-dock {
+    max-width:
+      calc(100vw - 18px);
+
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .legal-dock a {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 390px) {
+
+  .legal-brand-copy strong {
+    max-width: 112px;
+
+    font-size: 8.5px;
+  }
+
+  .brand-context {
+    display: none;
+  }
+
+  .legal-session-control {
+    max-width: 42vw;
+  }
+}
+

@@ -1,20 +1,16 @@
 ﻿"use client";
 
 import {
-  useEffect,
   useState,
 } from "react";
 
 import LegalDock from "@/components/LegalDock";
+import LegalBrand from "@/components/LegalBrand";
 import LegalSessionControl from "@/components/LegalSessionControl";
 
 import MailInbox, {
   type Mail,
 } from "@/components/mail/MailInbox";
-
-type Theme =
-  | "dark"
-  | "light";
 
 function formatBytes(
   value?: number
@@ -57,58 +53,6 @@ export default function InboxPage() {
   ] =
     useState(false);
 
-  const [
-    theme,
-    setTheme,
-  ] =
-    useState<Theme>(
-      "dark"
-    );
-
-  useEffect(() => {
-    const saved =
-      window.localStorage
-        .getItem(
-          "legal-theme"
-        );
-
-    const initial:
-      Theme =
-      saved === "light"
-        ? "light"
-        : "dark";
-
-    setTheme(initial);
-
-    document.documentElement
-      .classList.toggle(
-        "dark",
-        initial === "dark"
-      );
-  }, []);
-
-  function toggleTheme() {
-    const next:
-      Theme =
-      theme === "dark"
-        ? "light"
-        : "dark";
-
-    setTheme(next);
-
-    window.localStorage
-      .setItem(
-        "legal-theme",
-        next
-      );
-
-    document.documentElement
-      .classList.toggle(
-        "dark",
-        next === "dark"
-      );
-  }
-
   function selectMail(
     mail: Mail
   ) {
@@ -120,19 +64,11 @@ export default function InboxPage() {
     <main className="legal-app inbox-page">
       <header className="inbox-header">
         <div className="brand">
-          <span className="brand-mark">
-            AL
+          <LegalBrand compact />
+
+          <span className="brand-context">
+            Gelen Kutusu
           </span>
-
-          <div>
-            <strong>
-              AL METHER LEGAL
-            </strong>
-
-            <span>
-              Gelen Kutusu
-            </span>
-          </div>
         </div>
 
         <div className="header-actions">
@@ -144,18 +80,6 @@ export default function InboxPage() {
             Mail bağlı
           </a>
 
-          <button
-            type="button"
-            className="theme-button"
-            onClick={
-              toggleTheme
-            }
-            title="Tema değiştir"
-          >
-            {theme === "dark"
-              ? "☀"
-              : "◐"}
-          </button>
         </div>
       </header>
 
@@ -1305,6 +1229,7 @@ export default function InboxPage() {
     </main>
   );
 }
+
 
 
 

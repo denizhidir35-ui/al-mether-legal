@@ -1,5 +1,7 @@
 ﻿"use client";
 
+import LegalBrand from "@/components/LegalBrand";
+
 import {
   useEffect,
   useState,
@@ -211,10 +213,8 @@ export default function SettingsPage() {
   return (
     <main className="legal-app settings-page">
       <header className="settings-header">
-        <div>
-          <span>
-            AL METHER LEGAL
-          </span>
+        <div className="settings-brand">
+          <LegalBrand compact />
 
           <h1>
             Ayarlar
@@ -803,4 +803,5 @@ export default function SettingsPage() {
     </main>
   );
 }
+
 

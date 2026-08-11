@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 
 export default function LegalDock() {
   const pathname = usePathname();
@@ -37,9 +38,10 @@ export default function LegalDock() {
     <div className="legal-dock-zone">
       <nav className="legal-dock">
         {items.map((item) => (
-          <a
+          <Link
             key={item.href}
             href={item.href}
+            prefetch={true}
             className={
               pathname === item.href
                 ? "active"
@@ -53,7 +55,7 @@ export default function LegalDock() {
             <span className="dock-label">
               {item.label}
             </span>
-          </a>
+          </Link>
         ))}
       </nav>
 
@@ -85,18 +87,17 @@ export default function LegalDock() {
 
           padding: 7px 9px;
 
-          border: 1px solid #25324a;
+          border: 1px solid var(--legal-border);
           border-radius: 18px;
 
           background:
-            rgba(13, 22, 38, 0.92);
+            var(--legal-surface);
 
           backdrop-filter: blur(22px);
           -webkit-backdrop-filter: blur(22px);
 
           box-shadow:
-            0 18px 50px
-            rgba(0, 0, 0, 0.34);
+            var(--legal-shadow-md);
 
           opacity: 0;
 
@@ -135,7 +136,7 @@ export default function LegalDock() {
           border: 1px solid transparent;
           border-radius: 13px;
 
-          color: #8294b0;
+          color: var(--legal-muted);
 
           text-decoration: none;
 
@@ -153,29 +154,24 @@ export default function LegalDock() {
             translateY(-5px);
 
           border-color:
-            #33425e;
+            var(--legal-border);
 
           background:
-            #142035;
+            var(--legal-surface-2);
 
           color:
-            #ffffff;
+            var(--legal-text);
         }
 
         .legal-dock a.active {
           border-color:
-            #7658ff;
+            var(--legal-gold);
 
           background:
-            rgba(
-              118,
-              88,
-              255,
-              0.18
-            );
+            var(--legal-gold-soft);
 
           color:
-            #a993ff;
+            var(--legal-gold);
         }
 
         .dock-icon {
@@ -219,4 +215,5 @@ export default function LegalDock() {
     </div>
   );
 }
+
 

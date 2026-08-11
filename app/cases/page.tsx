@@ -1,5 +1,7 @@
 ﻿"use client";
 
+import LegalBrand from "@/components/LegalBrand";
+
 import {
   useEffect,
   useMemo,
@@ -9,8 +11,6 @@ import {
 import LegalDock from "@/components/LegalDock";
 import LegalSessionControl from "@/components/LegalSessionControl";
 import { readJsonResponse } from "@/lib/apiResponse";
-
-type Theme = "dark" | "light";
 
 type LegalDeadline = {
   id: string;
@@ -61,9 +61,6 @@ export default function CasesPage() {
 
   const [search, setSearch] =
     useState("");
-
-  const [theme, setTheme] =
-    useState<Theme>("dark");
 
   const [manualOpen, setManualOpen] =
     useState(false);
@@ -162,46 +159,6 @@ export default function CasesPage() {
   useEffect(() => {
     loadCases();
   }, []);
-
-  useEffect(() => {
-    const saved =
-      window.localStorage.getItem(
-        "legal-theme"
-      );
-
-    const initial: Theme =
-      saved === "light"
-        ? "light"
-        : "dark";
-
-    setTheme(initial);
-
-    document.documentElement
-      .classList.toggle(
-        "dark",
-        initial === "dark"
-      );
-  }, []);
-
-  function toggleTheme() {
-    const next: Theme =
-      theme === "dark"
-        ? "light"
-        : "dark";
-
-    setTheme(next);
-
-    window.localStorage.setItem(
-      "legal-theme",
-      next
-    );
-
-    document.documentElement
-      .classList.toggle(
-        "dark",
-        next === "dark"
-      );
-  }
 
   const filteredCases =
     useMemo(() => {
@@ -4866,9 +4823,7 @@ export default function CasesPage() {
       <div className="cases-shell">
         <header className="cases-header">
           <div className="cases-title">
-            <small>
-              AL METHER LEGAL
-            </small>
+            <LegalBrand compact />
 
             <h1>Davalar</h1>
 
@@ -4888,17 +4843,6 @@ export default function CasesPage() {
               }
               placeholder="Dava no veya mahkeme ara..."
             />
-
-            <button
-              type="button"
-              className="cases-theme-button"
-              onClick={toggleTheme}
-              title="Tema değiştir"
-            >
-              {theme === "dark"
-                ? "☀"
-                : "◐"}
-            </button>
 
             <button
               type="button"
@@ -5416,6 +5360,7 @@ export default function CasesPage() {
     </main>
   );
 }
+
 
 
 

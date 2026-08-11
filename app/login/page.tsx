@@ -48,13 +48,8 @@ export default function LoginPage() {
           place-items: center;
           padding: 20px;
           background:
-            radial-gradient(
-              circle at 50% 15%,
-              rgba(94, 92, 255, 0.12),
-              transparent 32%
-            ),
-            #060b18;
-          color: white;
+            var(--legal-bg);
+          color: var(--legal-text);
         }
 
         .login-card {
@@ -64,34 +59,18 @@ export default function LoginPage() {
           );
           padding: 28px;
           border: 1px solid
-            rgba(
-              255,
-              255,
-              255,
-              0.09
-            );
+            var(--legal-border);
           border-radius: 22px;
           background:
-            rgba(
-              13,
-              22,
-              38,
-              0.92
-            );
+            var(--legal-surface);
           box-shadow:
-            0 28px 80px
-            rgba(
-              0,
-              0,
-              0,
-              0.32
-            );
+            var(--legal-shadow-md);
           text-align: center;
         }
 
         .kicker {
           margin-bottom: 8px;
-          color: #66a4ff;
+          color: var(--legal-gold);
           font-size: 10px;
           font-weight: 900;
           letter-spacing: 0.18em;
@@ -104,7 +83,7 @@ export default function LoginPage() {
 
         p {
           margin: 10px 0 24px;
-          color: #8496b2;
+          color: var(--legal-muted);
           font-size: 12px;
           line-height: 1.6;
         }
@@ -113,27 +92,22 @@ export default function LoginPage() {
           width: 100%;
           height: 44px;
           border: 1px solid
-            rgba(
-              255,
-              255,
-              255,
-              0.16
-            );
+            var(--legal-border);
           border-radius: 13px;
-          background: white;
-          color: #080d17;
+          background: var(--legal-surface-2);
+          color: var(--legal-text);
           cursor: pointer;
           font-size: 12px;
           font-weight: 900;
         }
 
         button:hover {
-          background: #edf2f7;
+          background: var(--legal-gold-soft);
         }
 
         .security {
           margin-top: 16px;
-          color: #5f718d;
+          color: var(--legal-muted);
           font-size: 9px;
         }
 

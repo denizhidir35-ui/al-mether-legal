@@ -1,38 +1,362 @@
 ﻿"use client";
 
+import LegalBrand from "@/components/LegalBrand";
+
 import {
+  useMemo,
   useState,
 } from "react";
 
 import {
+  degrees,
   PDFDocument,
 } from "pdf-lib";
 
 import LegalDock from "@/components/LegalDock";
 import LegalSessionControl from "@/components/LegalSessionControl";
 
+type Tool =
+  | "word_pdf"
+  | "pdf_word"
+  | "scanned_pdf_word"
+  | "image_word"
+  | "pdf_text"
+  | "image_text"
+  | "image_pdf"
+  | "merge_pdf"
+  | "extract_pdf"
+  | "delete_pages"
+  | "rotate_pdf";
+
+type ResultFile = {
+  url: string;
+  name: string;
+};
+
+const TOOLS: Array<{
+  id: Tool;
+  title: string;
+  short: string;
+}> = [
+  {
+    id: "word_pdf",
+    title: "Word → PDF",
+    short: "DOC ve DOCX belgeleri gerçek PDF'e çevir",
+  },
+  {
+    id: "pdf_word",
+    title: "PDF → Word",
+    short: "Metin tabanlı PDF belgelerini düzenlenebilir Word'e çevir",
+  },
+  {
+    id: "scanned_pdf_word",
+    title: "Taranmış PDF → Word",
+    short: "Taranmış PDF belgelerini OCR ile okuyup Word'e çevir",
+  },
+  {
+    id: "image_word",
+    title: "Görsel → Word",
+    short: "JPG, PNG ve WEBP belgelerdeki yazıları Word'e aktar",
+  },
+  {
+    id: "pdf_text",
+    title: "PDF → Metin",
+    short: "PDF içerisindeki metni çıkar, kopyala veya TXT olarak indir",
+  },
+  {
+    id: "image_text",
+    title: "Görsel → Metin",
+    short: "JPG, PNG ve WEBP belgelerdeki yazıyı OCR ile çıkar",
+  },
+  {
+    id: "image_pdf",
+    title: "Görsel → PDF",
+    short: "JPG ve PNG belgeleri PDF'e çevir",
+  },
+  {
+    id: "merge_pdf",
+    title: "PDF Birleştir",
+    short: "Birden fazla PDF'i tek dosyada birleştir",
+  },
+  {
+    id: "extract_pdf",
+    title: "Sayfa Çıkar",
+    short: "PDF içerisinden seçili sayfaları yeni PDF yap",
+  },
+  {
+    id: "delete_pages",
+    title: "Sayfa Sil",
+    short: "PDF içerisinden gereksiz sayfaları kaldır",
+  },
+  {
+    id: "rotate_pdf",
+    title: "PDF Döndür",
+    short: "Tüm PDF sayfalarını 90° / 180° / 270° döndür",
+  },
+];
+
+function formatSize(
+  bytes: number
+) {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+
+  if (
+    bytes <
+    1024 * 1024
+  ) {
+    return `${(
+      bytes / 1024
+    ).toFixed(1)} KB`;
+  }
+
+  return `${(
+    bytes /
+    1024 /
+    1024
+  ).toFixed(1)} MB`;
+}
+
+function parsePageExpression(
+  value: string,
+  pageCount: number
+): number[] {
+  const cleaned =
+    value
+      .replace(/\s+/g, "")
+      .trim();
+
+  if (!cleaned) {
+    throw new Error(
+      "Sayfa numarası girin. Örnek: 1-3,5,8"
+    );
+  }
+
+  const selected =
+    new Set<number>();
+
+  const chunks =
+    cleaned.split(",");
+
+  for (
+    const chunk
+    of chunks
+  ) {
+    if (!chunk) {
+      continue;
+    }
+
+    if (
+      chunk.includes("-")
+    ) {
+      const [
+        startText,
+        endText,
+      ] =
+        chunk.split("-");
+
+      const start =
+        Number(startText);
+
+      const end =
+        Number(endText);
+
+      if (
+        !Number.isInteger(start) ||
+        !Number.isInteger(end) ||
+        start < 1 ||
+        end < 1 ||
+        start > end
+      ) {
+        throw new Error(
+          `Geçersiz sayfa aralığı: ${chunk}`
+        );
+      }
+
+      for (
+        let page = start;
+        page <= end;
+        page += 1
+      ) {
+        if (
+          page > pageCount
+        ) {
+          throw new Error(
+            `PDF ${pageCount} sayfa. ${page}. sayfa mevcut değil.`
+          );
+        }
+
+        selected.add(
+          page - 1
+        );
+      }
+
+      continue;
+    }
+
+    const page =
+      Number(chunk);
+
+    if (
+      !Number.isInteger(page) ||
+      page < 1 ||
+      page > pageCount
+    ) {
+      throw new Error(
+        `Geçersiz sayfa: ${chunk}`
+      );
+    }
+
+    selected.add(
+      page - 1
+    );
+  }
+
+  const result =
+    Array.from(
+      selected
+    ).sort(
+      (left, right) =>
+        left - right
+    );
+
+  if (
+    result.length === 0
+  ) {
+    throw new Error(
+      "Geçerli sayfa seçilmedi."
+    );
+  }
+
+  return result;
+}
+
 export default function ConverterPage() {
-  const [files, setFiles] =
+  const [
+    activeTool,
+    setActiveTool,
+  ] =
+    useState<Tool>(
+      "image_pdf"
+    );
+
+  const [
+    files,
+    setFiles,
+  ] =
     useState<File[]>([]);
 
-  const [working, setWorking] =
+  const [
+    working,
+    setWorking,
+  ] =
     useState(false);
 
-  const [error, setError] =
+  const [
+    error,
+    setError,
+  ] =
     useState("");
 
-  const [resultUrl, setResultUrl] =
+  const [
+    result,
+    setResult,
+  ] =
+    useState<ResultFile | null>(
+      null
+    );
+
+  const [
+    pageExpression,
+    setPageExpression,
+  ] =
     useState("");
 
-  const [resultName, setResultName] =
+  const [
+    textResult,
+    setTextResult,
+  ] =
     useState("");
+
+  const [
+    textCopied,
+    setTextCopied,
+  ] =
+    useState(false);
+
+  const [
+    rotateAngle,
+    setRotateAngle,
+  ] =
+    useState<
+      90 | 180 | 270
+    >(90);
+
+  const activeMeta =
+    useMemo(
+      () =>
+        TOOLS.find(
+          (tool) =>
+            tool.id ===
+            activeTool
+        )!,
+      [activeTool]
+    );
+
+  const accepts =
+    activeTool ===
+    "word_pdf"
+      ? ".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      : activeTool ===
+          "image_word" ||
+        activeTool ===
+          "image_text"
+        ? "image/jpeg,image/png,image/webp"
+        : activeTool ===
+            "image_pdf"
+          ? "image/jpeg,image/png"
+          : "application/pdf";
+
+  const multiple =
+    activeTool ===
+      "image_pdf" ||
+    activeTool ===
+      "merge_pdf";
+
+  function clearResult() {
+    if (
+      result?.url
+    ) {
+      URL.revokeObjectURL(
+        result.url
+      );
+    }
+
+    setResult(null);
+  }
+
+  function switchTool(
+    tool: Tool
+  ) {
+    clearResult();
+
+    setActiveTool(tool);
+    setFiles([]);
+    setError("");
+    setPageExpression("");
+    setTextResult("");
+    setTextCopied(false);
+    setRotateAngle(90);
+  }
 
   function selectFiles(
-    nextFiles: FileList | null
+    nextFiles:
+      FileList | null
   ) {
+    clearResult();
+
     setError("");
-    setResultUrl("");
-    setResultName("");
 
     if (!nextFiles) {
       setFiles([]);
@@ -44,200 +368,1185 @@ export default function ConverterPage() {
         nextFiles
       );
 
-    const allowed =
-      selected.filter(
-        (file) =>
-          file.type ===
-            "image/jpeg" ||
-          file.type ===
-            "image/png"
+    if (
+      activeTool ===
+      "word_pdf"
+    ) {
+      const valid =
+        selected.filter(
+          (file) => {
+            const name =
+              file.name
+                .toLowerCase();
+
+            return (
+              name.endsWith(
+                ".doc"
+              ) ||
+              name.endsWith(
+                ".docx"
+              )
+            );
+          }
+        );
+
+      if (
+        valid.length !==
+        selected.length
+      ) {
+        setError(
+          "Bu işlem için yalnızca DOC ve DOCX dosyaları kullanılabilir."
+        );
+      }
+
+      setFiles(
+        valid.slice(0, 1)
       );
 
-    if (
-      allowed.length !==
-      selected.length
-    ) {
-      setError(
-        "Şimdilik yalnızca JPG ve PNG destekleniyor."
-      );
+      return;
     }
-
-    setFiles(allowed);
-  }
-
-  async function convertToPdf() {
     if (
-      files.length === 0
+      activeTool ===
+      "image_text"
     ) {
-      setError(
-        "Önce bir görsel seçin."
+      const valid =
+        selected.filter(
+          (file) =>
+            file.type === "image/jpeg" ||
+            file.type === "image/png" ||
+            file.type === "image/webp"
+        );
+
+      if (
+        valid.length !==
+        selected.length
+      ) {
+        setError(
+          "Görsel → Metin için JPG, PNG veya WEBP kullanın."
+        );
+      }
+
+      setFiles(
+        valid.slice(0, 1)
       );
+
+      return;
+    }
+    if (
+      activeTool ===
+      "image_word"
+    ) {
+      const valid =
+        selected.filter(
+          (file) =>
+            file.type === "image/jpeg" ||
+            file.type === "image/png" ||
+            file.type === "image/webp"
+        );
+
+      if (
+        valid.length !==
+        selected.length
+      ) {
+        setError(
+          "Görsel → Word için JPG, PNG veya WEBP kullanın."
+        );
+      }
+
+      setFiles(
+        valid.slice(0, 1)
+      );
+
+      return;
+    }
+    if (
+      activeTool ===
+      "image_pdf"
+    ) {
+      const valid =
+        selected.filter(
+          (file) =>
+            file.type ===
+              "image/jpeg" ||
+            file.type ===
+              "image/png"
+        );
+
+      if (
+        valid.length !==
+        selected.length
+      ) {
+        setError(
+          "Bu işlem için yalnızca JPG ve PNG dosyaları kullanılabilir."
+        );
+      }
+
+      setFiles(valid);
       return;
     }
 
+    const valid =
+      selected.filter(
+        (file) =>
+          file.type ===
+            "application/pdf" ||
+          file.name
+            .toLowerCase()
+            .endsWith(
+              ".pdf"
+            )
+      );
+
+    if (
+      valid.length !==
+      selected.length
+    ) {
+      setError(
+        "Bu işlem için yalnızca PDF dosyaları kullanılabilir."
+      );
+    }
+
+    if (
+      activeTool !==
+        "merge_pdf" &&
+      valid.length > 1
+    ) {
+      setError(
+        "Bu işlemde tek PDF seçebilirsiniz."
+      );
+
+      setFiles(
+        valid.slice(0, 1)
+      );
+
+      return;
+    }
+
+    setFiles(valid);
+  }
+
+  function createDownload(
+    bytes:
+      Uint8Array,
+    name: string
+  ) {
+    clearResult();
+
+    const safeBytes =
+      Uint8Array.from(
+        bytes
+      );
+
+    const blob =
+      new Blob(
+        [safeBytes],
+        {
+          type:
+            "application/pdf",
+        }
+      );
+
+    const url =
+      URL.createObjectURL(
+        blob
+      );
+
+    setResult({
+      url,
+      name,
+    });
+  }
+
+  async function pdfToText() {
+    const file =
+      files[0];
+
+    if (!file) {
+      throw new Error(
+        "Önce PDF seçin."
+      );
+    }
+
+    const formData =
+      new FormData();
+
+    formData.append(
+      "file",
+      file
+    );
+
+    const response =
+      await fetch(
+        "/api/convert/pdf-to-text",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+    const data =
+      await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data?.error ||
+        "PDF → Metin işlemi başarısız."
+      );
+    }
+
+    setTextResult(
+      data?.text || ""
+    );
+
+    setTextCopied(false);
+    clearResult();
+  }
+
+  async function imageToText() {
+    const file =
+      files[0];
+
+    if (!file) {
+      throw new Error(
+        "Önce görsel seçin."
+      );
+    }
+
+    const formData =
+      new FormData();
+
+    formData.append(
+      "file",
+      file
+    );
+
+    const response =
+      await fetch(
+        "/api/convert/image-to-text",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+    const data =
+      await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data?.error ||
+        "Görsel → Metin işlemi başarısız."
+      );
+    }
+
+    setTextResult(
+      data?.text || ""
+    );
+
+    setTextCopied(false);
+    clearResult();
+  }
+
+  async function copyTextResult() {
+    if (!textResult) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(
+      textResult
+    );
+
+    setTextCopied(true);
+
+    window.setTimeout(
+      () =>
+        setTextCopied(false),
+      1400
+    );
+  }
+
+  function downloadTextResult() {
+    if (!textResult) {
+      return;
+    }
+
+    const blob =
+      new Blob(
+        [textResult],
+        {
+          type:
+            "text/plain;charset=utf-8",
+        }
+      );
+
+    const url =
+      URL.createObjectURL(
+        blob
+      );
+
+    const anchor =
+      document.createElement(
+        "a"
+      );
+
+    anchor.href =
+      url;
+
+    const base =
+      files[0]?.name.replace(
+        /\.[^.]+$/,
+        ""
+      ) ||
+      "belge";
+
+    anchor.download =
+      `${base}.txt`;
+
+    document.body.appendChild(
+      anchor
+    );
+
+    anchor.click();
+    anchor.remove();
+
+    URL.revokeObjectURL(
+      url
+    );
+  }
+  async function imageToWord() {
+    const file =
+      files[0];
+
+    if (!file) {
+      throw new Error(
+        "Önce görsel seçin."
+      );
+    }
+
+    const formData =
+      new FormData();
+
+    formData.append(
+      "file",
+      file
+    );
+
+    const response =
+      await fetch(
+        "/api/convert/image-to-word",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+    if (!response.ok) {
+      let message =
+        "Görsel → Word dönüşümü başarısız.";
+
+      try {
+        const data =
+          await response.json();
+
+        message =
+          data?.error ||
+          message;
+      } catch {}
+
+      throw new Error(
+        message
+      );
+    }
+
+    const blob =
+      await response.blob();
+
+    clearResult();
+
+    const url =
+      URL.createObjectURL(
+        blob
+      );
+
+    setResult({
+      url,
+
+      name:
+        `${file.name.replace(
+          /\.[^.]+$/,
+          ""
+        )}.docx`,
+    });
+  }
+  async function scannedPdfToWord() {
+    const file =
+      files[0];
+
+    if (!file) {
+      throw new Error(
+        "Önce taranmış PDF seçin."
+      );
+    }
+
+    const formData =
+      new FormData();
+
+    formData.append(
+      "file",
+      file
+    );
+
+    const response =
+      await fetch(
+        "/api/convert/scanned-pdf-to-word",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+    if (!response.ok) {
+      let message =
+        "Taranmış PDF → Word dönüşümü başarısız.";
+
+      try {
+        const data =
+          await response.json();
+
+        message =
+          data?.error ||
+          message;
+      } catch {}
+
+      throw new Error(
+        message
+      );
+    }
+
+    const blob =
+      await response.blob();
+
+    clearResult();
+
+    const url =
+      URL.createObjectURL(
+        blob
+      );
+
+    setResult({
+      url,
+
+      name:
+        `${file.name.replace(
+          /\.pdf$/i,
+          ""
+        )}-ocr.docx`,
+    });
+  }
+  async function pdfToWord() {
+    const file =
+      files[0];
+
+    if (!file) {
+      throw new Error(
+        "Önce PDF dosyası seçin."
+      );
+    }
+
+    const formData =
+      new FormData();
+
+    formData.append(
+      "file",
+      file
+    );
+
+    const response =
+      await fetch(
+        "/api/convert/pdf-to-word",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+    if (!response.ok) {
+      let message =
+        "PDF → Word dönüşümü başarısız.";
+
+      try {
+        const data =
+          await response.json();
+
+        message =
+          data?.error ||
+          message;
+      } catch {
+        // JSON olmayan hata
+      }
+
+      throw new Error(
+        message
+      );
+    }
+
+    const blob =
+      await response.blob();
+
+    clearResult();
+
+    const url =
+      URL.createObjectURL(
+        blob
+      );
+
+    setResult({
+      url,
+
+      name:
+        `${file.name.replace(
+          /\.pdf$/i,
+          ""
+        )}.docx`,
+    });
+  }
+  async function wordToPdf() {
+    const file =
+      files[0];
+
+    if (!file) {
+      throw new Error(
+        "Önce Word dosyası seçin."
+      );
+    }
+
+    const formData =
+      new FormData();
+
+    formData.append(
+      "file",
+      file
+    );
+
+    const response =
+      await fetch(
+        "/api/convert/word-to-pdf",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+    if (
+      !response.ok
+    ) {
+      let message =
+        "Word → PDF dönüşümü başarısız.";
+
+      try {
+        const data =
+          await response.json();
+
+        message =
+          data?.error ||
+          message;
+      } catch {
+        // binary olmayan hata yanıtı
+      }
+
+      throw new Error(
+        message
+      );
+    }
+
+    const blob =
+      await response.blob();
+
+    clearResult();
+
+    const url =
+      URL.createObjectURL(
+        blob
+      );
+
+    setResult({
+      url,
+      name:
+        `${file.name.replace(
+          /\.(docx|doc)$/i,
+          ""
+        )}.pdf`,
+    });
+  }
+  async function imageToPdf() {
+    if (
+      files.length === 0
+    ) {
+      throw new Error(
+        "Önce görsel seçin."
+      );
+    }
+
+    const output =
+      await PDFDocument.create();
+
+    const pageWidth =
+      595.28;
+
+    const pageHeight =
+      841.89;
+
+    const margin = 28;
+
+    for (
+      const file
+      of files
+    ) {
+      const bytes =
+        await file.arrayBuffer();
+
+      const image =
+        file.type ===
+        "image/png"
+          ? await output
+              .embedPng(
+                bytes
+              )
+          : await output
+              .embedJpg(
+                bytes
+              );
+
+      const scale =
+        Math.min(
+          (
+            pageWidth -
+            margin * 2
+          ) /
+            image.width,
+
+          (
+            pageHeight -
+            margin * 2
+          ) /
+            image.height
+        );
+
+      const width =
+        image.width *
+        scale;
+
+      const height =
+        image.height *
+        scale;
+
+      const page =
+        output.addPage([
+          pageWidth,
+          pageHeight,
+        ]);
+
+      page.drawImage(
+        image,
+        {
+          x:
+            (
+              pageWidth -
+              width
+            ) / 2,
+
+          y:
+            (
+              pageHeight -
+              height
+            ) / 2,
+
+          width,
+          height,
+        }
+      );
+    }
+
+    const bytes =
+      await output.save();
+
+    const name =
+      files.length === 1
+        ? `${files[0].name.replace(
+            /\.[^.]+$/,
+            ""
+          )}.pdf`
+        : `belgeler-${Date.now()}.pdf`;
+
+    createDownload(
+      bytes,
+      name
+    );
+  }
+
+  async function mergePdf() {
+    if (
+      files.length < 2
+    ) {
+      throw new Error(
+        "Birleştirmek için en az 2 PDF seçin."
+      );
+    }
+
+    const output =
+      await PDFDocument.create();
+
+    for (
+      const file
+      of files
+    ) {
+      const source =
+        await PDFDocument.load(
+          await file.arrayBuffer()
+        );
+
+      const indexes =
+        source.getPageIndices();
+
+      const pages =
+        await output.copyPages(
+          source,
+          indexes
+        );
+
+      for (
+        const page
+        of pages
+      ) {
+        output.addPage(
+          page
+        );
+      }
+    }
+
+    const bytes =
+      await output.save();
+
+    createDownload(
+      bytes,
+      `birlesik-belge-${Date.now()}.pdf`
+    );
+  }
+
+  async function extractPages() {
+    const file =
+      files[0];
+
+    if (!file) {
+      throw new Error(
+        "Önce PDF seçin."
+      );
+    }
+
+    const source =
+      await PDFDocument.load(
+        await file.arrayBuffer()
+      );
+
+    const indexes =
+      parsePageExpression(
+        pageExpression,
+        source.getPageCount()
+      );
+
+    const output =
+      await PDFDocument.create();
+
+    const pages =
+      await output.copyPages(
+        source,
+        indexes
+      );
+
+    for (
+      const page
+      of pages
+    ) {
+      output.addPage(
+        page
+      );
+    }
+
+    const bytes =
+      await output.save();
+
+    createDownload(
+      bytes,
+      `${file.name.replace(
+        /\.pdf$/i,
+        ""
+      )}-secilen-sayfalar.pdf`
+    );
+  }
+
+  async function deletePages() {
+    const file =
+      files[0];
+
+    if (!file) {
+      throw new Error(
+        "Önce PDF seçin."
+      );
+    }
+
+    const source =
+      await PDFDocument.load(
+        await file.arrayBuffer()
+      );
+
+    const pageCount =
+      source.getPageCount();
+
+    const deleteIndexes =
+      new Set(
+        parsePageExpression(
+          pageExpression,
+          pageCount
+        )
+      );
+
+    const keepIndexes =
+      Array.from(
+        {
+          length:
+            pageCount,
+        },
+        (
+          _,
+          index
+        ) =>
+          index
+      ).filter(
+        (index) =>
+          !deleteIndexes.has(
+            index
+          )
+      );
+
+    if (
+      keepIndexes.length === 0
+    ) {
+      throw new Error(
+        "PDF'in tüm sayfalarını silemezsiniz."
+      );
+    }
+
+    const output =
+      await PDFDocument.create();
+
+    const pages =
+      await output.copyPages(
+        source,
+        keepIndexes
+      );
+
+    for (
+      const page
+      of pages
+    ) {
+      output.addPage(
+        page
+      );
+    }
+
+    const bytes =
+      await output.save();
+
+    createDownload(
+      bytes,
+      `${file.name.replace(
+        /\.pdf$/i,
+        ""
+      )}-duzenlenmis.pdf`
+    );
+  }
+
+  async function rotatePdf() {
+    const file =
+      files[0];
+
+    if (!file) {
+      throw new Error(
+        "Önce PDF seçin."
+      );
+    }
+
+    const pdf =
+      await PDFDocument.load(
+        await file.arrayBuffer()
+      );
+
+    for (
+      const page
+      of pdf.getPages()
+    ) {
+      const current =
+        page
+          .getRotation()
+          .angle || 0;
+
+      page.setRotation(
+        degrees(
+          (
+            current +
+            rotateAngle
+          ) %
+            360
+        )
+      );
+    }
+
+    const bytes =
+      await pdf.save();
+
+    createDownload(
+      bytes,
+      `${file.name.replace(
+        /\.pdf$/i,
+        ""
+      )}-dondurulmus.pdf`
+    );
+  }
+
+  async function runTool() {
     try {
       setWorking(true);
       setError("");
 
-      if (resultUrl) {
-        URL.revokeObjectURL(
-          resultUrl
-        );
-      }
-
-      const pdf =
-        await PDFDocument.create();
-
-      const pageWidth =
-        595.28;
-
-      const pageHeight =
-        841.89;
-
-      const margin = 28;
-
-      const availableWidth =
-        pageWidth -
-        margin * 2;
-
-      const availableHeight =
-        pageHeight -
-        margin * 2;
-
-      for (
-        const file
-        of files
+      if (
+        activeTool ===
+        "word_pdf"
       ) {
-        const bytes =
-          await file.arrayBuffer();
-
-        const image =
-          file.type ===
-          "image/png"
-            ? await pdf.embedPng(
-                bytes
-              )
-            : await pdf.embedJpg(
-                bytes
-              );
-
-        const scale =
-          Math.min(
-            availableWidth /
-              image.width,
-
-            availableHeight /
-              image.height
-          );
-
-        const width =
-          image.width *
-          scale;
-
-        const height =
-          image.height *
-          scale;
-
-        const page =
-          pdf.addPage([
-            pageWidth,
-            pageHeight,
-          ]);
-
-        page.drawImage(
-          image,
-          {
-            x:
-              (
-                pageWidth -
-                width
-              ) / 2,
-
-            y:
-              (
-                pageHeight -
-                height
-              ) / 2,
-
-            width,
-            height,
-          }
-        );
+        await wordToPdf();
       }
 
-      const result =
-        await pdf.save();
+      if (
+        activeTool ===
+        "pdf_word"
+      ) {
+        await pdfToWord();
+      }
 
-      const blob =
-        new Blob(
-          [
-            new Uint8Array(
-              result
-            ),
-          ],
-          {
-            type:
-              "application/pdf",
-          }
-        );
+      if (
+        activeTool ===
+        "scanned_pdf_word"
+      ) {
+        await scannedPdfToWord();
+      }
 
-      const url =
-        URL.createObjectURL(
-          blob
-        );
+      if (
+        activeTool ===
+        "image_word"
+      ) {
+        await imageToWord();
+      }
 
-      setResultUrl(url);
+      if (
+        activeTool ===
+        "pdf_text"
+      ) {
+        await pdfToText();
+      }
 
-      setResultName(
-        files.length === 1
-          ? `${files[0].name.replace(
-              /\.[^.]+$/,
-              ""
-            )}.pdf`
-          : `belgeler-${Date.now()}.pdf`
-      );
+      if (
+        activeTool ===
+        "image_text"
+      ) {
+        await imageToText();
+      }
+      if (
+        activeTool ===
+        "image_pdf"
+      ) {
+        await imageToPdf();
+      }
+
+      if (
+        activeTool ===
+        "merge_pdf"
+      ) {
+        await mergePdf();
+      }
+
+      if (
+        activeTool ===
+        "extract_pdf"
+      ) {
+        await extractPages();
+      }
+
+      if (
+        activeTool ===
+        "delete_pages"
+      ) {
+        await deletePages();
+      }
+
+      if (
+        activeTool ===
+        "rotate_pdf"
+      ) {
+        await rotatePdf();
+      }
     } catch (
-      conversionError
+      toolError
     ) {
       setError(
-        conversionError instanceof Error
-          ? conversionError.message
-          : "PDF oluşturulamadı."
+        toolError instanceof Error
+          ? toolError.message
+          : "Dosya işlemi tamamlanamadı."
       );
     } finally {
       setWorking(false);
     }
   }
 
+  function actionLabel() {
+    if (working) {
+      return "İşleniyor...";
+    }
+
+    switch (
+      activeTool
+    ) {
+      case "word_pdf":
+        return "Word'ü PDF'e çevir";
+
+      case "pdf_word":
+        return "PDF'i Word'e çevir";
+
+      case "scanned_pdf_word":
+        return "Taranmış PDF'i Word'e çevir";
+
+      case "image_word":
+        return "Görseli Word'e çevir";
+
+      case "pdf_text":
+        return "PDF metnini çıkar";
+
+      case "image_text":
+        return "Görsel metnini çıkar";
+
+      case "image_pdf":
+        return "PDF oluştur";
+
+      case "merge_pdf":
+        return "PDF'leri birleştir";
+
+      case "extract_pdf":
+        return "Sayfaları çıkar";
+
+      case "delete_pages":
+        return "Sayfaları sil";
+
+      case "rotate_pdf":
+        return "PDF'i döndür";
+    }
+  }
+
   return (
     <main className="legal-app converter-page">
       <header className="converter-header">
-        <div>
-          <span>
-            AL METHER LEGAL
-          </span>
+        <div className="converter-brand">
+          <LegalBrand compact />
 
           <h1>
             Dönüştür
           </h1>
         </div>
+
+        <p>
+          Hukuk ofisi belge araçları
+        </p>
       </header>
 
-      <section className="converter-workspace">
-        <div className="converter-panel">
-          <div className="panel-title">
-            Görsel → PDF
-          </div>
+      <section className="converter-shell">
+        <aside className="tool-list">
+          {TOOLS.map(
+            (tool) => (
+              <button
+                key={
+                  tool.id
+                }
+                type="button"
+                className={
+                  activeTool ===
+                  tool.id
+                    ? "tool-button active"
+                    : "tool-button"
+                }
+                onClick={() =>
+                  switchTool(
+                    tool.id
+                  )
+                }
+              >
+                <strong>
+                  {
+                    tool.title
+                  }
+                </strong>
 
-          <p>
-            JPG veya PNG belgelerinizi tek PDF dosyasına dönüştürün.
-          </p>
+                <span>
+                  {
+                    tool.short
+                  }
+                </span>
+              </button>
+            )
+          )}
+        </aside>
+
+        <section className="workspace">
+          <div className="workspace-head">
+            <div>
+              <span>
+                BELGE ARACI
+              </span>
+
+              <h2>
+                {
+                  activeMeta.title
+                }
+              </h2>
+
+              <p>
+                {
+                  activeMeta.short
+                }
+              </p>
+            </div>
+
+            <div className="file-counter">
+              <strong>
+                {
+                  files.length
+                }
+              </strong>
+
+              <span>
+                dosya
+              </span>
+            </div>
+          </div>
 
           <label className="drop-zone">
             <input
+              key={
+                activeTool
+              }
               type="file"
-              multiple
-              accept="image/jpeg,image/png"
+              accept={
+                accepts
+              }
+              multiple={
+                multiple
+              }
               onChange={(
                 event
               ) =>
@@ -253,7 +1562,31 @@ export default function ConverterPage() {
             </strong>
 
             <span>
-              JPG / PNG
+              {activeTool ===
+              "word_pdf"
+                ? "DOC / DOCX"
+                : activeTool ===
+                    "pdf_word"
+                  ? "PDF"
+                  : activeTool ===
+                      "scanned_pdf_word"
+                    ? "TARANMIŞ PDF"
+                    : activeTool ===
+                        "image_word"
+                    ? "JPG / PNG / WEBP"
+                    : activeTool ===
+                        "image_text"
+                      ? "JPG / PNG / WEBP"
+                      : activeTool ===
+                          "pdf_text"
+                        ? "PDF"
+                        : activeTool ===
+                            "image_pdf"
+                  ? "JPG / PNG"
+                  : activeTool ===
+                      "merge_pdf"
+                    ? "2 veya daha fazla PDF"
+                    : "PDF"}
             </span>
           </label>
 
@@ -276,16 +1609,91 @@ export default function ConverterPage() {
                     </strong>
 
                     <span>
-                      {(
-                        file.size /
-                        1024
-                      ).toFixed(
-                        1
-                      )} KB
+                      {formatSize(
+                        file.size
+                      )}
                     </span>
                   </div>
                 )
               )}
+            </div>
+          )}
+
+          {(activeTool ===
+            "extract_pdf" ||
+            activeTool ===
+              "delete_pages") && (
+            <div className="option-block">
+              <label>
+                {activeTool ===
+                "extract_pdf"
+                  ? "Çıkarılacak sayfalar"
+                  : "Silinecek sayfalar"}
+              </label>
+
+              <input
+                value={
+                  pageExpression
+                }
+                onChange={(
+                  event
+                ) =>
+                  setPageExpression(
+                    event.target
+                      .value
+                  )
+                }
+                placeholder="Örn: 1-3,5,8"
+              />
+
+              <span>
+                Sayfa numaralarını virgül veya aralık kullanarak yazın.
+              </span>
+            </div>
+          )}
+
+          {activeTool ===
+            "rotate_pdf" && (
+            <div className="option-block">
+              <label>
+                Döndürme açısı
+              </label>
+
+              <div className="angle-buttons">
+                {(
+                  [
+                    90,
+                    180,
+                    270,
+                  ] as const
+                ).map(
+                  (
+                    angle
+                  ) => (
+                    <button
+                      key={
+                        angle
+                      }
+                      type="button"
+                      className={
+                        rotateAngle ===
+                        angle
+                          ? "active"
+                          : ""
+                      }
+                      onClick={() =>
+                        setRotateAngle(
+                          angle
+                        )
+                      }
+                    >
+                      {
+                        angle
+                      }°
+                    </button>
+                  )
+                )}
+              </div>
             </div>
           )}
 
@@ -298,8 +1706,9 @@ export default function ConverterPage() {
           <div className="converter-actions">
             <button
               type="button"
+              className="primary-action"
               onClick={
-                convertToPdf
+                runTool
               }
               disabled={
                 working ||
@@ -307,45 +1716,90 @@ export default function ConverterPage() {
                   0
               }
             >
-              {working
-                ? "Dönüştürülüyor..."
-                : "PDF oluştur"}
+              {
+                actionLabel()
+              }
             </button>
 
-            {resultUrl && (
+            {result && (
               <a
+                className="download-action"
                 href={
-                  resultUrl
+                  result.url
                 }
                 download={
-                  resultName
+                  result.name
                 }
               >
                 İndir
               </a>
             )}
           </div>
-        </div>
 
-        <aside className="converter-info">
-          <span>
-            DOSYA
-          </span>
+          {textResult && (
+            <div className="text-result">
+              <div className="text-result-head">
+                <div>
+                  <span>
+                    ÇIKARILAN METİN
+                  </span>
 
-          <strong>
-            {files.length}
-          </strong>
+                  <strong>
+                    Metin hazır
+                  </strong>
+                </div>
 
-          <p>
-            seçili belge
-          </p>
+                <div className="text-result-actions">
+                  <button
+                    type="button"
+                    onClick={
+                      copyTextResult
+                    }
+                  >
+                    {textCopied
+                      ? "Kopyalandı"
+                      : "Kopyala"}
+                  </button>
 
-          {resultUrl && (
-            <div className="result-ready">
-              PDF hazır
+                  <button
+                    type="button"
+                    onClick={
+                      downloadTextResult
+                    }
+                  >
+                    TXT indir
+                  </button>
+                </div>
+              </div>
+
+              <textarea
+                value={
+                  textResult
+                }
+                readOnly
+              />
             </div>
           )}
-        </aside>
+          {result && (
+            <div className="result-box">
+              <div>
+                <span>
+                  HAZIR
+                </span>
+
+                <strong>
+                  {
+                    result.name
+                  }
+                </strong>
+              </div>
+
+              <span>
+                İşlem tamamlandı
+              </span>
+            </div>
+          )}
+        </section>
       </section>
 
       <LegalSessionControl />
@@ -353,24 +1807,28 @@ export default function ConverterPage() {
 
       <style jsx>{`
         .converter-page {
-          height: 100dvh;
-          overflow: hidden;
+          min-height: 100dvh;
           padding:
-            12px 16px 74px;
+            10px 14px 78px;
         }
 
         .converter-header {
-          height: 48px;
+          height: 52px;
 
           display: flex;
           align-items: center;
+          justify-content:
+            space-between;
+
+          gap: 16px;
 
           border-bottom:
             1px solid
             var(--legal-border);
         }
 
-        .converter-header span {
+        .converter-header > div > span,
+        .workspace-head > div > span {
           display: block;
 
           margin-bottom: 2px;
@@ -381,7 +1839,7 @@ export default function ConverterPage() {
           font-size: 7px;
           font-weight: 900;
           letter-spacing:
-            0.16em;
+            0.15em;
         }
 
         .converter-header h1 {
@@ -390,29 +1848,32 @@ export default function ConverterPage() {
           font-size: 15px;
         }
 
-        .converter-workspace {
-          width:
-            min(
-              980px,
-              100%
-            );
+        .converter-header > p {
+          margin: 0;
 
+          color:
+            var(--legal-muted);
+
+          font-size: 8px;
+        }
+
+        .converter-shell {
           display: grid;
 
           grid-template-columns:
+            220px
             minmax(
               0,
-              1fr
-            )
-            180px;
+              760px
+            );
 
-          gap: 8px;
+          gap: 9px;
 
           margin-top: 10px;
         }
 
-        .converter-panel,
-        .converter-info {
+        .tool-list,
+        .workspace {
           border:
             1px solid
             var(--legal-border);
@@ -427,27 +1888,152 @@ export default function ConverterPage() {
             var(--legal-shadow-sm);
         }
 
-        .converter-panel {
-          padding: 14px;
+        .tool-list {
+          display: grid;
+          align-content: start;
+          gap: 5px;
+
+          padding: 7px;
+
+          max-height:
+            calc(100dvh - 165px);
+
+          overflow-y: auto;
+          overflow-x: hidden;
+
+          scrollbar-width: thin;
         }
 
-        .panel-title {
-          font-size: 11px;
-          font-weight: 850;
+        .tool-button {
+          min-height: 58px;
+
+          display: grid;
+          align-content: center;
+
+          gap: 3px;
+
+          padding:
+            8px 9px;
+
+          border:
+            1px solid
+            transparent;
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            transparent;
+
+          color:
+            var(--legal-text);
+
+          text-align: left;
+
+          cursor: pointer;
         }
 
-        .converter-panel p {
+        .tool-button:hover {
+          background:
+            var(--legal-surface-2);
+        }
+
+        .tool-button.active {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          box-shadow:
+            inset 2px 0 0
+            var(--legal-gold);
+        }
+
+        .tool-button strong {
+          font-size: 9px;
+        }
+
+        .tool-button span {
+          color:
+            var(--legal-muted);
+
+          font-size: 7.5px;
+          line-height: 1.35;
+        }
+
+        .workspace {
+          min-width: 0;
+
+          padding: 13px;
+        }
+
+        .workspace-head {
+          display: flex;
+          align-items: flex-start;
+          justify-content:
+            space-between;
+
+          gap: 12px;
+
+          margin-bottom: 10px;
+        }
+
+        .workspace-head h2 {
+          margin: 0;
+
+          color:
+            var(--legal-text);
+
+          font-size: 14px;
+        }
+
+        .workspace-head p {
           margin:
-            4px 0 12px;
+            3px 0 0;
 
           color:
             var(--legal-muted);
 
-          font-size: 9px;
+          font-size: 8px;
+        }
+
+        .file-counter {
+          min-width: 62px;
+
+          display: grid;
+          justify-items: center;
+
+          padding:
+            6px 9px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+        }
+
+        .file-counter strong {
+          color:
+            var(--legal-gold);
+
+          font-size: 15px;
+        }
+
+        .file-counter span {
+          color:
+            var(--legal-muted);
+
+          font-size: 7px;
         }
 
         .drop-zone {
-          height: 118px;
+          min-height: 112px;
 
           display: grid;
           place-content: center;
@@ -495,23 +2081,28 @@ export default function ConverterPage() {
         }
 
         .selected-files {
-          max-height: 170px;
+          max-height: 145px;
 
           overflow-y: auto;
 
           display: grid;
-          gap: 5px;
+          gap: 4px;
 
-          margin-top: 8px;
+          margin-top: 7px;
         }
 
         .selected-file {
+          min-width: 0;
+
           display: flex;
+          align-items: center;
           justify-content:
             space-between;
+
           gap: 10px;
 
-          padding: 8px 9px;
+          padding:
+            7px 8px;
 
           border:
             1px solid
@@ -532,18 +2123,122 @@ export default function ConverterPage() {
             ellipsis;
           white-space: nowrap;
 
-          font-size: 8.5px;
+          font-size: 8px;
         }
 
         .selected-file span {
+          flex: 0 0 auto;
+
           color:
             var(--legal-muted);
 
-          font-size: 7.5px;
+          font-size: 7px;
+        }
+
+        .option-block {
+          display: grid;
+          gap: 5px;
+
+          margin-top: 8px;
+
+          padding: 9px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+        }
+
+        .option-block label {
+          color:
+            var(--legal-text);
+
+          font-size: 8px;
+          font-weight: 800;
+        }
+
+        .option-block > input {
+          height: 32px;
+
+          padding:
+            0 9px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface);
+
+          color:
+            var(--legal-text);
+
+          outline: none;
+
+          font-size: 8.5px;
+        }
+
+        .option-block > input:focus {
+          border-color:
+            var(--legal-gold);
+        }
+
+        .option-block > span {
+          color:
+            var(--legal-muted);
+
+          font-size: 7px;
+        }
+
+        .angle-buttons {
+          display: flex;
+          gap: 5px;
+        }
+
+        .angle-buttons button {
+          height: 31px;
+          min-width: 52px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface);
+
+          color:
+            var(--legal-text-soft);
+
+          font-size: 8px;
+          font-weight: 800;
+
+          cursor: pointer;
+        }
+
+        .angle-buttons button.active {
+          border-color:
+            var(--legal-gold);
+
+          background:
+            var(--legal-gold-soft);
+
+          color:
+            var(--legal-gold);
         }
 
         .converter-error {
-          margin-top: 8px;
+          margin-top: 7px;
 
           color:
             var(--legal-danger);
@@ -558,8 +2253,8 @@ export default function ConverterPage() {
           margin-top: 10px;
         }
 
-        .converter-actions button,
-        .converter-actions a {
+        .primary-action,
+        .download-action {
           height: 32px;
 
           display: inline-flex;
@@ -569,12 +2264,36 @@ export default function ConverterPage() {
           padding:
             0 12px;
 
+          border-radius:
+            var(--legal-radius-sm);
+
+          font-size: 8.5px;
+          font-weight: 850;
+        }
+
+        .primary-action {
           border:
             1px solid
             var(--legal-gold);
 
-          border-radius:
-            var(--legal-radius-sm);
+          background:
+            var(--legal-gold);
+
+          color:
+            #17130b;
+
+          cursor: pointer;
+        }
+
+        .primary-action:disabled {
+          opacity: 0.45;
+          cursor: default;
+        }
+
+        .download-action {
+          border:
+            1px solid
+            var(--legal-gold);
 
           background:
             var(--legal-gold-soft);
@@ -583,96 +2302,366 @@ export default function ConverterPage() {
             var(--legal-gold);
 
           text-decoration: none;
-
-          font-size: 8.5px;
-          font-weight: 850;
         }
 
-        .converter-actions button {
-          cursor: pointer;
+        .text-result {
+          margin-top: 8px;
+
+          padding: 9px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
         }
 
-        .converter-actions button:disabled {
-          opacity: 0.45;
-          cursor: default;
+        .text-result-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+
+          gap: 10px;
+
+          margin-bottom: 7px;
         }
 
-        .converter-info {
-          min-height: 180px;
-
+        .text-result-head > div:first-child {
           display: grid;
-          align-content: center;
-          justify-items: center;
+          gap: 2px;
         }
 
-        .converter-info > span {
+        .text-result-head span {
           color:
             var(--legal-gold);
 
-          font-size: 7px;
+          font-size: 6.5px;
           font-weight: 900;
           letter-spacing:
-            0.14em;
+            0.12em;
         }
 
-        .converter-info > strong {
-          margin-top: 5px;
-
-          font-size: 28px;
-        }
-
-        .converter-info p {
-          margin: 2px 0 0;
-
-          color:
-            var(--legal-muted);
-
+        .text-result-head strong {
           font-size: 8px;
         }
 
-        .result-ready {
-          margin-top: 12px;
+        .text-result-actions {
+          display: flex;
+          gap: 5px;
+        }
+
+        .text-result-actions button {
+          height: 28px;
 
           padding:
-            5px 8px;
+            0 9px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface);
+
+          color:
+            var(--legal-text-soft);
+
+          font-size: 7.5px;
+          font-weight: 800;
+
+          cursor: pointer;
+        }
+
+        .text-result-actions button:hover {
+          border-color:
+            var(--legal-gold);
+
+          color:
+            var(--legal-gold);
+        }
+
+        .text-result textarea {
+          width: 100%;
+          min-height: 180px;
+          max-height: 300px;
+
+          resize: vertical;
+
+          padding: 9px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface);
+
+          color:
+            var(--legal-text);
+
+          outline: none;
+
+          font-family:
+            inherit;
+
+          font-size: 8px;
+          line-height: 1.55;
+        }
+        .result-box {
+          display: flex;
+          align-items: center;
+          justify-content:
+            space-between;
+
+          gap: 10px;
+
+          margin-top: 8px;
+
+          padding:
+            8px 9px;
 
           border:
             1px solid
             var(--legal-success);
 
           border-radius:
-            999px;
+            var(--legal-radius-sm);
 
+          background:
+            var(--legal-surface-2);
+        }
+
+        .result-box > div {
+          min-width: 0;
+
+          display: grid;
+          gap: 2px;
+        }
+
+        .result-box > div > span {
           color:
             var(--legal-success);
 
-          font-size: 7.5px;
-          font-weight: 850;
+          font-size: 6.5px;
+          font-weight: 900;
+          letter-spacing:
+            0.13em;
+        }
+
+        .result-box strong {
+          overflow: hidden;
+          text-overflow:
+            ellipsis;
+          white-space: nowrap;
+
+          font-size: 8px;
+        }
+
+        .result-box > span {
+          flex: 0 0 auto;
+
+          color:
+            var(--legal-muted);
+
+          font-size: 7px;
         }
 
         @media (
-          max-width: 700px
+          max-width: 720px
         ) {
           .converter-page {
-            height: auto;
-            min-height: 100dvh;
-
-            overflow: visible;
-
             padding:
               8px 7px 76px;
           }
 
-          .converter-workspace {
+          .converter-header > p {
+            display: none;
+          }
+
+          .converter-shell {
             grid-template-columns:
               1fr;
           }
 
-          .converter-info {
-            min-height: 100px;
+          .tool-list {
+            display: flex;
+            flex-wrap: nowrap;
+
+            overflow-x: auto;
+            overflow-y: hidden;
+
+            max-height: none;
+
+            padding: 5px;
+
+            scroll-snap-type:
+              x mandatory;
+
+            -webkit-overflow-scrolling:
+              touch;
+          }
+
+          .tool-list::-webkit-scrollbar {
+            display: none;
+          }
+
+          .tool-button {
+            flex: 0 0 auto;
+
+            min-width: 138px;
+            min-height: 50px;
+
+            scroll-snap-align:
+              start;
+          }
+
+          .workspace {
+            padding: 10px;
+          }
+
+          .workspace-head {
+            align-items: center;
+          }
+
+          .text-result {
+          margin-top: 8px;
+
+          padding: 9px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+        }
+
+        .text-result-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+
+          gap: 10px;
+
+          margin-bottom: 7px;
+        }
+
+        .text-result-head > div:first-child {
+          display: grid;
+          gap: 2px;
+        }
+
+        .text-result-head span {
+          color:
+            var(--legal-gold);
+
+          font-size: 6.5px;
+          font-weight: 900;
+          letter-spacing:
+            0.12em;
+        }
+
+        .text-result-head strong {
+          font-size: 8px;
+        }
+
+        .text-result-actions {
+          display: flex;
+          gap: 5px;
+        }
+
+        .text-result-actions button {
+          height: 28px;
+
+          padding:
+            0 9px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface);
+
+          color:
+            var(--legal-text-soft);
+
+          font-size: 7.5px;
+          font-weight: 800;
+
+          cursor: pointer;
+        }
+
+        .text-result-actions button:hover {
+          border-color:
+            var(--legal-gold);
+
+          color:
+            var(--legal-gold);
+        }
+
+        .text-result textarea {
+          width: 100%;
+          min-height: 180px;
+          max-height: 300px;
+
+          resize: vertical;
+
+          padding: 9px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface);
+
+          color:
+            var(--legal-text);
+
+          outline: none;
+
+          font-family:
+            inherit;
+
+          font-size: 8px;
+          line-height: 1.55;
+        }
+        .result-box {
+            align-items:
+              flex-start;
+
+            flex-direction:
+              column;
           }
         }
       `}</style>
     </main>
   );
 }
+
+
+
+
+
+
+
