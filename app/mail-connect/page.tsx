@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import LegalBrand
   from "@/components/LegalBrand";
@@ -31,6 +31,33 @@ type Capabilities = {
   imap: boolean;
 };
 
+type MailCandidate = {
+  host: string;
+  port: number;
+  secure: boolean;
+  starttls: boolean;
+};
+
+type DiscoveryResult = {
+  provider:
+    | "google"
+    | "microsoft"
+    | "imap"
+    | "unknown";
+  email?: string;
+  imapCandidates?: MailCandidate[];
+  smtpCandidates?: MailCandidate[];
+  error?: string;
+};
+
+type DiscoveryState =
+  | "idle"
+  | "searching"
+  | "google"
+  | "microsoft"
+  | "imap"
+  | "unknown";
+
 export default function MailConnectPage() {
   const router =
     useRouter();
@@ -38,63 +65,68 @@ export default function MailConnectPage() {
   const {
     data: session,
     status,
-  } =
-    useSession();
+  } = useSession();
 
   const [
     connections,
     setConnections,
-  ] =
-    useState<
-      MailConnection[]
-    >([]);
+  ] = useState<MailConnection[]>([]);
 
   const [
     capabilities,
     setCapabilities,
-  ] =
-    useState<Capabilities>({
-      google: false,
-      microsoft: false,
-      imap: false,
-    });
+  ] = useState<Capabilities>({
+    google: false,
+    microsoft: false,
+    imap: false,
+  });
 
-  const [
-    loading,
-    setLoading,
-  ] =
+  const [loading, setLoading] =
     useState(true);
 
-  const [
-    error,
-    setError,
-  ] =
+  const [error, setError] =
     useState("");
 
   const [
-    imapOpen,
-    setImapOpen,
-  ] =
-    useState(false);
+    corporateOpen,
+    setCorporateOpen,
+  ] = useState(false);
 
   const [
-    imapSaving,
-    setImapSaving,
-  ] =
-    useState(false);
+    discoveryEmail,
+    setDiscoveryEmail,
+  ] = useState("");
 
   const [
-    imapForm,
-    setImapForm,
-  ] =
+    discoveryState,
+    setDiscoveryState,
+  ] = useState<DiscoveryState>(
+    "idle"
+  );
+
+  const [
+    discovery,
+    setDiscovery,
+  ] = useState<DiscoveryResult | null>(
+    null
+  );
+
+  const [password, setPassword] =
+    useState("");
+
+  const [
+    advancedOpen,
+    setAdvancedOpen,
+  ] = useState(false);
+
+  const [saving, setSaving] =
+    useState(false);
+
+  const [manual, setManual] =
     useState({
-      email: "",
-      password: "",
-
       imapHost: "",
       imapPort: "993",
       imapSecure: true,
-
       smtpHost: "",
       smtpPort: "465",
       smtpSecure: true,
@@ -105,18 +137,15 @@ export default function MailConnectPage() {
       setLoading(true);
       setError("");
 
-      const response =
-        await fetch(
-          "/api/mail-connection",
-          {
-            cache:
-              "no-store",
-          }
-        );
+      const response = await fetch(
+        "/api/mail-connection",
+        {
+          cache: "no-store",
+        }
+      );
 
       const data =
-        await response
-          .json();
+        await response.json();
 
       if (
         !response.ok ||
@@ -129,41 +158,25 @@ export default function MailConnectPage() {
       }
 
       setConnections(
-        Array.isArray(
-          data.connections
-        )
+        Array.isArray(data.connections)
           ? data.connections
           : []
       );
 
       setCapabilities({
-        google:
-          Boolean(
-            data
-              ?.capabilities
-              ?.google
-          ),
-
-        microsoft:
-          Boolean(
-            data
-              ?.capabilities
-              ?.microsoft
-          ),
-
-        imap:
-          Boolean(
-            data
-              ?.capabilities
-              ?.imap
-          ),
+        google: Boolean(
+          data?.capabilities?.google
+        ),
+        microsoft: Boolean(
+          data?.capabilities?.microsoft
+        ),
+        imap: Boolean(
+          data?.capabilities?.imap
+        ),
       });
-    } catch (
-      loadError
-    ) {
+    } catch (loadError) {
       setError(
-        loadError instanceof
-        Error
+        loadError instanceof Error
           ? loadError.message
           : "Mail bağlantıları alınamadı."
       );
@@ -173,110 +186,118 @@ export default function MailConnectPage() {
   }
 
   useEffect(() => {
-    if (
-      status ===
-      "unauthenticated"
-    ) {
-      router.replace(
-        "/login"
-      );
-
+    if (status === "unauthenticated") {
+      router.replace("/login");
       return;
     }
 
-    if (
-      status ===
-      "authenticated"
-    ) {
-      loadConnections();
+    if (status === "authenticated") {
+      const timer = window.setTimeout(
+        () => {
+          void loadConnections();
+        },
+        0
+      );
+
+      return () =>
+        window.clearTimeout(timer);
     }
-  }, [
-    status,
-    router,
-  ]);
+  }, [status, router]);
 
-  if (
-    status ===
-    "loading"
-  ) {
-    return (
-      <main className="connect-page">
-        Oturum kontrol ediliyor...
-      </main>
-    );
-  }
-
-  if (
-    status !==
-    "authenticated"
-  ) {
-    return null;
-  }
-
-  const google =
-    connections.find(
-      (
-        item
-      ) =>
-        item.provider ===
-        "google"
-    );
-
-  const microsoft =
-    connections.find(
-      (
-        item
-      ) =>
-        item.provider ===
-        "microsoft"
-    );
-
-  const imap =
-    connections.find(
-      (
-        item
-      ) =>
-        item.provider ===
-        "imap"
-    );
-
-  async function saveImap() {
+  async function findAccount() {
     try {
-      setImapSaving(true);
       setError("");
+      setAdvancedOpen(false);
+      setDiscovery(null);
+      setDiscoveryState("searching");
 
-      const response =
-        await fetch(
-          "/api/mail-connection/imap",
-          {
-            method:
-              "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body:
-              JSON.stringify({
-                ...imapForm,
-
-                imapPort:
-                  Number(
-                    imapForm.imapPort
-                  ),
-
-                smtpPort:
-                  Number(
-                    imapForm.smtpPort
-                  ),
-              }),
-          }
-        );
+      const response = await fetch(
+        "/api/mail-discovery",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            email: discoveryEmail,
+          }),
+        }
+      );
 
       const data =
-        await response
-          .json();
+        await response.json() as DiscoveryResult;
+
+      if (
+        !response.ok ||
+        ![
+          "google",
+          "microsoft",
+          "imap",
+        ].includes(data.provider)
+      ) {
+        setDiscoveryState("unknown");
+        setError(
+          data?.error ||
+          "Sunucu ayarları otomatik bulunamadı."
+        );
+        return;
+      }
+
+      setDiscovery(data);
+      setDiscoveryEmail(
+        data.email || discoveryEmail
+      );
+      setDiscoveryState(data.provider);
+    } catch {
+      setDiscoveryState("unknown");
+      setError(
+        "Sunucu ayarları otomatik bulunamadı."
+      );
+    }
+  }
+
+  async function connectImap(
+    useManualSettings = false
+  ) {
+    try {
+      setSaving(true);
+      setError("");
+
+      const payload =
+        useManualSettings
+          ? {
+              email: discoveryEmail,
+              password,
+              ...manual,
+            }
+          : {
+              email: discoveryEmail,
+              password,
+              discovery: {
+                imapCandidates:
+                  discovery
+                    ?.imapCandidates || [],
+                smtpCandidates:
+                  discovery
+                    ?.smtpCandidates || [],
+              },
+            };
+
+      const response = await fetch(
+        "/api/mail-connection/imap",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const data =
+        await response.json();
 
       if (
         !response.ok ||
@@ -284,112 +305,96 @@ export default function MailConnectPage() {
       ) {
         throw new Error(
           data?.error ||
-          "Bağlantı kurulamadı."
+          "Kurumsal mail bağlanamadı."
         );
       }
 
-      setImapOpen(false);
-
-      setImapForm({
-        email: "",
-        password: "",
-
-        imapHost: "",
-        imapPort: "993",
-        imapSecure: true,
-
-        smtpHost: "",
-        smtpPort: "465",
-        smtpSecure: true,
-      });
-
+      setPassword("");
+      setCorporateOpen(false);
+      setAdvancedOpen(false);
+      setDiscovery(null);
+      setDiscoveryState("idle");
       await loadConnections();
-    } catch (
-      saveError
-    ) {
+    } catch (saveError) {
       setError(
-        saveError instanceof
-        Error
+        saveError instanceof Error
           ? saveError.message
           : "Kurumsal mail bağlanamadı."
       );
     } finally {
-      setImapSaving(false);
+      setSaving(false);
     }
   }
+
+  if (status === "loading") {
+    return (
+      <main className="connect-page">
+        Oturum kontrol ediliyor...
+      </main>
+    );
+  }
+
+  if (status !== "authenticated") {
+    return null;
+  }
+
+  const google = connections.find(
+    (item) => item.provider === "google"
+  );
+
+  const microsoft = connections.find(
+    (item) => item.provider === "microsoft"
+  );
+
+  const imap = connections.find(
+    (item) => item.provider === "imap"
+  );
 
   return (
     <main className="connect-page">
       <section className="connect-shell">
         <header>
           <LegalBrand />
-
-          <h1>
-            E-posta hesapları
-          </h1>
-
+          <h1>E-posta hesapları</h1>
           <p>
-            METHER Legal içinde
-            kullanacağınız e-posta
-            hesabını bağlayın.
+            METHER Legal içinde kullanacağınız
+            e-posta hesabını bağlayın.
           </p>
         </header>
 
         <div className="account">
-          Oturum:{" "}
-          {session
-            ?.user
-            ?.email ||
-          "—"}
+          Oturum: {session?.user?.email || "—"}
         </div>
 
         {error && (
-          <div className="error">
-            {error}
-          </div>
+          <div className="error">{error}</div>
         )}
 
         <div className="providers">
           <button
             type="button"
             className={`provider ${
-              google
-                ? "connected"
-                : ""
+              google ? "connected" : ""
             }`}
             disabled={
-              loading ||
-              !capabilities.google
+              loading || !capabilities.google
             }
             onClick={() =>
-              signIn(
-                "google-mail",
-                {
-                  callbackUrl:
-                    "/mail-connect",
-                }
-              )
+              signIn("google-mail", {
+                callbackUrl: "/mail-connect",
+              })
             }
           >
             <b>G</b>
-
             <div>
-              <strong>
-                Google / Gmail
-              </strong>
-
+              <strong>Google / Gmail</strong>
               <span>
-                Gmail ve Google
-                Workspace
+                Gmail ve Google Workspace
               </span>
-
               {google?.email && (
-                <em>
-                  {google.email}
-                </em>
+                <em>{google.email}</em>
               )}
             </div>
-
             <small>
               {google
                 ? "Bağlı · Yenile"
@@ -402,52 +407,31 @@ export default function MailConnectPage() {
           <button
             type="button"
             className={`provider ${
-              microsoft
-                ? "connected"
-                : ""
+              microsoft ? "connected" : ""
             }`}
             disabled={
-              loading ||
-              !capabilities
-                .microsoft
+              loading || !capabilities.microsoft
             }
             onClick={() =>
-              signIn(
-                "microsoft-mail",
-                {
-                  callbackUrl:
-                    "/mail-connect",
-                }
-              )
+              signIn("microsoft-mail", {
+                callbackUrl: "/mail-connect",
+              })
             }
           >
             <b>M</b>
-
             <div>
-              <strong>
-                Microsoft
-              </strong>
-
+              <strong>Microsoft</strong>
               <span>
-                Outlook, Hotmail
-                ve Microsoft 365
+                Outlook, Hotmail ve Microsoft 365
               </span>
-
-              {microsoft
-                ?.email && (
-                <em>
-                  {
-                    microsoft.email
-                  }
-                </em>
+              {microsoft?.email && (
+                <em>{microsoft.email}</em>
               )}
             </div>
-
             <small>
               {microsoft
                 ? "Bağlı · Yenile"
-                : capabilities
-                    .microsoft
+                : capabilities.microsoft
                   ? "Bağla →"
                   : "Yapılandırma gerekli"}
             </small>
@@ -456,40 +440,28 @@ export default function MailConnectPage() {
           <button
             type="button"
             className={`provider ${
-              imap
-                ? "connected"
-                : ""
+              imap ? "connected" : ""
             }`}
             disabled={
-              loading ||
-              !capabilities.imap
+              loading || !capabilities.imap
             }
-            onClick={() =>
-              setImapOpen(
-                (
-                  value
-                ) => !value
-              )
-            }
+            onClick={() => {
+              setCorporateOpen(
+                (value) => !value
+              );
+              setError("");
+            }}
           >
             <b>@</b>
-
             <div>
-              <strong>
-                Kurumsal E-posta
-              </strong>
-
+              <strong>Kurumsal E-posta</strong>
               <span>
-                IMAP + SMTP
+                Sunucu ayarlarını otomatik bul
               </span>
-
               {imap?.email && (
-                <em>
-                  {imap.email}
-                </em>
+                <em>{imap.email}</em>
               )}
             </div>
-
             <small>
               {imap
                 ? "Bağlı · Düzenle"
@@ -498,204 +470,275 @@ export default function MailConnectPage() {
           </button>
         </div>
 
-        {imapOpen && (
-          <div className="imap-form">
-            <input
-              type="email"
-              placeholder="E-posta"
-              value={
-                imapForm.email
-              }
-              onChange={(
-                event
-              ) =>
-                setImapForm({
-                  ...imapForm,
-                  email:
-                    event
-                      .target
-                      .value,
-                })
-              }
-            />
+        {corporateOpen && (
+          <section className="corporate-panel">
+            <h2>Kurumsal E-posta</h2>
 
-            <input
-              type="password"
-              placeholder="Şifre / uygulama parolası"
-              value={
-                imapForm.password
-              }
-              onChange={(
-                event
-              ) =>
-                setImapForm({
-                  ...imapForm,
-                  password:
-                    event
-                      .target
-                      .value,
-                })
-              }
-            />
-
-            <div className="row">
-              <input
-                placeholder="IMAP sunucusu"
-                value={
-                  imapForm.imapHost
-                }
-                onChange={(
-                  event
-                ) =>
-                  setImapForm({
-                    ...imapForm,
-                    imapHost:
-                      event
-                        .target
-                        .value,
-                  })
-                }
-              />
-
-              <input
-                placeholder="993"
-                value={
-                  imapForm.imapPort
-                }
-                onChange={(
-                  event
-                ) =>
-                  setImapForm({
-                    ...imapForm,
-                    imapPort:
-                      event
-                        .target
-                        .value,
-                  })
-                }
-              />
-            </div>
-
-            <div className="row">
-              <input
-                placeholder="SMTP sunucusu"
-                value={
-                  imapForm.smtpHost
-                }
-                onChange={(
-                  event
-                ) =>
-                  setImapForm({
-                    ...imapForm,
-                    smtpHost:
-                      event
-                        .target
-                        .value,
-                  })
-                }
-              />
-
-              <input
-                placeholder="465"
-                value={
-                  imapForm.smtpPort
-                }
-                onChange={(
-                  event
-                ) =>
-                  setImapForm({
-                    ...imapForm,
-                    smtpPort:
-                      event
-                        .target
-                        .value,
-                  })
-                }
-              />
-            </div>
-
-            <div className="checks">
-              <label>
+            {discoveryState === "idle" && (
+              <>
                 <input
-                  type="checkbox"
-                  checked={
-                    imapForm
-                      .imapSecure
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setImapForm({
-                      ...imapForm,
-                      imapSecure:
-                        event
-                          .target
-                          .checked,
-                    })
+                  type="email"
+                  autoComplete="email"
+                  placeholder="avukat@firma.com"
+                  value={discoveryEmail}
+                  onChange={(event) =>
+                    setDiscoveryEmail(
+                      event.target.value
+                    )
                   }
                 />
-                IMAP SSL
-              </label>
+                <button
+                  type="button"
+                  className="save"
+                  onClick={findAccount}
+                >
+                  Hesabı Bul
+                </button>
+              </>
+            )}
 
-              <label>
-                <input
-                  type="checkbox"
-                  checked={
-                    imapForm
-                      .smtpSecure
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setImapForm({
-                      ...imapForm,
-                      smtpSecure:
-                        event
-                          .target
-                          .checked,
+            {discoveryState === "searching" && (
+              <p className="status-text">
+                Mail sağlayıcısı aranıyor...
+              </p>
+            )}
+
+            {discoveryState === "google" && (
+              <>
+                <p className="success-text">
+                  Google Workspace algılandı
+                </p>
+                <button
+                  type="button"
+                  className="save"
+                  onClick={() =>
+                    signIn("google-mail", {
+                      callbackUrl: "/mail-connect",
                     })
                   }
-                />
-                SMTP SSL
-              </label>
-            </div>
+                >
+                  Google ile Bağla
+                </button>
+              </>
+            )}
 
-            <button
-              type="button"
-              className="save"
-              disabled={
-                imapSaving
-              }
-              onClick={
-                saveImap
-              }
-            >
-              {imapSaving
-                ? "Bağlantı test ediliyor..."
-                : "Bağlantıyı Test Et ve Kaydet"}
-            </button>
-          </div>
+            {discoveryState === "microsoft" && (
+              <>
+                <p className="success-text">
+                  Microsoft 365 algılandı
+                </p>
+                <button
+                  type="button"
+                  className="save"
+                  onClick={() =>
+                    signIn("microsoft-mail", {
+                      callbackUrl: "/mail-connect",
+                    })
+                  }
+                >
+                  Microsoft ile Bağla
+                </button>
+              </>
+            )}
+
+            {discoveryState === "imap" && (
+              <>
+                <p className="success-text">
+                  Mail sunucusu bulundu
+                </p>
+                <input
+                  type="email"
+                  value={discoveryEmail}
+                  readOnly
+                  aria-label="E-posta"
+                />
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder="Şifre / uygulama parolası"
+                  value={password}
+                  onChange={(event) =>
+                    setPassword(event.target.value)
+                  }
+                />
+                <button
+                  type="button"
+                  className="save"
+                  disabled={saving || !password}
+                  onClick={() => connectImap(false)}
+                >
+                  {saving
+                    ? "Bağlantı test ediliyor..."
+                    : "Hesabı Bağla"}
+                </button>
+              </>
+            )}
+
+            {discoveryState === "unknown" && (
+              <>
+                <p className="status-text">
+                  Sunucu ayarları otomatik bulunamadı.
+                </p>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() =>
+                    setAdvancedOpen(true)
+                  }
+                >
+                  Gelişmiş Ayarlar
+                </button>
+              </>
+            )}
+
+            {advancedOpen && (
+              <div className="advanced-form">
+                <input
+                  type="email"
+                  placeholder="E-posta"
+                  value={discoveryEmail}
+                  onChange={(event) =>
+                    setDiscoveryEmail(
+                      event.target.value
+                    )
+                  }
+                />
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder="Şifre / uygulama parolası"
+                  value={password}
+                  onChange={(event) =>
+                    setPassword(event.target.value)
+                  }
+                />
+                <div className="row">
+                  <input
+                    placeholder="IMAP sunucusu"
+                    value={manual.imapHost}
+                    onChange={(event) =>
+                      setManual({
+                        ...manual,
+                        imapHost: event.target.value,
+                      })
+                    }
+                  />
+                  <input
+                    inputMode="numeric"
+                    placeholder="993"
+                    value={manual.imapPort}
+                    onChange={(event) =>
+                      setManual({
+                        ...manual,
+                        imapPort: event.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="row">
+                  <input
+                    placeholder="SMTP sunucusu"
+                    value={manual.smtpHost}
+                    onChange={(event) =>
+                      setManual({
+                        ...manual,
+                        smtpHost: event.target.value,
+                      })
+                    }
+                  />
+                  <input
+                    inputMode="numeric"
+                    placeholder="465"
+                    value={manual.smtpPort}
+                    onChange={(event) =>
+                      setManual({
+                        ...manual,
+                        smtpPort: event.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="checks">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={manual.imapSecure}
+                      onChange={(event) =>
+                        setManual({
+                          ...manual,
+                          imapSecure:
+                            event.target.checked,
+                          imapPort:
+                            event.target.checked
+                              ? "993"
+                              : "143",
+                        })
+                      }
+                    />
+                    IMAP SSL
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={manual.smtpSecure}
+                      onChange={(event) =>
+                        setManual({
+                          ...manual,
+                          smtpSecure:
+                            event.target.checked,
+                          smtpPort:
+                            event.target.checked
+                              ? "465"
+                              : "587",
+                        })
+                      }
+                    />
+                    SMTP SSL
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  className="save"
+                  disabled={saving || !password}
+                  onClick={() => connectImap(true)}
+                >
+                  {saving
+                    ? "Bağlantı test ediliyor..."
+                    : "Hesabı Bağla"}
+                </button>
+              </div>
+            )}
+
+            {discoveryState !== "idle" &&
+              discoveryState !== "searching" && (
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={() => {
+                    setDiscoveryState("idle");
+                    setDiscovery(null);
+                    setAdvancedOpen(false);
+                    setPassword("");
+                    setError("");
+                  }}
+                >
+                  Başka hesap ara
+                </button>
+              )}
+          </section>
         )}
 
         <footer>
           <button
             type="button"
-            onClick={() =>
-              router.push(
-                "/inbox"
-              )
-            }
+            onClick={() => router.push("/inbox")}
           >
-            Mailbox'a Git
+            Mailbox&apos;a Git
           </button>
-
           <button
             type="button"
             onClick={() =>
-              signOut({
-                callbackUrl:
-                  "/login",
-              })
+              signOut({ callbackUrl: "/login" })
             }
           >
             Çıkış
@@ -712,29 +755,24 @@ export default function MailConnectPage() {
           background: var(--legal-bg);
           color: var(--legal-text);
         }
-
         .connect-shell {
           width: min(680px, 100%);
         }
-
         header {
           display: grid;
           justify-items: center;
           margin-bottom: 16px;
           text-align: center;
         }
-
         h1 {
           margin: 12px 0 4px;
           font-size: 23px;
         }
-
         header p {
           margin: 0;
           color: var(--legal-muted);
           font-size: 10px;
         }
-
         .account,
         .error {
           margin-bottom: 9px;
@@ -744,28 +782,21 @@ export default function MailConnectPage() {
           text-align: center;
           font-size: 9px;
         }
-
         .account {
           color: var(--legal-muted);
           background: var(--legal-surface-2);
         }
-
         .error {
           color: var(--legal-danger);
         }
-
         .providers {
           display: grid;
           gap: 8px;
         }
-
         .provider {
           min-height: 66px;
           display: grid;
-          grid-template-columns:
-            40px
-            minmax(0, 1fr)
-            auto;
+          grid-template-columns: 40px minmax(0, 1fr) auto;
           align-items: center;
           gap: 11px;
           padding: 10px 12px;
@@ -776,16 +807,13 @@ export default function MailConnectPage() {
           text-align: left;
           cursor: pointer;
         }
-
         .provider:disabled {
           opacity: .5;
           cursor: default;
         }
-
         .provider.connected {
           border-color: var(--legal-success);
         }
-
         .provider b {
           width: 38px;
           height: 38px;
@@ -796,49 +824,46 @@ export default function MailConnectPage() {
           background: var(--legal-surface-2);
           font-size: 15px;
         }
-
         .provider strong,
         .provider span,
         .provider em {
           display: block;
         }
-
         .provider strong {
           font-size: 11px;
         }
-
         .provider span {
           margin-top: 2px;
           color: var(--legal-muted);
           font-size: 8.5px;
         }
-
         .provider em {
           margin-top: 3px;
           color: var(--legal-success);
           font-size: 8px;
           font-style: normal;
         }
-
         .provider small {
           color: var(--legal-gold);
           font-size: 8px;
           font-weight: 850;
         }
-
-        .imap-form {
+        .corporate-panel {
           display: grid;
-          gap: 7px;
+          gap: 8px;
           margin-top: 9px;
-          padding: 12px;
+          padding: 14px;
           border: 1px solid var(--legal-border);
           border-radius: 14px;
           background: var(--legal-surface);
         }
-
-        .imap-form input {
+        .corporate-panel h2 {
+          margin: 0 0 2px;
+          font-size: 13px;
+        }
+        .corporate-panel input {
           width: 100%;
-          height: 34px;
+          height: 36px;
           padding: 0 10px;
           border: 1px solid var(--legal-border);
           border-radius: 8px;
@@ -846,50 +871,82 @@ export default function MailConnectPage() {
           background: var(--legal-surface-2);
           color: var(--legal-text);
         }
-
+        .advanced-form {
+          display: grid;
+          gap: 7px;
+          margin-top: 2px;
+        }
         .row {
           display: grid;
-          grid-template-columns:
-            minmax(0, 1fr)
-            90px;
+          grid-template-columns: minmax(0, 1fr) 90px;
           gap: 7px;
         }
-
         .checks {
           display: flex;
           gap: 16px;
           color: var(--legal-muted);
           font-size: 9px;
         }
-
         .checks label {
           display: flex;
           align-items: center;
           gap: 5px;
         }
-
         .checks input {
           width: auto;
           height: auto;
         }
-
-        .save {
-          height: 36px;
-          border: 1px solid var(--legal-gold);
+        .save,
+        .secondary {
+          min-height: 36px;
           border-radius: 9px;
-          background: var(--legal-gold-soft);
-          color: var(--legal-gold-light);
           font-weight: 850;
           cursor: pointer;
         }
-
+        .save {
+          border: 1px solid var(--legal-gold);
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-light);
+        }
+        .secondary {
+          border: 1px solid var(--legal-border);
+          background: var(--legal-surface-2);
+          color: var(--legal-text);
+        }
+        .save:disabled {
+          opacity: .5;
+          cursor: default;
+        }
+        .status-text,
+        .success-text {
+          margin: 3px 0;
+          padding: 9px;
+          border-radius: 8px;
+          text-align: center;
+          font-size: 10px;
+        }
+        .status-text {
+          color: var(--legal-muted);
+          background: var(--legal-surface-2);
+        }
+        .success-text {
+          color: var(--legal-success);
+          background: var(--legal-surface-2);
+        }
+        .text-button {
+          justify-self: center;
+          border: 0;
+          background: transparent;
+          color: var(--legal-muted);
+          font-size: 9px;
+          cursor: pointer;
+        }
         footer {
           display: flex;
           justify-content: center;
           gap: 7px;
           margin-top: 12px;
         }
-
         footer button {
           height: 34px;
           padding: 0 12px;
@@ -899,19 +956,14 @@ export default function MailConnectPage() {
           color: var(--legal-text-soft);
           cursor: pointer;
         }
-
         @media (max-width: 600px) {
           .connect-page {
             align-items: start;
             padding: 38px 12px 20px;
           }
-
           .provider {
-            grid-template-columns:
-              38px
-              minmax(0, 1fr);
+            grid-template-columns: 38px minmax(0, 1fr);
           }
-
           .provider small {
             grid-column: 2;
           }
