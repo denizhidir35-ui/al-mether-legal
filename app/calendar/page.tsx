@@ -9731,6 +9731,130 @@ export default function CalendarPage() {
           }
         }
 
+
+        /* =================================================
+           MOBILE CALENDAR HARD WIDTH FIX
+           ================================================= */
+
+        @media (max-width: 760px) {
+
+          .lawyer-calendar,
+          .workspace,
+          .main-grid,
+          .calendar-panel,
+          .detail-panel {
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+
+            box-sizing: border-box;
+          }
+
+          .calendar-panel {
+            overflow-x: hidden;
+          }
+
+          .weekdays,
+          .month-grid {
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+
+            display: grid;
+
+            grid-template-columns:
+              repeat(
+                7,
+                minmax(0, 1fr)
+              );
+
+            box-sizing: border-box;
+          }
+
+          .weekdays {
+            gap: 2px;
+          }
+
+          .month-grid {
+            gap: 3px;
+          }
+
+          .weekday,
+          .day-cell,
+          .day-cell.empty {
+            width: auto;
+            min-width: 0;
+            max-width: 100%;
+
+            box-sizing: border-box;
+          }
+
+          .day-cell {
+            min-height: 50px;
+
+            padding: 3px;
+          }
+
+          .calendar-toolbar {
+            width: 100%;
+            max-width: 100%;
+
+            box-sizing: border-box;
+          }
+
+          .calendar-navigation {
+            width: 100%;
+            min-width: 0;
+
+            display: grid;
+
+            grid-template-columns:
+              34px
+              minmax(0, 1fr)
+              34px;
+
+            gap: 5px;
+          }
+
+          .calendar-navigation
+          .icon-button {
+            width: 34px;
+            min-width: 34px;
+          }
+
+          .month-title {
+            width: auto;
+            min-width: 0;
+
+            text-align: center;
+          }
+        }
+
+        @media (max-width: 390px) {
+
+          .calendar-panel {
+            padding:
+              6px 4px;
+          }
+
+          .weekdays {
+            gap: 1px;
+          }
+
+          .month-grid {
+            gap: 2px;
+          }
+
+          .day-cell {
+            min-height: 46px;
+
+            padding: 2px;
+          }
+
+          .weekday {
+            font-size: 6.5px;
+          }
+        }
         /* AUTOMATIC LEGAL ALARM UI */
 
         .alarm-plan-info {
@@ -10772,6 +10896,7 @@ export default function CalendarPage() {
 </main>
   );
 }
+
 
 
 

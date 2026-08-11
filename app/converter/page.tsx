@@ -3,6 +3,7 @@
 import LegalBrand from "@/components/LegalBrand";
 
 import {
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -31,6 +32,17 @@ type Tool =
 type ResultFile = {
   url: string;
   name: string;
+};
+
+type ConversionHistoryItem = {
+  id: string;
+  source_name: string;
+  output_name: string;
+  conversion_type: string;
+  storage_path: string;
+  file_size?: number | null;
+  created_at: string;
+  url?: string | null;
 };
 
 const TOOLS: Array<{
@@ -286,6 +298,20 @@ export default function ConverterPage() {
     useState(false);
 
   const [
+    conversionHistory,
+    setConversionHistory,
+  ] =
+    useState<
+      ConversionHistoryItem[]
+    >([]);
+
+  const [
+    historyLoading,
+    setHistoryLoading,
+  ] =
+    useState(false);
+
+  const [
     rotateAngle,
     setRotateAngle,
   ] =
@@ -324,6 +350,172 @@ export default function ConverterPage() {
     activeTool ===
       "merge_pdf";
 
+  async function loadConversionHistory() {
+    try {
+      setHistoryLoading(
+        true
+      );
+
+      const response =
+        await fetch(
+          "/api/conversion-history",
+          {
+            cache:
+              "no-store",
+          }
+        );
+
+      if (!response.ok) {
+        return;
+      }
+
+      const data =
+        await response.json();
+
+      setConversionHistory(
+        Array.isArray(
+          data?.items
+        )
+          ? data.items
+          : []
+      );
+    } catch {
+      /*
+       * Geçmiş yüklenemese bile
+       * dönüştürme aracı çalışmaya devam eder.
+       */
+    } finally {
+      setHistoryLoading(
+        false
+      );
+    }
+  }
+
+  async function persistConversion(
+    blob: Blob,
+    outputName: string
+  ) {
+    try {
+      const formData =
+        new FormData();
+
+      const sourceName =
+        files.length > 0
+          ? files
+              .map(
+                (file) =>
+                  file.name
+              )
+              .join(", ")
+          : "Belge";
+
+      formData.append(
+        "file",
+        new File(
+          [blob],
+          outputName,
+          {
+            type:
+              blob.type ||
+              "application/octet-stream",
+          }
+        )
+      );
+
+      formData.append(
+        "sourceName",
+        sourceName
+      );
+
+      formData.append(
+        "conversionType",
+        activeTool
+      );
+
+      const response =
+        await fetch(
+          "/api/conversion-history/save",
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+      if (!response.ok) {
+        return;
+      }
+
+      await loadConversionHistory();
+    } catch {
+      /*
+       * Storage kayıt hatası
+       * kullanıcının dönüşüm sonucunu bozmaz.
+       */
+    }
+  }
+
+  useEffect(() => {
+    loadConversionHistory();
+  }, []);
+
+  useEffect(() => {
+    if (
+      !result?.url ||
+      !result.name
+    ) {
+      return;
+    }
+
+    async function saveResult() {
+      try {
+        const response =
+          await fetch(
+            result!.url
+          );
+
+        const blob =
+          await response.blob();
+
+        await persistConversion(
+          blob,
+          result!.name
+        );
+      } catch {
+        // Geçmiş kaydı kritik değil.
+      }
+    }
+
+    saveResult();
+  }, [result?.url]);
+
+  useEffect(() => {
+    if (
+      !textResult ||
+      !files[0]
+    ) {
+      return;
+    }
+
+    const base =
+      files[0].name.replace(
+        /\.[^.]+$/,
+        ""
+      );
+
+    const blob =
+      new Blob(
+        [textResult],
+        {
+          type:
+            "text/plain;charset=utf-8",
+        }
+      );
+
+    persistConversion(
+      blob,
+      `${base}.txt`
+    );
+  }, [textResult]);
   function clearResult() {
     if (
       result?.url
@@ -1800,6 +1992,128 @@ export default function ConverterPage() {
             </div>
           )}
         </section>
+
+        <aside className="history-panel">
+          <div className="history-head">
+            <div>
+              <span>
+                BELGELER
+              </span>
+
+              <strong>
+                Son Dönüştürülenler
+              </strong>
+            </div>
+
+            <button
+              type="button"
+              onClick={
+                loadConversionHistory
+              }
+              aria-label="Geçmişi yenile"
+            >
+              ↻
+            </button>
+          </div>
+
+          {historyLoading &&
+          conversionHistory.length === 0 ? (
+            <div className="history-empty">
+              Belgeler yükleniyor...
+            </div>
+          ) : conversionHistory.length === 0 ? (
+            <div className="history-empty">
+              Henüz dönüştürülmüş belge yok.
+            </div>
+          ) : (
+            <div className="history-list">
+              {conversionHistory.map(
+                (item) => (
+                  <div
+                    key={
+                      item.id
+                    }
+                    className="history-item"
+                  >
+                    <div className="history-file">
+                      <strong>
+                        {
+                          item.output_name
+                        }
+                      </strong>
+
+                      <span>
+                        {
+                          TOOLS.find(
+                            (
+                              tool
+                            ) =>
+                              tool.id ===
+                              item.conversion_type
+                          )?.title ||
+                          item.conversion_type
+                        }
+                      </span>
+                    </div>
+
+                    <div className="history-meta">
+                      <span>
+                        {item.file_size
+                          ? formatSize(
+                              item.file_size
+                            )
+                          : "—"}
+                      </span>
+
+                      <span>
+                        {new Date(
+                          item.created_at
+                        ).toLocaleDateString(
+                          "tr-TR",
+                          {
+                            day:
+                              "2-digit",
+
+                            month:
+                              "2-digit",
+
+                            year:
+                              "numeric",
+                          }
+                        )}
+                      </span>
+                    </div>
+
+                    {item.url && (
+                      <div className="history-actions">
+                        <a
+                          href={
+                            item.url
+                          }
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Aç
+                        </a>
+
+                        <a
+                          href={
+                            item.url
+                          }
+                          download={
+                            item.output_name
+                          }
+                        >
+                          İndir
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )
+              )}
+            </div>
+          )}
+        </aside>
       </section>
 
       <LegalSessionControl />
@@ -1864,8 +2178,9 @@ export default function ConverterPage() {
             220px
             minmax(
               0,
-              760px
-            );
+              1fr
+            )
+            300px;
 
           gap: 9px;
 
@@ -1962,6 +2277,220 @@ export default function ConverterPage() {
           line-height: 1.35;
         }
 
+        .history-panel {
+          min-width: 0;
+
+          max-height:
+            calc(
+              100dvh -
+              165px
+            );
+
+          overflow: hidden;
+
+          display: flex;
+          flex-direction: column;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-lg);
+
+          background:
+            var(--legal-surface);
+
+          box-shadow:
+            var(--legal-shadow-sm);
+        }
+
+        .history-head {
+          min-height: 54px;
+
+          display: flex;
+          align-items: center;
+          justify-content:
+            space-between;
+
+          gap: 8px;
+
+          padding:
+            9px 10px;
+
+          border-bottom:
+            1px solid
+            var(--legal-border);
+        }
+
+        .history-head > div {
+          min-width: 0;
+
+          display: grid;
+          gap: 2px;
+        }
+
+        .history-head span {
+          color:
+            var(--legal-gold);
+
+          font-size: 6.5px;
+          font-weight: 900;
+          letter-spacing:
+            0.12em;
+        }
+
+        .history-head strong {
+          color:
+            var(--legal-text);
+
+          font-size: 9px;
+        }
+
+        .history-head button {
+          width: 29px;
+          height: 29px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+
+          color:
+            var(--legal-text-soft);
+
+          cursor: pointer;
+        }
+
+        .history-list {
+          min-height: 0;
+
+          overflow-y: auto;
+
+          display: grid;
+          align-content: start;
+
+          gap: 6px;
+
+          padding: 8px;
+
+          scrollbar-width: thin;
+        }
+
+        .history-item {
+          min-width: 0;
+
+          display: grid;
+          gap: 6px;
+
+          padding:
+            8px 9px;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface-2);
+        }
+
+        .history-file {
+          min-width: 0;
+
+          display: grid;
+          gap: 2px;
+        }
+
+        .history-file strong {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+
+          color:
+            var(--legal-text);
+
+          font-size: 8.5px;
+        }
+
+        .history-file span,
+        .history-meta span {
+          color:
+            var(--legal-muted);
+
+          font-size: 7px;
+        }
+
+        .history-meta {
+          display: flex;
+          align-items: center;
+          justify-content:
+            space-between;
+
+          gap: 7px;
+        }
+
+        .history-actions {
+          display: grid;
+
+          grid-template-columns:
+            1fr 1fr;
+
+          gap: 5px;
+        }
+
+        .history-actions a {
+          height: 27px;
+
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          border:
+            1px solid
+            var(--legal-border);
+
+          border-radius:
+            var(--legal-radius-sm);
+
+          background:
+            var(--legal-surface);
+
+          color:
+            var(--legal-text-soft);
+
+          text-decoration: none;
+
+          font-size: 7.5px;
+          font-weight: 800;
+        }
+
+        .history-actions a:hover {
+          border-color:
+            var(--legal-gold);
+
+          color:
+            var(--legal-gold);
+        }
+
+        .history-empty {
+          padding: 18px 12px;
+
+          color:
+            var(--legal-muted);
+
+          text-align: center;
+
+          font-size: 8px;
+          line-height: 1.5;
+        }
         .workspace {
           min-width: 0;
 
@@ -2529,6 +3058,20 @@ export default function ConverterPage() {
             padding: 10px;
           }
 
+          .history-panel {
+            max-height: none;
+
+            order: 3;
+          }
+
+          .history-list {
+            max-height: 260px;
+          }
+
+          .history-head {
+            min-height: 46px;
+          }
+
           .workspace-head {
             align-items: center;
           }
@@ -2658,6 +3201,7 @@ export default function ConverterPage() {
     </main>
   );
 }
+
 
 
 
