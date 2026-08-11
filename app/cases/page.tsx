@@ -750,11 +750,11 @@ export default function CasesPage() {
     const due = new Date(value);
     const now = new Date();
 
-    due.setHours(23, 59, 59, 999);
+    due.setHours(0, 0, 0, 0);
     now.setHours(0, 0, 0, 0);
 
     const days =
-      Math.ceil(
+      Math.round(
         (
           due.getTime() -
           now.getTime()
@@ -781,11 +781,11 @@ export default function CasesPage() {
     const due = new Date(value);
     const now = new Date();
 
-    due.setHours(23, 59, 59, 999);
+    due.setHours(0, 0, 0, 0);
     now.setHours(0, 0, 0, 0);
 
     const days =
-      Math.ceil(
+      Math.round(
         (
           due.getTime() -
           now.getTime()
@@ -5541,6 +5541,7 @@ export default function CasesPage() {
     </main>
   );
 }
+
 
 
 
