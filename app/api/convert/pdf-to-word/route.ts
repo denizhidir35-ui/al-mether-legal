@@ -14,6 +14,12 @@ import {
   extractLegalPdfText,
 } from "@/lib/legal/ocr";
 
+import {
+  ConversionInputError,
+  readPdfConversionInput,
+  type PdfConversionInput,
+} from "@/lib/legal/conversionInput";
+
 export const runtime =
   "nodejs";
 
@@ -35,7 +41,7 @@ function cleanName(
     .trim();
 }
 
-function paragraphsFromText(
+function createParagraphs(
   text: string
 ) {
   return text
@@ -47,9 +53,7 @@ function paragraphsFromText(
       /\r/g,
       "\n"
     )
-    .split(
-      "\n"
-    )
+    .split("\n")
     .map(
       (
         line
@@ -79,75 +83,20 @@ function paragraphsFromText(
 export async function POST(
   request: NextRequest
 ) {
+  let source:
+    PdfConversionInput |
+    null =
+      null;
+
   try {
-    const formData =
-      await request.formData();
-
-    const file =
-      formData.get(
-        "file"
-      );
-
-    if (
-      !(file instanceof File)
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "PDF dosyası bulunamadı.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    if (
-      !file.name
-        .toLowerCase()
-        .endsWith(
-          ".pdf"
-        )
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Yalnızca PDF destekleniyor.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    if (
-      file.size >
-      20 *
-        1024 *
-        1024
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "PDF 20 MB sınırını aşıyor.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    const bytes =
-      Buffer.from(
-        await file.arrayBuffer()
+    source =
+      await readPdfConversionInput(
+        request
       );
 
     const extracted =
       await extractLegalPdfText(
-        bytes
+        source.bytes
       );
 
     const document =
@@ -173,7 +122,7 @@ export async function POST(
             },
 
             children:
-              paragraphsFromText(
+              createParagraphs(
                 extracted.text
               ),
           },
@@ -181,13 +130,14 @@ export async function POST(
       });
 
     const output =
-      await Packer.toBuffer(
-        document
-      );
+      await Packer
+        .toBuffer(
+          document
+        );
 
     const baseName =
       cleanName(
-        file.name
+        source.fileName
       );
 
     return new NextResponse(
@@ -225,8 +175,17 @@ export async function POST(
             : "PDF → Word dönüşümü başarısız.",
       },
       {
-        status: 500,
+        status:
+          error instanceof
+          ConversionInputError
+            ? error.status
+            : 500,
       }
     );
+  } finally {
+    if (source) {
+      await source
+        .cleanup();
+    }
   }
 }

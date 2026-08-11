@@ -244,6 +244,172 @@ function parsePageExpression(
   return result;
 }
 
+type PreparedConversionRequest = {
+  body:
+    BodyInit;
+
+  headers?:
+    HeadersInit;
+};
+
+async function preparePdfConversionRequest(
+  file: File
+): Promise<PreparedConversionRequest> {
+  /*
+   * Vercel Function payload limitine
+   * yaklaşmamak için 3.5 MB üzerini
+   * doğrudan Storage'a gönder.
+   */
+  const directLimit =
+    3.5 *
+    1024 *
+    1024;
+
+  if (
+    file.size <=
+    directLimit
+  ) {
+    const formData =
+      new FormData();
+
+    formData.append(
+      "file",
+      file
+    );
+
+    return {
+      body:
+        formData,
+    };
+  }
+
+  const prepareResponse =
+    await fetch(
+      "/api/conversion-upload-url",
+      {
+        method:
+          "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+
+        body:
+          JSON.stringify({
+            fileName:
+              file.name,
+
+            fileType:
+              file.type ||
+              "application/pdf",
+
+            fileSize:
+              file.size,
+          }),
+      }
+    );
+
+  const prepareRaw =
+    await prepareResponse
+      .text();
+
+  let prepared:
+    {
+      ok?: boolean;
+      error?: string;
+      signedUrl?: string;
+      storagePath?: string;
+    } = {};
+
+  try {
+    prepared =
+      prepareRaw
+        ? JSON.parse(
+            prepareRaw
+          )
+        : {};
+  } catch {
+    throw new Error(
+      "Büyük PDF yükleme servisi geçersiz cevap verdi."
+    );
+  }
+
+  if (
+    !prepareResponse.ok ||
+    !prepared.ok ||
+    !prepared.signedUrl ||
+    !prepared.storagePath
+  ) {
+    throw new Error(
+      prepared.error ||
+      "Büyük PDF yüklemesi hazırlanamadı."
+    );
+  }
+
+  /*
+   * Vercel'e uğramadan
+   * direkt Supabase Storage.
+   */
+  const uploadBody =
+    new FormData();
+
+  uploadBody.append(
+    "cacheControl",
+    "3600"
+  );
+
+  uploadBody.append(
+    "",
+    file
+  );
+
+  const uploadResponse =
+    await fetch(
+      prepared.signedUrl,
+      {
+        method:
+          "PUT",
+
+        headers: {
+          "x-upsert":
+            "false",
+        },
+
+        body:
+          uploadBody,
+      }
+    );
+
+  if (
+    !uploadResponse.ok
+  ) {
+    const message =
+      await uploadResponse
+        .text();
+
+    throw new Error(
+      message ||
+      "PDF Storage'a yüklenemedi."
+    );
+  }
+
+  return {
+    headers: {
+      "Content-Type":
+        "application/json",
+    },
+
+    body:
+      JSON.stringify({
+        storagePath:
+          prepared.storagePath,
+
+        originalName:
+          file.name,
+      }),
+  };
+}
 async function optimizeImageForOcr(
   file: File
 ): Promise<File> {
@@ -549,6 +715,12 @@ export default function ConverterPage() {
     useState(false);
 
   const [
+    historyDeletingId,
+    setHistoryDeletingId,
+  ] =
+    useState("");
+
+  const [
     rotateAngle,
     setRotateAngle,
   ] =
@@ -628,6 +800,96 @@ export default function ConverterPage() {
     }
   }
 
+  async function deleteConversionHistoryItem(
+    item: ConversionHistoryItem
+  ) {
+    const approved =
+      window.confirm(
+        `"${item.output_name}" kalıcı olarak silinsin mi?`
+      );
+
+    if (!approved) {
+      return;
+    }
+
+    try {
+      setHistoryDeletingId(
+        item.id
+      );
+
+      const response =
+        await fetch(
+          `/api/conversion-history?id=${encodeURIComponent(
+            item.id
+          )}`,
+          {
+            method:
+              "DELETE",
+          }
+        );
+
+      const raw =
+        await response.text();
+
+      let data:
+        {
+          ok?: boolean;
+          error?: string;
+        } = {};
+
+      try {
+        data =
+          raw
+            ? JSON.parse(
+                raw
+              )
+            : {};
+      } catch {
+        throw new Error(
+          "Silme servisi geçersiz cevap verdi."
+        );
+      }
+
+      if (
+        !response.ok ||
+        !data.ok
+      ) {
+        throw new Error(
+          data.error ||
+          "Belge silinemedi."
+        );
+      }
+
+      /*
+       * Ekstra GET beklemeden
+       * ekrandan anında kaldır.
+       */
+      setConversionHistory(
+        (
+          current
+        ) =>
+          current.filter(
+            (
+              entry
+            ) =>
+              entry.id !==
+              item.id
+          )
+      );
+    } catch (
+      error
+    ) {
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : "Belge silinemedi."
+      );
+    } finally {
+      setHistoryDeletingId(
+        ""
+      );
+    }
+  }
   async function persistConversion(
     blob: Blob,
     outputName: string
@@ -1009,20 +1271,23 @@ export default function ConverterPage() {
       );
     }
 
-    const formData =
-      new FormData();
-
-    formData.append(
-      "file",
-      file
-    );
+    const prepared =
+      await preparePdfConversionRequest(
+        file
+      );
 
     const response =
       await fetch(
         "/api/convert/pdf-to-text",
         {
-          method: "POST",
-          body: formData,
+          method:
+            "POST",
+
+          headers:
+            prepared.headers,
+
+          body:
+            prepared.body,
         }
       );
 
@@ -1381,20 +1646,23 @@ export default function ConverterPage() {
       );
     }
 
-    const formData =
-      new FormData();
-
-    formData.append(
-      "file",
-      file
-    );
+    const prepared =
+      await preparePdfConversionRequest(
+        file
+      );
 
     const response =
       await fetch(
         "/api/convert/scanned-pdf-to-word",
         {
-          method: "POST",
-          body: formData,
+          method:
+            "POST",
+
+          headers:
+            prepared.headers,
+
+          body:
+            prepared.body,
         }
       );
 
@@ -1446,20 +1714,23 @@ export default function ConverterPage() {
       );
     }
 
-    const formData =
-      new FormData();
-
-    formData.append(
-      "file",
-      file
-    );
+    const prepared =
+      await preparePdfConversionRequest(
+        file
+      );
 
     const response =
       await fetch(
         "/api/convert/pdf-to-word",
         {
-          method: "POST",
-          body: formData,
+          method:
+            "POST",
+
+          headers:
+            prepared.headers,
+
+          body:
+            prepared.body,
         }
       );
 
@@ -2507,6 +2778,25 @@ export default function ConverterPage() {
                         >
                           İndir
                         </a>
+
+                        <button
+                          type="button"
+                          className="history-delete"
+                          disabled={
+                            historyDeletingId ===
+                            item.id
+                          }
+                          onClick={() =>
+                            deleteConversionHistoryItem(
+                              item
+                            )
+                          }
+                        >
+                          {historyDeletingId ===
+                          item.id
+                            ? "Siliniyor"
+                            : "Sil"}
+                        </button>
                       </div>
                     )}
                   </div>
@@ -2842,12 +3132,13 @@ export default function ConverterPage() {
           display: grid;
 
           grid-template-columns:
-            1fr 1fr;
+            1fr 1fr 1fr;
 
           gap: 5px;
         }
 
-        .history-actions a {
+        .history-actions a,
+        .history-actions button {
           height: 27px;
 
           display: flex;
@@ -2873,7 +3164,8 @@ export default function ConverterPage() {
           font-weight: 800;
         }
 
-        .history-actions a:hover {
+        .history-actions a:hover,
+        .history-actions button:hover {
           border-color:
             var(--legal-gold);
 
@@ -2881,6 +3173,35 @@ export default function ConverterPage() {
             var(--legal-gold);
         }
 
+        .history-actions button {
+          font-family:
+            inherit;
+
+          cursor: pointer;
+        }
+
+        .history-actions .history-delete {
+          border-color:
+            var(--legal-danger);
+
+          color:
+            var(--legal-danger);
+        }
+
+        .history-actions .history-delete:hover {
+          background:
+            color-mix(
+              in srgb,
+              var(--legal-danger)
+              10%,
+              transparent
+            );
+        }
+
+        .history-actions .history-delete:disabled {
+          opacity: 0.5;
+          cursor: default;
+        }
         .history-empty {
           padding: 18px 12px;
 
@@ -3602,6 +3923,8 @@ export default function ConverterPage() {
     </main>
   );
 }
+
+
 
 
 

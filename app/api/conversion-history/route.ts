@@ -1,4 +1,5 @@
 ﻿import {
+  NextRequest,
   NextResponse,
 } from "next/server";
 
@@ -120,6 +121,194 @@ export async function GET() {
           error instanceof Error
             ? error.message
             : "Dönüşüm geçmişi alınamadı.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest
+) {
+  try {
+    const {
+      appUser,
+      error,
+    } =
+      await getOrCreateAppUser();
+
+    if (
+      error ||
+      !appUser
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            error ||
+            "Oturum bulunamadı.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    const id =
+      new URL(
+        request.url
+      ).searchParams
+        .get("id")
+        ?.trim() ||
+      "";
+
+    if (!id) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Dönüşüm kaydı seçilmedi.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const supabase =
+      getSupabaseAdmin();
+
+    /*
+     * Önce kaydın gerçekten
+     * bu kullanıcıya ait olduğunu doğrula.
+     */
+    const existing =
+      await supabase
+        .from(
+          "conversion_history"
+        )
+        .select(
+          "id,storage_path"
+        )
+        .eq(
+          "id",
+          id
+        )
+        .eq(
+          "user_id",
+          appUser.id
+        )
+        .maybeSingle();
+
+    if (
+      existing.error
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            existing.error.message,
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    if (
+      !existing.data
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Dönüştürülen belge bulunamadı.",
+        },
+        {
+          status: 404,
+        }
+      );
+    }
+
+    /*
+     * Önce Storage dosyasını kaldır.
+     */
+    const storageResult =
+      await supabase
+        .storage
+        .from(
+          "legal-conversions"
+        )
+        .remove([
+          existing.data
+            .storage_path,
+        ]);
+
+    if (
+      storageResult.error
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            storageResult.error.message,
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    /*
+     * Ardından geçmiş kaydını sil.
+     */
+    const deleteResult =
+      await supabase
+        .from(
+          "conversion_history"
+        )
+        .delete()
+        .eq(
+          "id",
+          id
+        )
+        .eq(
+          "user_id",
+          appUser.id
+        );
+
+    if (
+      deleteResult.error
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            deleteResult.error.message,
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    return NextResponse.json({
+      ok: true,
+      id,
+    });
+  } catch (
+    error: unknown
+  ) {
+    return NextResponse.json(
+      {
+        ok: false,
+
+        error:
+          error instanceof Error
+            ? error.message
+            : "Belge silinemedi.",
       },
       {
         status: 500,
