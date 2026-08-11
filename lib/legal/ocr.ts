@@ -8,6 +8,7 @@ export type LegalOcrResult = {
   text: string;
 
   engine:
+    | "pdf-text"
     | "gemini-flash-lite"
     | "tesseract";
 };
@@ -24,10 +25,7 @@ function withTimeout<T>(
     promise,
 
     new Promise<T>(
-      (
-        _resolve,
-        reject
-      ) => {
+      (_resolve, reject) => {
         const timeout =
           setTimeout(
             () => {
@@ -99,7 +97,6 @@ async function geminiExtract(
         ],
 
         config: {
-
           maxOutputTokens:
             32768,
         },
@@ -113,6 +110,146 @@ async function geminiExtract(
       ?.trim() ||
     ""
   );
+}
+
+async function extractEmbeddedPdfText(
+  bytes: Buffer
+) {
+  const {
+    getDocument,
+  } =
+    await import(
+      "pdfjs-dist/legacy/build/pdf.mjs"
+    );
+
+  const loadingTask =
+    getDocument({
+      data:
+        new Uint8Array(
+          bytes
+        ),
+    });
+
+  const pdf =
+    await loadingTask.promise;
+
+  try {
+    const pages:
+      string[] = [];
+
+    let pagesWithText =
+      0;
+
+    for (
+      let pageNo = 1;
+      pageNo <=
+      pdf.numPages;
+      pageNo += 1
+    ) {
+      const page =
+        await pdf.getPage(
+          pageNo
+        );
+
+      const content =
+        await page
+          .getTextContent();
+
+      const parts:
+        string[] = [];
+
+      for (
+        const item
+        of content.items
+      ) {
+        if (
+          !(
+            "str" in
+            item
+          )
+        ) {
+          continue;
+        }
+
+        const value =
+          String(
+            item.str ||
+            ""
+          );
+
+        if (value) {
+          parts.push(
+            value
+          );
+        }
+
+        if (
+          "hasEOL" in item &&
+          item.hasEOL
+        ) {
+          parts.push(
+            "\n"
+          );
+        }
+        else {
+          parts.push(
+            " "
+          );
+        }
+      }
+
+      const pageText =
+        parts
+          .join("")
+          .replace(
+            /[ \t]+\n/g,
+            "\n"
+          )
+          .replace(
+            /\n{3,}/g,
+            "\n\n"
+          )
+          .trim();
+
+      if (
+        pageText
+          .replace(
+            /\s+/g,
+            ""
+          )
+          .length >= 30
+      ) {
+        pagesWithText += 1;
+      }
+
+      pages.push(
+        pageText
+      );
+    }
+
+    const text =
+      pages
+        .filter(Boolean)
+        .join(
+          "\n\n--- SAYFA ---\n\n"
+        )
+        .trim();
+
+    return {
+      text,
+
+      pageCount:
+        pdf.numPages,
+
+      pagesWithText,
+    };
+  } finally {
+    await loadingTask
+      .destroy()
+      .catch(
+        () => {}
+      );
+  }
 }
 
 export async function extractLegalImageText(
@@ -149,18 +286,12 @@ export async function extractLegalImageText(
           "gemini-flash-lite",
       };
     }
-  } catch (
-    error
-  ) {
+  } catch (error) {
     console.error(
       "LEGAL GEMINI IMAGE OCR:",
       error
     );
 
-    /*
-     * Production'da Tesseract fallback YOK.
-     * Serverless RAM/CPU ve uzun bekleme yaratmasını istemiyoruz.
-     */
     if (
       process.env
         .NODE_ENV ===
@@ -170,9 +301,6 @@ export async function extractLegalImageText(
     }
   }
 
-  /*
-   * Sadece localhost geliştirme fallback.
-   */
   const {
     createWorker,
   } =
@@ -191,13 +319,11 @@ export async function extractLegalImageText(
         bytes
       );
 
-    const text =
-      result.data.text
-        ?.trim() ||
-      "";
-
     return {
-      text,
+      text:
+        result.data.text
+          ?.trim() ||
+        "",
 
       engine:
         "tesseract",
@@ -214,6 +340,58 @@ export async function extractLegalImageText(
 export async function extractLegalPdfText(
   bytes: Buffer
 ): Promise<LegalOcrResult> {
+
+  /*
+   * 1) ÖNCE PDF'İN KENDİ TEXT LAYER'I
+   * AI çağrısı yok -> hızlı + ucuz.
+   */
+  try {
+    const embedded =
+      await extractEmbeddedPdfText(
+        bytes
+      );
+
+    const compactLength =
+      embedded.text
+        .replace(
+          /\s+/g,
+          ""
+        )
+        .length;
+
+    const requiredPages =
+      Math.max(
+        1,
+
+        Math.ceil(
+          embedded.pageCount *
+          0.8
+        )
+      );
+
+    if (
+      compactLength >= 80 &&
+      embedded.pagesWithText >=
+        requiredPages
+    ) {
+      return {
+        text:
+          embedded.text,
+
+        engine:
+          "pdf-text",
+      };
+    }
+  } catch (error) {
+    console.error(
+      "LEGAL PDF TEXT LAYER:",
+      error
+    );
+  }
+
+  /*
+   * 2) TEXT LAYER YOKSA GERÇEK OCR
+   */
   const text =
     await geminiExtract(
       bytes,
@@ -233,7 +411,7 @@ export async function extractLegalPdfText(
         "Sadece belgede bulunan metni döndür.",
       ].join(" "),
 
-      30000
+      50000
     );
 
   if (!text) {

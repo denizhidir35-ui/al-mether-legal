@@ -1262,6 +1262,9 @@ export default function ConverterPage() {
   }
 
   async function pdfToText() {
+    setTextResult("");
+    setTextCopied(false);
+
     const file =
       files[0];
 
@@ -1341,6 +1344,9 @@ export default function ConverterPage() {
   }
 
   async function imageToText() {
+    setTextResult("");
+    setTextCopied(false);
+
     const file =
       files[0];
 
@@ -2866,12 +2872,9 @@ export default function ConverterPage() {
           display: grid;
 
           grid-template-columns:
-            220px
-            minmax(
-              0,
-              1fr
-            )
-            300px;
+            minmax(200px, 0.78fr)
+            minmax(500px, 1.8fr)
+            minmax(280px, 1fr);
 
           gap: 9px;
 
@@ -3216,7 +3219,7 @@ export default function ConverterPage() {
         .workspace {
           min-width: 0;
 
-          padding: 13px;
+          padding: 11px;
         }
 
         .workspace-head {
@@ -3284,7 +3287,7 @@ export default function ConverterPage() {
         }
 
         .drop-zone {
-          min-height: 112px;
+          min-height: 86px;
 
           display: grid;
           place-content: center;
@@ -3741,7 +3744,9 @@ export default function ConverterPage() {
 
           .converter-shell {
             grid-template-columns:
-              1fr;
+              minmax(200px, 0.78fr)
+            minmax(500px, 1.8fr)
+            minmax(280px, 1fr);
           }
 
           .tool-list {
@@ -3923,6 +3928,8 @@ export default function ConverterPage() {
     </main>
   );
 }
+
+
 
 
 
