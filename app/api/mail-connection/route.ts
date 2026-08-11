@@ -24,7 +24,9 @@ export async function GET() {
     return NextResponse.json(
       {
         ok: false,
-        connected: false,
+        connected:
+          false,
+
         error:
           error ||
           "Kullanıcı bulunamadı.",
@@ -40,7 +42,9 @@ export async function GET() {
 
   const result =
     await supabase
-      .from("mail_connections")
+      .from(
+        "mail_connections"
+      )
       .select(
         "id,provider,email,status,updated_at"
       )
@@ -53,11 +57,15 @@ export async function GET() {
         "connected"
       );
 
-  if (result.error) {
+  if (
+    result.error
+  ) {
     return NextResponse.json(
       {
         ok: false,
-        connected: false,
+        connected:
+          false,
+
         error:
           result.error.message,
       },
@@ -68,12 +76,40 @@ export async function GET() {
   }
 
   const connections =
-    result.data || [];
+    result.data ||
+    [];
 
   return NextResponse.json({
     ok: true,
+
     connected:
-      connections.length > 0,
+      connections.length >
+      0,
+
     connections,
+
+    capabilities: {
+      google:
+        Boolean(
+          process.env
+            .GOOGLE_CLIENT_ID &&
+          process.env
+            .GOOGLE_CLIENT_SECRET
+        ),
+
+      microsoft:
+        Boolean(
+          process.env
+            .MICROSOFT_CLIENT_ID &&
+          process.env
+            .MICROSOFT_CLIENT_SECRET
+        ),
+
+      imap:
+        Boolean(
+          process.env
+            .MAIL_CREDENTIALS_KEY
+        ),
+    },
   });
 }
