@@ -10,6 +10,7 @@ import {
 
 import LegalDock from "@/components/LegalDock";
 import LegalSessionControl from "@/components/LegalSessionControl";
+import PasswordUpdateForm from "@/components/PasswordUpdateForm";
 
 type Theme =
   | "dark"
@@ -373,6 +374,23 @@ export default function SettingsPage() {
           </a>
         </div>
 
+        <div className="settings-panel">
+          <div className="settings-section-title">
+            Güvenlik
+          </div>
+
+          <p>
+            Mevcut oturumunuz için yeni bir şifre belirleyin.
+          </p>
+
+          <div className="password-settings-form">
+            <PasswordUpdateForm
+              buttonLabel="Şifreyi Güncelle"
+              noSessionMessage="Şifre değiştirmek için çıkış yapıp yeniden giriş yapın."
+            />
+          </div>
+        </div>
+
         {adminMode && (
           <div className="settings-panel admin-panel">
             <div className="admin-head">
@@ -734,6 +752,10 @@ export default function SettingsPage() {
 
           color:
             var(--legal-gold);
+        }
+
+        .password-settings-form {
+          width: min(360px, 100%);
         }
 
         .admin-panel {

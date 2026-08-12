@@ -1,9 +1,12 @@
 "use client";
 
 import { signIn, useSession } from "next-auth/react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
+
+import { createClient } from "@/lib/supabaseClient";
 
 type LoginPhase = "waiting" | "intro" | "fading" | "form";
 
@@ -57,9 +60,23 @@ export default function LoginPage() {
     setSubmitting(true);
 
     const formData = new FormData(event.currentTarget);
+    const email = String(formData.get("email") || "");
+    const password = String(formData.get("password") || "");
+    const supabase = createClient();
+    const supabaseResult = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (supabaseResult.error) {
+      setError("E-posta veya şifre hatalı.");
+      setSubmitting(false);
+      return;
+    }
+
     const result = await signIn("credentials", {
-      email: formData.get("email"),
-      password: formData.get("password"),
+      email,
+      password,
       redirect: false,
     });
 
@@ -69,6 +86,7 @@ export default function LoginPage() {
       return;
     }
 
+    await supabase.auth.signOut({ scope: "local" });
     setError("E-posta veya şifre hatalı.");
     setSubmitting(false);
   }
@@ -218,6 +236,19 @@ export default function LoginPage() {
           text-align: center;
         }
 
+        .forgot-link {
+          margin-top: -4px;
+          color: #c8a45f;
+          font-size: 10px;
+          text-align: center;
+          text-decoration: none;
+        }
+
+        .forgot-link:hover {
+          color: #e0c37d;
+          text-decoration: underline;
+        }
+
         @keyframes form-in {
           from {
             opacity: 0;
@@ -310,6 +341,10 @@ export default function LoginPage() {
             >
               {submitting ? "Giriş yapılıyor..." : "Giriş Yap"}
             </button>
+
+            <Link className="forgot-link" href="/auth/forgot-password">
+              Şifremi Unuttum
+            </Link>
           </form>
         </section>
       ) : null}

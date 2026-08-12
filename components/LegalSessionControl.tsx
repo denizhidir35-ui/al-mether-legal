@@ -14,6 +14,8 @@ import {
   useState,
 } from "react";
 
+import { createClient } from "@/lib/supabaseClient";
+
 export default function LegalSessionControl() {
   const router =
     useRouter();
@@ -104,6 +106,11 @@ export default function LegalSessionControl() {
     return null;
   }
 
+  async function handleSignOut() {
+    await createClient().auth.signOut({ scope: "local" });
+    await signOut({ callbackUrl: "/login" });
+  }
+
   return (
     <div className="legal-session-control">
       <button
@@ -140,12 +147,7 @@ export default function LegalSessionControl() {
       <button
         type="button"
         className="logout-button"
-        onClick={() =>
-          signOut({
-            callbackUrl:
-              "/login",
-          })
-        }
+        onClick={handleSignOut}
         title="Çıkış yap"
       >
         Çıkış
