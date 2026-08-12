@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { getOrCreateAppUser } from "@/lib/alUser";
@@ -707,9 +707,12 @@ export async function POST(
 
           source:
             recordMode ===
-            "deemed_service"
-              ? "gmail_uets"
-              : "verified_rule",
+            "verified_deadline"
+              ? "verified_rule"
+              : recordMode ===
+                  "deemed_service"
+                ? "gmail_uets"
+                : "manual",
 
           source_mail_id:
             dedupeKey,
@@ -1036,8 +1039,4 @@ export async function POST(
     );
   }
 }
-
-
-
-
 

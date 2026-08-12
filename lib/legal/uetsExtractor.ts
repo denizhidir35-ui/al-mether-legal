@@ -461,6 +461,7 @@ function extractCourt(text: string): string {
   const repairedText = repairCommonMojibake(text);
 
   const patterns = [
+    /(?:Kurum|Mahkeme|Yargı birimi)\s*:\s*([A-Za-zÇĞİÖŞÜçğıöşü\s.-]+?\d+\.\s*(?:İş|Aile|Asliye Hukuk|Asliye Ceza|Ağır Ceza|Sulh Hukuk|Sulh Ceza|Ticaret|İdare|Vergi)\s+Mahkemesi)/iu,
     /barkod numaralı ve\s+([A-Za-zÇĞİÖŞÜçğıöşü\s.-]+?\d+\.\s*İş\s+Mahkemesi)\s*\[/i,
     /barkod numaralı ve\s+([A-Za-zÇĞİÖŞÜçğıöşü\s.-]+?\d+\.\s*Aile\s+Mahkemesi)\s*\[/i,
     /barkod numaralı ve\s+([A-Za-zÇĞİÖŞÜçğıöşü\s.-]+?\d+\.\s*Asliye Hukuk\s+Mahkemesi)\s*\[/i,
