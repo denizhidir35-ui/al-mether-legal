@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PDFDocument } from "pdf-lib";
 import LegalBrand from "@/components/LegalBrand";
 import LegalDock from "@/components/LegalDock";
@@ -212,6 +212,8 @@ export default function CalendarPage() {
   const [error, setError] =
     useState("");
 
+  const loadRequestRef = useRef(0);
+
   const [activeDetailTab, setActiveDetailTab] =
     useState<
       "general" |
@@ -318,6 +320,10 @@ export default function CalendarPage() {
   }, [year, month]);
 
   const loadEvents = useCallback(async () => {
+    const requestId = ++loadRequestRef.current;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 15000);
+
     try {
       setLoading(true);
       setError("");
@@ -326,6 +332,7 @@ export default function CalendarPage() {
         `/api/calendar-events?from=${monthRange.first}&to=${monthRange.last}`,
         {
           cache: "no-store",
+          signal: controller.signal,
         }
       );
 
@@ -340,6 +347,10 @@ export default function CalendarPage() {
       }
 
       const loadedEvents = data.events || [];
+
+      if (requestId !== loadRequestRef.current) {
+        return;
+      }
 
       setEvents(loadedEvents);
 
@@ -365,15 +376,25 @@ export default function CalendarPage() {
         }
       }
     } catch (loadError) {
+      if (requestId !== loadRequestRef.current) {
+        return;
+      }
+
       setEvents([]);
 
       setError(
-        loadError instanceof Error
+        loadError instanceof DOMException && loadError.name === "AbortError"
+          ? "Takvim isteği zaman aşımına uğradı. Lütfen tekrar deneyin."
+          : loadError instanceof Error
           ? loadError.message
           : "Takvim kayıtları alınamadı."
       );
     } finally {
-      setLoading(false);
+      window.clearTimeout(timeoutId);
+
+      if (requestId === loadRequestRef.current) {
+        setLoading(false);
+      }
     }
   }, [monthRange.first, monthRange.last]);
 
@@ -10203,6 +10224,12 @@ export default function CalendarPage() {
             {error && (
               <div className="error-state">
                 {error}
+              </div>
+            )}
+
+            {!loading && !error && events.length === 0 && (
+              <div className="empty-state">
+                Bu ay için takvim kaydı bulunmuyor.
               </div>
             )}
           </section>

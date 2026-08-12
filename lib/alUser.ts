@@ -4,6 +4,11 @@ import { getServerSession } from "next-auth";
 
 import { authOptions } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import {
+  appUserAccessMessage,
+  notifyAdminsOfPendingUser,
+  PENDING_APPROVAL_STATUS,
+} from "@/lib/userApproval";
 
 export type AppUserRecord = {
   id: string;
@@ -83,15 +88,11 @@ export async function getOrCreateAppUser(): Promise<GetOrCreateAppUserResult> {
       const currentUser =
         existing.data as AppUserRecord;
 
-      if (
-        currentUser.status &&
-        currentUser.status !== "active"
-      ) {
+      if (currentUser.status !== "active") {
         return {
           user: sessionUser,
           appUser: currentUser,
-          error:
-            "AL Mether Legal hesabınız pasif durumda. Yönetici ile iletişime geçin.",
+          error: appUserAccessMessage(currentUser.status),
         };
       }
 
@@ -143,7 +144,7 @@ export async function getOrCreateAppUser(): Promise<GetOrCreateAppUserResult> {
         google_id: email,
         name: sessionUser.name,
         role: "lawyer",
-        status: "active",
+        status: PENDING_APPROVAL_STATUS,
       })
       .select("*")
       .single();
@@ -155,6 +156,8 @@ export async function getOrCreateAppUser(): Promise<GetOrCreateAppUserResult> {
         error: created.error.message,
       };
     }
+
+    await notifyAdminsOfPendingUser(created.data as AppUserRecord);
 
     return {
       user: sessionUser,

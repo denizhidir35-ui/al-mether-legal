@@ -1,25 +1,40 @@
-﻿import "server-only";
+import "server-only";
 
 import {
-  GoogleGenAI,
-} from "@google/genai";
+  createRequire,
+} from "node:module";
+
+import {
+  dirname,
+  join,
+} from "node:path";
+
+import {
+  pathToFileURL,
+} from "node:url";
+
+const nodeRequire =
+  createRequire(
+    join(
+      process.cwd(),
+      "package.json"
+    )
+  );
 
 export type LegalOcrResult = {
   text: string;
 
   engine:
     | "pdf-text"
-    | "gemini-flash-lite"
     | "tesseract";
 };
 
-const GEMINI_MODEL =
-  process.env.GEMINI_OCR_MODEL ||
-  "gemini-3.5-flash-lite";
-
 function withTimeout<T>(
   promise: Promise<T>,
-  timeoutMs: number
+  timeoutMs: number,
+  message:
+    string =
+    "OCR işlemi zaman aşımına uğradı."
 ): Promise<T> {
   return Promise.race([
     promise,
@@ -35,7 +50,7 @@ function withTimeout<T>(
 
               reject(
                 new Error(
-                  "OCR servisi zaman aşımına uğradı."
+                  message
                 )
               );
             },
@@ -46,70 +61,60 @@ function withTimeout<T>(
   ]);
 }
 
-function getAi() {
-  const apiKey =
-    process.env
-      .GEMINI_API_KEY ||
-    "";
-
-  if (!apiKey) {
-    throw new Error(
-      "GEMINI_API_KEY tanımlı değil."
-    );
-  }
-
-  return new GoogleGenAI({
-    apiKey,
-  });
+function cleanOcrText(
+  value: string
+) {
+  return String(
+    value || ""
+  )
+    .replace(
+      /\r/g,
+      ""
+    )
+    .replace(
+      /[ \t]+\n/g,
+      "\n"
+    )
+    .replace(
+      /[ \t]{2,}/g,
+      " "
+    )
+    .replace(
+      /\n{4,}/g,
+      "\n\n"
+    )
+    .trim();
 }
 
-async function geminiExtract(
-  bytes: Buffer,
-  mimeType: string,
-  prompt: string,
-  timeoutMs = 25000
-) {
-  const ai =
-    getAi();
-
-  const response =
-    await withTimeout(
-      ai.models.generateContent({
-        model:
-          GEMINI_MODEL,
-
-        contents: [
-          {
-            inlineData: {
-              mimeType,
-
-              data:
-                bytes.toString(
-                  "base64"
-                ),
-            },
-          },
-
-          {
-            text:
-              prompt,
-          },
-        ],
-
-        config: {
-          maxOutputTokens:
-            32768,
-        },
-      }),
-
-      timeoutMs
+async function loadPdfJs() {
+  const pdfjs =
+    await import(
+      "pdfjs-dist/legacy/build/pdf.mjs"
     );
 
-  return (
-    response.text
-      ?.trim() ||
-    ""
-  );
+  /*
+   * Next/Turbopack bundle içindeki sahte worker yerine
+   * node_modules içindeki gerçek PDF.js worker kullanılır.
+   */
+  const pdfMain =
+    nodeRequire.resolve(
+      "pdfjs-dist/legacy/build/pdf.mjs"
+    );
+
+  const workerPath =
+    join(
+      dirname(
+        pdfMain
+      ),
+      "pdf.worker.mjs"
+    );
+
+  pdfjs.GlobalWorkerOptions.workerSrc =
+    pathToFileURL(
+      workerPath
+    ).href;
+
+  return pdfjs;
 }
 
 async function extractEmbeddedPdfText(
@@ -118,9 +123,7 @@ async function extractEmbeddedPdfText(
   const {
     getDocument,
   } =
-    await import(
-      "pdfjs-dist/legacy/build/pdf.mjs"
-    );
+    await loadPdfJs();
 
   const loadingTask =
     getDocument({
@@ -184,7 +187,8 @@ async function extractEmbeddedPdfText(
         }
 
         if (
-          "hasEOL" in item &&
+          "hasEOL" in
+            item &&
           item.hasEOL
         ) {
           parts.push(
@@ -199,17 +203,9 @@ async function extractEmbeddedPdfText(
       }
 
       const pageText =
-        parts
-          .join("")
-          .replace(
-            /[ \t]+\n/g,
-            "\n"
-          )
-          .replace(
-            /\n{3,}/g,
-            "\n\n"
-          )
-          .trim();
+        cleanOcrText(
+          parts.join("")
+        );
 
       if (
         pageText
@@ -219,24 +215,27 @@ async function extractEmbeddedPdfText(
           )
           .length >= 30
       ) {
-        pagesWithText += 1;
+        pagesWithText +=
+          1;
       }
 
       pages.push(
         pageText
       );
+
+      try {
+        page.cleanup();
+      } catch {}
     }
 
-    const text =
-      pages
-        .filter(Boolean)
-        .join(
-          "\n\n--- SAYFA ---\n\n"
-        )
-        .trim();
-
     return {
-      text,
+      text:
+        pages
+          .filter(Boolean)
+          .join(
+            "\n\n--- SAYFA ---\n\n"
+          )
+          .trim(),
 
       pageCount:
         pdf.numPages,
@@ -252,55 +251,7 @@ async function extractEmbeddedPdfText(
   }
 }
 
-export async function extractLegalImageText(
-  bytes: Buffer,
-  mimeType: string
-): Promise<LegalOcrResult> {
-  try {
-    const text =
-      await geminiExtract(
-        bytes,
-
-        mimeType,
-
-        [
-          "Bu bir hukuk ofisi OCR işlemidir.",
-          "Görselde gerçekten görünen tüm metni eksiksiz çıkar.",
-          "Türkçe karakterleri aynen koru.",
-          "Mahkeme adı, dosya numarası, esas numarası, karar numarası, tarihler, T.C. kimlik numarası, kişi ve şirket adlarını değiştirme.",
-          "Satır yapısını mümkün olduğunca koru.",
-          "Özetleme yapma.",
-          "Yorum ekleme.",
-          "Markdown kullanma.",
-          "Sadece belgede gerçekten görünen metni döndür.",
-        ].join(" "),
-
-        20000
-      );
-
-    if (text) {
-      return {
-        text,
-
-        engine:
-          "gemini-flash-lite",
-      };
-    }
-  } catch (error) {
-    console.error(
-      "LEGAL GEMINI IMAGE OCR:",
-      error
-    );
-
-    if (
-      process.env
-        .NODE_ENV ===
-      "production"
-    ) {
-      throw error;
-    }
-  }
-
+async function createLegalOcrWorker() {
   const {
     createWorker,
   } =
@@ -308,22 +259,256 @@ export async function extractLegalImageText(
       "tesseract.js"
     );
 
-  const worker =
-    await createWorker(
-      "tur+eng"
+  /*
+   * Next/Turbopack'in worker dosyasını chunk içine
+   * taşımasını engelle.
+   *
+   * Tesseract'ın gerçek Node worker-script dosyasını kullan.
+   */
+  const tesseractMain =
+    nodeRequire.resolve(
+      "tesseract.js"
     );
 
+  const workerPath =
+    join(
+      dirname(
+        tesseractMain
+      ),
+      "worker-script",
+      "node",
+      "index.js"
+    );
+
+  return createWorker(
+    [
+      "tur",
+      "eng",
+    ],
+
+    undefined,
+
+    {
+      workerPath,
+    }
+  );
+}
+async function recognizeImage(
+  worker: any,
+  bytes: Buffer,
+  timeoutMs = 45000
+) {
+  const result: any =
+    await withTimeout<any>(
+      worker.recognize(
+        bytes
+      ),
+
+      timeoutMs,
+
+      "Görsel OCR işlemi zaman aşımına uğradı."
+    );
+
+  return cleanOcrText(
+    result?.data?.text ||
+    ""
+  );
+}
+
+async function renderPdfPageToPng(
+  page: any
+): Promise<Buffer> {
+  const {
+    createCanvas,
+  } =
+    await import(
+      "@napi-rs/canvas"
+    );
+
+  /*
+   * ~200 DPI civarı.
+   * Hukuki belgede küçük yazılar için
+   * 1.8 scale yeterli denge sağlar.
+   */
+  const viewport =
+    page.getViewport({
+      scale: 1.8,
+    });
+
+  const width =
+    Math.max(
+      1,
+      Math.ceil(
+        viewport.width
+      )
+    );
+
+  const height =
+    Math.max(
+      1,
+      Math.ceil(
+        viewport.height
+      )
+    );
+
+  const canvas =
+    createCanvas(
+      width,
+      height
+    );
+
+  const context =
+    canvas.getContext(
+      "2d"
+    );
+
+  const renderTask =
+    page.render({
+      canvasContext:
+        context as any,
+
+      viewport,
+    } as any);
+
+  await withTimeout(
+    renderTask.promise,
+
+    30000,
+
+    "PDF sayfası görüntüye çevrilemedi."
+  );
+
+  return Buffer.from(
+    canvas.toBuffer(
+      "image/png"
+    )
+  );
+}
+
+async function ocrPdfPages(
+  bytes: Buffer
+) {
+  const {
+    getDocument,
+  } =
+    await loadPdfJs();
+
+  const loadingTask =
+    getDocument({
+      data:
+        new Uint8Array(
+          bytes
+        ),
+    });
+
+  const pdf =
+    await loadingTask.promise;
+
+  const worker =
+    await createLegalOcrWorker();
+
   try {
-    const result =
-      await worker.recognize(
+    const pages:
+      string[] = [];
+
+    for (
+      let pageNo = 1;
+      pageNo <=
+      pdf.numPages;
+      pageNo += 1
+    ) {
+      const page =
+        await pdf.getPage(
+          pageNo
+        );
+
+      try {
+        const png =
+          await renderPdfPageToPng(
+            page
+          );
+
+        const pageText =
+          await recognizeImage(
+            worker,
+            png,
+            50000
+          );
+
+        pages.push(
+          pageText
+        );
+      } finally {
+        try {
+          page.cleanup();
+        } catch {}
+      }
+    }
+
+    return cleanOcrText(
+      pages
+        .map(
+          (
+            pageText,
+            index
+          ) =>
+            pageText
+              ? `--- SAYFA ${index + 1} ---\n${pageText}`
+              : ""
+        )
+        .filter(Boolean)
+        .join(
+          "\n\n"
+        )
+    );
+  } finally {
+    await worker
+      .terminate()
+      .catch(
+        () => {}
+      );
+
+    await loadingTask
+      .destroy()
+      .catch(
+        () => {}
+      );
+  }
+}
+
+export async function extractLegalImageText(
+  bytes: Buffer,
+  mimeType: string
+): Promise<LegalOcrResult> {
+  void mimeType;
+
+  if (
+    !bytes ||
+    bytes.length === 0
+  ) {
+    throw new Error(
+      "OCR için görsel verisi bulunamadı."
+    );
+  }
+
+  const worker =
+    await createLegalOcrWorker();
+
+  try {
+    const text =
+      await recognizeImage(
+        worker,
         bytes
       );
 
+    if (!text) {
+      throw new Error(
+        "Görsel içerisinden okunabilir metin çıkarılamadı."
+      );
+    }
+
     return {
-      text:
-        result.data.text
-          ?.trim() ||
-        "",
+      text,
 
       engine:
         "tesseract",
@@ -340,10 +525,20 @@ export async function extractLegalImageText(
 export async function extractLegalPdfText(
   bytes: Buffer
 ): Promise<LegalOcrResult> {
+  if (
+    !bytes ||
+    bytes.length === 0
+  ) {
+    throw new Error(
+      "PDF verisi bulunamadı."
+    );
+  }
 
   /*
-   * 1) ÖNCE PDF'İN KENDİ TEXT LAYER'I
-   * AI çağrısı yok -> hızlı + ucuz.
+   * 1) ÖNCE PDF TEXT LAYER
+   *
+   * Normal dijital PDF ise OCR yok.
+   * En hızlı yol budur.
    */
   try {
     const embedded =
@@ -385,33 +580,24 @@ export async function extractLegalPdfText(
   } catch (error) {
     console.error(
       "LEGAL PDF TEXT LAYER:",
-      error
+      error instanceof
+        Error
+        ? error.message
+        : "Text layer okunamadı."
     );
   }
 
   /*
-   * 2) TEXT LAYER YOKSA GERÇEK OCR
+   * 2) TARANMIŞ PDF
+   *
+   * PDF sayfalarını PNG'ye render et.
+   * Aynı Tesseract worker ile sırayla OCR yap.
+   *
+   * Ücretli API YOK.
    */
   const text =
-    await geminiExtract(
-      bytes,
-
-      "application/pdf",
-
-      [
-        "Bu bir hukuk ofisi belge okuma işlemidir.",
-        "PDF içindeki tüm okunabilir metni eksiksiz çıkar.",
-        "PDF taranmış görüntülerden oluşuyorsa OCR uygula.",
-        "Türkçe karakterleri aynen koru.",
-        "Mahkeme adı, dosya numarası, esas ve karar numaraları, tarihler, taraf adları ve diğer hukuki bilgileri değiştirme.",
-        "Sayfa sırasını ve paragraf yapısını mümkün olduğunca koru.",
-        "Özetleme yapma.",
-        "Yorum veya açıklama ekleme.",
-        "Markdown kullanma.",
-        "Sadece belgede bulunan metni döndür.",
-      ].join(" "),
-
-      50000
+    await ocrPdfPages(
+      bytes
     );
 
   if (!text) {
@@ -424,7 +610,6 @@ export async function extractLegalPdfText(
     text,
 
     engine:
-      "gemini-flash-lite",
+      "tesseract",
   };
 }
-

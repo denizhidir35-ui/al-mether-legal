@@ -1,4 +1,4 @@
-﻿import {
+import {
   NextRequest,
   NextResponse,
 } from "next/server";
@@ -12,6 +12,11 @@ import {
 import {
   getSupabaseAdmin,
 } from "@/lib/supabaseAdmin";
+
+import {
+  GMAIL_LEGAL_QUERY,
+  isLegalMail,
+} from "@/lib/mail/legalMailFilter";
 
 type GmailAttachment = {
   filename: string;
@@ -284,6 +289,11 @@ export async function POST(
         .messages.list({
           userId: "me",
           maxResults: 50,
+          labelIds: [
+            "INBOX",
+          ],
+          q:
+            GMAIL_LEGAL_QUERY,
         });
 
     const ids =
@@ -409,6 +419,21 @@ export async function POST(
             .snippet ||
           "";
 
+        if (
+          !isLegalMail({
+            subject,
+            sender,
+            snippet:
+              detail.data
+                .snippet ||
+              "",
+            body,
+          })
+        ) {
+          skipped++;
+          continue;
+        }
+
         const attachments =
           collectAttachments(
             detail.data.payload
@@ -477,11 +502,33 @@ export async function POST(
             ?.uetsExtraction ||
           {};
 
-        const finalDate =
-          analysis.sonTarih ||
-          uets.deemedServiceDate ||
-          "";
+        const isUetsDeemedService =
+          Boolean(
+            uets.found &&
+            uets.deemedServiceDate
+          );
 
+        const finalDate =
+          isUetsDeemedService
+            ? String(
+                uets.deemedServiceDate
+              )
+            : "";
+
+        /*
+         * LEGAL SAFETY:
+         *
+         * AI'nin tek başına çıkardığı sonTarih
+         * doğrulanmış hukuki süre değildir.
+         *
+         * UETS için yalnızca kanuni
+         * "tebliğ edilmiş sayılma tarihi"
+         * otomatik takvime aktarılır.
+         *
+         * Duruşma / kesin süre / son gün gibi
+         * diğer tarihler ayrıca doğrulanmadan
+         * deadline olarak kaydedilmez.
+         */
         if (!finalDate) {
           skipped++;
           continue;
@@ -576,12 +623,10 @@ export async function POST(
                     "",
 
                   record_mode:
-                    uets.found
-                      ? "deemed_service"
-                      : "verified_deadline",
+                    "deemed_service",
 
                   deadline_verified:
-                    true,
+                    false,
 
                   attachments,
                 }),

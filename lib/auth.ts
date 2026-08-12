@@ -1,4 +1,4 @@
-﻿import {
+import {
   NextAuthOptions,
 } from "next-auth";
 
@@ -8,6 +8,12 @@ import GoogleProvider
 import {
   getSupabaseAdmin,
 } from "@/lib/supabaseAdmin";
+
+import {
+  isPendingApprovalStatus,
+  notifyAdminsOfPendingUser,
+  PENDING_APPROVAL_STATUS,
+} from "@/lib/userApproval";
 
 const googleLoginProvider =
   GoogleProvider({
@@ -43,7 +49,7 @@ const googleMailProvider = {
     authorization: {
       params: {
         prompt:
-          "consent",
+          "consent select_account",
 
         access_type:
           "offline",
@@ -56,8 +62,7 @@ const googleMailProvider = {
             "openid",
             "email",
             "profile",
-            "https://www.googleapis.com/auth/gmail.readonly",
-            "https://www.googleapis.com/auth/gmail.send",
+            "https://www.googleapis.com/auth/gmail.modify",
           ].join(" "),
       },
     },
@@ -219,13 +224,11 @@ export const authOptions:
         }
 
         if (
-          existingUser
-            .data
-            ?.status &&
-          existingUser
-            .data
-            .status !==
-            "active"
+          existingUser.data &&
+          existingUser.data.status !== "active" &&
+          !isPendingApprovalStatus(
+            existingUser.data.status
+          )
         ) {
           return false;
         }
@@ -257,7 +260,7 @@ export const authOptions:
                   "lawyer",
 
                 status:
-                  "active",
+                  PENDING_APPROVAL_STATUS,
               })
               .select("*")
               .single();
@@ -271,6 +274,10 @@ export const authOptions:
 
           appUser =
             created.data;
+
+          await notifyAdminsOfPendingUser(
+            created.data
+          );
         }
 
         const accountProvider =
@@ -287,7 +294,8 @@ export const authOptions:
               : "";
 
         if (
-          mailProvider
+          mailProvider &&
+          appUser.status === "active"
         ) {
           const expiresAt =
             account?.expires_at
@@ -408,6 +416,19 @@ export const authOptions:
       ) {
         token.connectedProvider =
           account.provider;
+      }
+
+      const email = cleanEmail(token.email);
+      if (email) {
+        const result = await getSupabaseAdmin()
+          .from("app_users")
+          .select("status")
+          .eq("email", email)
+          .maybeSingle();
+
+        if (!result.error) {
+          token.appUserStatus = result.data?.status || null;
+        }
       }
 
       return token;

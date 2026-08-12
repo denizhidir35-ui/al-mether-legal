@@ -1,741 +1,583 @@
-﻿import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
-
-import { AIGateway } from "@/lib/core/ai";
-import { CoreEvents } from "@/lib/core/events";
-import { CalendarEngine } from "@/lib/calendar/CalendarEngine";
-import { CalendarStore } from "@/lib/calendar/CalendarStore";
-import { ReminderEngine } from "@/lib/calendar/ReminderEngine";
-import type { LegalEvent } from "@/lib/calendar/LegalEvent";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 
 import {
-  extractUetsNotice,
-  type UetsExtractionResult,
-} from "@/lib/legal/uetsExtractor";
+  getOrCreateAppUser,
+} from "@/lib/alUser";
 
-type AIAnalysis = {
-  davaTuru: string;
-  mahkeme: string;
-  dosyaNo: string;
-  kurum: string;
-  risk: string;
-  sonTarih: string;
-  confidence: number;
-  ozet: string;
-  yapilacaklar: string[];
-};
+export const runtime =
+  "nodejs";
 
-function safeString(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
+function text(
+  value: unknown,
+  max = 500000
+) {
+  return typeof value === "string"
+    ? value.trim().slice(0, max)
+    : "";
 }
 
-function safeStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-
+function clean(
+  value: string
+) {
   return value
-    .filter((item): item is string => typeof item === "string")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function safeConfidence(value: unknown): number {
-  const number = Number(value);
-
-  if (!Number.isFinite(number)) return 0;
-
-  if (number > 0 && number <= 1) {
-    return Math.round(number * 100);
-  }
-
-  return Math.max(0, Math.min(100, Math.round(number)));
-}
-
-function toIsoDate(day: string, month: string, year: string): string {
-  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-}
-
-function addDaysToIso(date: string, days: number): string {
-  const base = new Date(`${date}T12:00:00`);
-
-  if (Number.isNaN(base.getTime())) return "";
-
-  base.setDate(base.getDate() + days);
-
-  return base.toISOString().slice(0, 10);
-}
-
-function turkishMonthToNumber(value: string): string {
-  const key = value
-    .toLocaleLowerCase("tr-TR")
-    .replace(/\./g, "")
+    .replace(/\r/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
-
-  const months: Record<string, string> = {
-    ocak: "01",
-    oca: "01",
-    şubat: "02",
-    subat: "02",
-    şub: "02",
-    sub: "02",
-    mart: "03",
-    mar: "03",
-    nisan: "04",
-    nis: "04",
-    mayıs: "05",
-    mayis: "05",
-    may: "05",
-    haziran: "06",
-    haz: "06",
-    temmuz: "07",
-    tem: "07",
-    ağustos: "08",
-    agustos: "08",
-    ağu: "08",
-    agu: "08",
-    eylül: "09",
-    eylul: "09",
-    eyl: "09",
-    ekim: "10",
-    eki: "10",
-    kasım: "11",
-    kasim: "11",
-    kas: "11",
-    aralık: "12",
-    aralik: "12",
-    ara: "12",
-  };
-
-  return months[key] || "";
 }
 
-function cleanDate(value: unknown): string {
-  if (typeof value !== "string") return "";
-
-  const trimmed = value.trim();
-
-  if (!trimmed || trimmed === "-") return "";
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    return trimmed;
-  }
-
-  const dotted = trimmed.match(
-    /^(\d{1,2})\.(\d{1,2})\.(20\d{2})$/
-  );
-
-  if (dotted) {
-    return toIsoDate(dotted[1], dotted[2], dotted[3]);
-  }
-
-  const slashed = trimmed.match(
-    /^(\d{1,2})\/(\d{1,2})\/(20\d{2})$/
-  );
-
-  if (slashed) {
-    return toIsoDate(slashed[1], slashed[2], slashed[3]);
-  }
-
-  const turkish = trimmed.match(
-    /^(\d{1,2})\s+([A-Za-zÇĞİÖŞÜçğıöşü.]+)\s+(20\d{2})$/i
-  );
-
-  if (turkish) {
-    const month = turkishMonthToNumber(turkish[2]);
-
-    if (month) {
-      return toIsoDate(turkish[1], month, turkish[3]);
-    }
-  }
-
-  return "";
-}
-
-function extractJson(text: string): string | null {
-  const cleaned = text
-    .replace(/```json/gi, "")
-    .replace(/```/g, "")
-    .trim();
-
-  const start = cleaned.indexOf("{");
-  const end = cleaned.lastIndexOf("}");
-
-  if (start === -1 || end === -1 || end <= start) {
-    return null;
-  }
-
-  return cleaned.slice(start, end + 1);
-}
-
-function extractCourt(text: string): string {
-  const patterns = [
-    /([A-ZÇĞİÖŞÜa-zçğıöşü\s]+\s+\d+\.\s*(?:İş|Asliye|Sulh|İcra|Ağır Ceza|Ceza|Ticaret|Aile|İdare|Vergi)\s+Mahkemesi)/i,
-    /([A-ZÇĞİÖŞÜa-zçğıöşü\s]+\s+\d+\.\s*İcra\s+(?:Müdürlüğü|Dairesi))/i,
-    /([A-ZÇĞİÖŞÜa-zçğıöşü\s]+ Mahkemesi)/i,
-  ];
-
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-
-    if (match?.[1]) {
-      return match[1].replace(/\s+/g, " ").trim();
-    }
-  }
-
-  return "";
-}
-
-function extractFileNo(text: string): string {
-  const patterns = [
-    /\[\s*(20\d{2}\/\d{1,8})\s*\]/,
-    /\b(?:dosya|esas)\s*(?:no|numarası|sayısı)?\s*[:#-]?\s*(20\d{2}\/\d{1,8})\b/i,
-    /\b(20\d{2}\/\d{1,8})\b/,
-  ];
-
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-
-    if (match?.[1]) {
-      return match[1].trim();
-    }
-  }
-
-  return "";
-}
-
-function extractReceivedDate(text: string): string {
-  const normalized = text.replace(/\s+/g, " ");
-
-  const patterns = [
-    /(\d{1,2}\.\d{1,2}\.20\d{2})\s+\d{1,2}:\d{2}\s+tarihinde/i,
-    /(\d{1,2}\/\d{1,2}\/20\d{2})\s+\d{1,2}:\d{2}\s+tarihinde/i,
-    /date:\s*(\d{1,2}\s+[A-Za-zÇĞİÖŞÜçğıöşü.]+\s+20\d{2})/i,
-    /tarih(?:i|inde)?\s*[:\-]?\s*(\d{1,2}\.\d{1,2}\.20\d{2})/i,
-    /tarih(?:i|inde)?\s*[:\-]?\s*(\d{1,2}\/\d{1,2}\/20\d{2})/i,
-    /tarih(?:i|inde)?\s*[:\-]?\s*(\d{1,2}\s+[A-Za-zÇĞİÖŞÜçğıöşü.]+\s+20\d{2})/i,
-    /(\d{1,2}\.\d{1,2}\.20\d{2})/i,
-    /(\d{1,2}\/\d{1,2}\/20\d{2})/i,
-    /(\d{1,2}\s+[A-Za-zÇĞİÖŞÜçğıöşü.]+\s+20\d{2})/i,
-  ];
-
-  for (const pattern of patterns) {
-    const match = normalized.match(pattern);
-    const parsed = cleanDate(match?.[1] || "");
-
-    if (parsed) {
-      return parsed;
-    }
-  }
-
-  return "";
-}
-
-function deterministicLegalExtract(
-  subject: string,
-  text: string
-): AIAnalysis {
-  const fullText = `${subject}\n${text}`;
-
-  const mahkeme = extractCourt(fullText);
-  const dosyaNo = extractFileNo(fullText);
-  const receivedDate = extractReceivedDate(fullText);
-
-  const isTebligat =
-    /tebligat|e-tebligat|elektronik tebligat|uyap|uets|ptt|adalet bakanlığı/i.test(
-      fullText
+function isoDate(
+  value: string
+) {
+  let match =
+    value.match(
+      /\b(\d{1,2})[./-](\d{1,2})[./-](\d{4})\b/
     );
 
-  const sonTarih =
-    isTebligat && receivedDate
-      ? addDaysToIso(receivedDate, 5)
-      : "";
+  if (match) {
+    return `${match[3]}-${match[2].padStart(
+      2,
+      "0"
+    )}-${match[1].padStart(
+      2,
+      "0"
+    )}`;
+  }
+
+  match =
+    value.match(
+      /\b(\d{4})-(\d{2})-(\d{2})\b/
+    );
+
+  return match?.[0] || "";
+}
+
+function addCalendarDays(
+  iso: string,
+  days: number
+) {
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(
+      iso
+    )
+  ) {
+    return "";
+  }
+
+  const [
+    year,
+    month,
+    day,
+  ] =
+    iso
+      .split("-")
+      .map(Number);
+
+  const date =
+    new Date(
+      Date.UTC(
+        year,
+        month - 1,
+        day
+      )
+    );
+
+  date.setUTCDate(
+    date.getUTCDate() +
+      days
+  );
+
+  return date
+    .toISOString()
+    .slice(0, 10);
+}
+
+function extractCourt(
+  source: string
+) {
+  const patterns = [
+    /\b((?:İstanbul|İzmir|Ankara|Bursa|Antalya|Adana|Konya|Aydın|Manisa|Muğla|Denizli)?\s*\d{1,3}\.\s*(?:İş|Asliye Hukuk|Sulh Hukuk|İcra Hukuk|Ağır Ceza|Asliye Ceza|Aile|Tüketici|Ticaret|İdare|Vergi)\s+Mahkemesi)\b/iu,
+
+    /\b([A-ZÇĞİÖŞÜ][^\n]{2,100}\s+Mahkemesi)\b/iu,
+  ];
+
+  for (
+    const pattern
+    of patterns
+  ) {
+    const match =
+      source.match(
+        pattern
+      );
+
+    if (match) {
+      return clean(
+        match[1] ||
+        match[0]
+      );
+    }
+  }
+
+  return "";
+}
+
+function extractFileNo(
+  source: string
+) {
+  const patterns = [
+    /(?:dosya\s*(?:no|numarası)|esas\s*(?:no|numarası))\s*[:\-]?\s*(\d{4}\s*\/\s*\d+)/iu,
+
+    /\[(\d{4}\/\d+)\]/u,
+
+    /\b(\d{4}\/\d+)\s*(?:esas|e\.)\b/iu,
+  ];
+
+  for (
+    const pattern
+    of patterns
+  ) {
+    const match =
+      source.match(
+        pattern
+      );
+
+    if (match?.[1]) {
+      return match[1]
+        .replace(/\s/g, "");
+    }
+  }
+
+  return "";
+}
+
+function extractArrival(
+  source: string
+) {
+  const patterns = [
+    /(?:ulaşma\s*tarihi|adresine)\s*[:\-]?\s*(\d{1,2}[./-]\d{1,2}[./-]\d{4})(?:\s+(\d{1,2}:\d{2}))?/iu,
+
+    /(\d{1,2}[./-]\d{1,2}[./-]\d{4})\s+(\d{1,2}:\d{2})\s*tarihinde/iu,
+  ];
+
+  for (
+    const pattern
+    of patterns
+  ) {
+    const match =
+      source.match(
+        pattern
+      );
+
+    if (match) {
+      return {
+        date:
+          isoDate(
+            match[1] || ""
+          ),
+
+        time:
+          match[2] ||
+          "",
+      };
+    }
+  }
 
   return {
-    davaTuru: isTebligat ? "Elektronik Tebligat" : "",
-    mahkeme,
-    dosyaNo,
-    kurum: /ptt|uets/i.test(fullText)
-      ? "PTT UETS"
-      : /adalet bakanlığı/i.test(fullText)
-        ? "Adalet Bakanlığı"
-        : "",
-    risk: "",
-    sonTarih,
-    confidence: isTebligat ? 70 : 0,
-    ozet: isTebligat
-      ? [
-          "Elektronik tebligat bildirimi tespit edildi.",
-          receivedDate
-            ? `Ulaşma tarihi: ${receivedDate}.`
-            : "",
-          sonTarih
-            ? `Tebliğ edilmiş sayılma tarihi: ${sonTarih}.`
-            : "",
-        ]
-          .filter(Boolean)
-          .join(" ")
-      : "",
-    yapilacaklar: [],
+    date: "",
+    time: "",
   };
 }
 
-function analysisFromUets(
-  extraction: UetsExtractionResult
-): AIAnalysis {
-  const details = [
-    extraction.court
-      ? `Yargı birimi: ${extraction.court}.`
-      : "",
-    extraction.fileNo
-      ? `Dosya numarası: ${extraction.fileNo}.`
-      : "",
-    extraction.arrivalDate
-      ? `Elektronik tebligatın ulaşma tarihi: ${extraction.arrivalDate}${
-          extraction.arrivalTime
-            ? ` ${extraction.arrivalTime}`
-            : ""
-        }.`
-      : "",
-    extraction.deemedServiceDate
-      ? `Tebliğ edilmiş sayılma tarihi: ${extraction.deemedServiceDate}.`
-      : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+function extractBarcode(
+  source: string
+) {
+  return (
+    source.match(
+      /(\d{12,30})\s*barkod/iu
+    )?.[1] ||
+    source.match(
+      /barkod\s*(?:no|numarası)?\s*[:\-]?\s*(\d{12,30})/iu
+    )?.[1] ||
+    ""
+  );
+}
+
+function extractHearing(
+  source: string
+) {
+  const patterns = [
+    /(?:duruşma\s*(?:tarihi|günü)?|duruşmanın)\s*[:\-]?\s*(\d{1,2}[./-]\d{1,2}[./-]\d{4})(?:[^\n]{0,80}?(?:saat|saati)\s*[:\-]?\s*(\d{1,2}:\d{2}))?/iu,
+
+    /(?:duruşma|celse)[^\n]{0,120}?(\d{1,2}[./-]\d{1,2}[./-]\d{4})[^\n]{0,80}?(\d{1,2}:\d{2})/iu,
+  ];
+
+  for (
+    const pattern
+    of patterns
+  ) {
+    const match =
+      source.match(
+        pattern
+      );
+
+    if (match) {
+      return {
+        found: true,
+
+        date:
+          isoDate(
+            match[1] || ""
+          ),
+
+        time:
+          match[2] ||
+          "",
+
+        evidence:
+          clean(
+            match[0]
+          ),
+      };
+    }
+  }
 
   return {
-    davaTuru: "Elektronik Tebligat",
-    mahkeme: extraction.court,
-    dosyaNo: extraction.fileNo,
-    kurum: extraction.institution || "PTT UETS",
-    risk: "",
-    sonTarih: extraction.deemedServiceDate,
-    confidence: extraction.confidence,
-    ozet:
-      details ||
-      "PTT UETS elektronik tebligat bildirimi tespit edildi.",
-    yapilacaklar: [],
+    found: false,
+    date: "",
+    time: "",
+    evidence: "",
   };
 }
 
-function normalizeAnalysis(
-  raw: Record<string, unknown>,
-  fallback: AIAnalysis
-): AIAnalysis {
-  const rawTodos =
-    safeStringArray(raw?.yapilacaklar).length > 0
-      ? safeStringArray(raw?.yapilacaklar)
-      : safeStringArray(raw?.todos);
+function explicitDeadline(
+  source: string
+) {
+  const patterns = [
+    /(?:son\s*gün|son\s*tarih|süre\s*sonu|en\s*geç)\s*[:\-]?\s*(\d{1,2}[./-]\d{1,2}[./-]\d{4})[^\n]*/iu,
+
+    /(\d{1,2}[./-]\d{1,2}[./-]\d{4})\s*tarihine\s*kadar[^\n]*/iu,
+  ];
+
+  for (
+    const pattern
+    of patterns
+  ) {
+    const match =
+      source.match(
+        pattern
+      );
+
+    if (match) {
+      return {
+        date:
+          isoDate(
+            match[1] || ""
+          ),
+
+        evidence:
+          clean(
+            match[0]
+          ),
+      };
+    }
+  }
 
   return {
-    davaTuru:
-      safeString(raw?.davaTuru) ||
-      safeString(raw?.caseType) ||
-      fallback.davaTuru,
-    mahkeme:
-      safeString(raw?.mahkeme) ||
-      safeString(raw?.court) ||
-      fallback.mahkeme,
-    dosyaNo:
-      safeString(raw?.dosyaNo) ||
-      safeString(raw?.fileNo) ||
-      fallback.dosyaNo,
-    kurum:
-      safeString(raw?.kurum) ||
-      safeString(raw?.institution) ||
-      fallback.kurum,
-    risk:
-      safeString(raw?.risk) ||
-      safeString(raw?.riskLevel) ||
-      fallback.risk,
-    sonTarih:
-      cleanDate(raw?.sonTarih) ||
-      cleanDate(raw?.son_tarih) ||
-      cleanDate(raw?.deadline) ||
-      cleanDate(raw?.legalDeadline) ||
-      fallback.sonTarih,
-    confidence:
-      safeConfidence(raw?.confidence) ||
-      safeConfidence(raw?.score) ||
-      fallback.confidence,
-    ozet:
-      safeString(raw?.ozet) ||
-      safeString(raw?.summary) ||
-      fallback.ozet,
-    yapilacaklar:
-      rawTodos.length > 0
-        ? rawTodos
-        : fallback.yapilacaklar,
+    date: "",
+    evidence: "",
   };
 }
 
-function buildPrompt(
-  subject: string,
-  from: string,
-  date: string,
-  text: string
-): string {
-  return `
-Sen AL METHER LAWYER için çalışan hukuk mail analiz motorusun.
-
-Bu istek PTT UETS Extractor tarafından kesin olarak çözülemeyen bir mail içindir.
-
-Görevin:
-Mail içeriğinden hukuki alanları çıkar ve yalnızca geçerli JSON döndür.
-
-Kurallar:
-- Elektronik tebligat, UETS, PTT, UYAP veya Adalet Bakanlığı ifadelerini değerlendir.
-- Mahkeme veya ilgili yargı birimini çıkar.
-- Dosya numarasını çıkar.
-- Açık bir ulaşma tarihi varsa tarih değerini YYYY-MM-DD biçiminde döndür.
-- Elektronik tebligatın ulaşma tarihi açıkça belirlenmişse sonTarih alanına 5 gün eklenmiş tarihi yaz.
-- Tarih kesin değilse sonTarih boş string olsun.
-- JSON dışında açıklama yazma.
-- Markdown kullanma.
-
-JSON:
-{
-  "davaTuru": "",
-  "mahkeme": "",
-  "dosyaNo": "",
-  "kurum": "",
-  "risk": "",
-  "sonTarih": "YYYY-MM-DD",
-  "confidence": 0,
-  "ozet": "",
-  "yapilacaklar": []
-}
-
-MAIL:
-Konu: ${subject}
-Gönderen: ${from}
-Mail Tarihi: ${date}
-
-İçerik:
-${text}
-`;
-}
-
-export async function POST(req: NextRequest) {
+export async function POST(
+  request: NextRequest
+) {
   try {
-    const body = await req.json();
+    const {
+      appUser,
+      error,
+    } =
+      await getOrCreateAppUser();
 
-    const subject = safeString(body?.subject);
-    const from = safeString(body?.from || body?.sender);
-    const date = safeString(body?.date);
-
-    const text = safeString(
-      body?.text ||
-        body?.body ||
-        body?.content ||
-        body?.mailBody
-    );
-
-    const emailId = safeString(
-      body?.emailId ||
-        body?.messageId ||
-        body?.mailId
-    );
-
-    const correlationId = crypto.randomUUID();
-
-    if (!text && !subject) {
+    if (
+      error ||
+      !appUser
+    ) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Analiz için mail içeriği bulunamadı.",
+
+          error:
+            error ||
+            "Oturum bulunamadı.",
         },
-        { status: 400 }
-      );
-    }
-
-    const fullMailText = `${subject}\n${from}\n${date}\n${text}`;
-
-    const uetsExtraction = extractUetsNotice(fullMailText);
-
-    let analysis: AIAnalysis;
-    let aiProvider = "uets-extractor";
-    let aiModel = "deterministic-v1";
-    let extractionMode:
-      | "uets-extractor"
-      | "ai-fallback";
-
-    if (
-      uetsExtraction.found &&
-      uetsExtraction.deemedServiceDate
-    ) {
-      analysis = analysisFromUets(uetsExtraction);
-      extractionMode = "uets-extractor";
-    } else {
-      extractionMode = "ai-fallback";
-
-      const fallback = deterministicLegalExtract(
-        subject,
-        text
-      );
-
-      let parsed: Record<string, unknown> = {};
-
-      try {
-        const aiResponse = await AIGateway.generate({
-          provider: "gemini",
-          model: "gemini-2.5-flash",
-          product: "legal",
-          task: "mail-analysis",
-          jsonMode: true,
-          messages: [
-            {
-              role: "system",
-              content:
-                "Sen AL METHER LAWYER hukuk mail analiz motorusun. Yalnızca geçerli JSON döndür.",
-            },
-            {
-              role: "user",
-              content: buildPrompt(
-                subject,
-                from,
-                date,
-                text
-              ),
-            },
-          ],
-          metadata: {
-            subject,
-            from,
-            date,
-            emailId,
-            uetsWarnings: uetsExtraction.warnings,
-          },
-        });
-
-        aiProvider = aiResponse.provider || "gemini";
-        aiModel = aiResponse.model || "gemini-2.5-flash";
-
-        if (aiResponse.ok && aiResponse.text) {
-          const jsonText = extractJson(aiResponse.text);
-
-          if (jsonText) {
-            try {
-              parsed = JSON.parse(jsonText) as Record<
-                string,
-                unknown
-              >;
-            } catch {
-              parsed = {};
-            }
-          }
+        {
+          status: 401,
         }
-      } catch {
-        aiProvider = "deterministic-fallback";
-        aiModel = "legal-date-parser-v1";
-      }
-
-      analysis = normalizeAnalysis(parsed, fallback);
+      );
     }
 
-    await CoreEvents.publish({
-      type: "legal.mail.analysis.completed",
-      source: "legal",
-      product: "lawyer",
-      correlationId,
-      payload: {
-        subject,
-        from,
-        date,
-        emailId,
-        extractionMode,
-        uetsExtraction,
-        analysis,
-        aiProvider,
-        aiModel,
-      },
-    });
+    const body =
+      await request.json();
 
-    let deadlineRecord: Record<string, unknown> | null =
-      null;
+    const subject =
+      text(
+        body?.subject,
+        1000
+      );
 
-    if (analysis.sonTarih) {
-      const deadlineInsert = await supabase
-        .from("deadlines")
-        .insert({
-          email_id: emailId || null,
-          subject:
-            uetsExtraction.subject ||
-            subject ||
-            null,
-          sender: from || null,
-          dava_turu:
-            analysis.davaTuru || null,
-          mahkeme:
-            analysis.mahkeme || null,
-          dosya_no:
-            analysis.dosyaNo || null,
-          kurum:
-            analysis.kurum || null,
-          risk:
-            analysis.risk || null,
-          son_tarih: analysis.sonTarih,
-          ozet:
-            analysis.ozet || null,
-          yapilacaklar:
-            analysis.yapilacaklar,
-          confidence:
-            analysis.confidence,
-          status: "active",
-        })
-        .select()
-        .single();
+    const sender =
+      text(
+        body?.sender,
+        1000
+      );
 
-      if (!deadlineInsert.error) {
-        deadlineRecord =
-          deadlineInsert.data as Record<
-            string,
-            unknown
-          >;
+    const mailBody =
+      text(
+        body?.body
+      );
 
-        await CoreEvents.publish({
-          type: "legal.deadline.created",
-          source: "legal",
-          product: "lawyer",
-          correlationId,
-          payload: {
-            deadline: deadlineRecord,
-            analysis,
-            emailId,
-            extractionMode,
-          },
-        });
-      }
-    }
+    const source =
+      clean(
+        `${subject}\n${sender}\n${mailBody}`
+      );
 
-    let calendarEvent:
-      | Awaited<
-          ReturnType<
-            typeof CalendarEngine.createLegalEvent
-          >
-        >
-      | null = null;
+    const court =
+      extractCourt(
+        source
+      );
 
-    let storedCalendarEvent:
-      | Awaited<
-          ReturnType<
-            typeof CalendarStore.save
-          >
-        >
-      | null = null;
+    const fileNo =
+      extractFileNo(
+        source
+      );
 
-    let reminders:
-      | Awaited<
-          ReturnType<
-            typeof ReminderEngine.createReminders
-          >
-        >
-      | null = null;
+    const arrival =
+      extractArrival(
+        source
+      );
 
-    if (analysis.sonTarih) {
-      const recordId =
-        typeof deadlineRecord?.id === "string"
-          ? deadlineRecord.id
-          : "";
+    const barcodeNo =
+      extractBarcode(
+        source
+      );
 
-      const legalEvent: LegalEvent = {
-        id:
-          recordId ||
-          emailId ||
-          crypto.randomUUID(),
-        title:
-          uetsExtraction.subject ||
-          subject ||
-          analysis.davaTuru ||
-          "Elektronik Tebligat",
-        description: analysis.ozet,
-        date: analysis.sonTarih,
-        source: "gmail",
-        sourceId: emailId || "",
-        risk: analysis.risk,
-        court: analysis.mahkeme,
-        fileNo: analysis.dosyaNo,
-        institution: analysis.kurum,
-        actions: analysis.yapilacaklar,
-        raw: {
-          subject,
-          from,
-          date,
-          emailId,
-          extractionMode,
-          uetsExtraction,
-          analysis,
-          deadlineRecord,
-        },
-      };
+    const hearing =
+      extractHearing(
+        source
+      );
 
-      calendarEvent =
-        await CalendarEngine.createLegalEvent(
-          legalEvent
-        );
+    const deadline =
+      explicitDeadline(
+        source
+      );
 
-      storedCalendarEvent =
-        await CalendarStore.save(
-          calendarEvent
-        );
+    const isUets =
+      /uets|elektronik\s+tebligat|tebligat\s+adresine/iu
+        .test(source);
 
-      reminders =
-        await ReminderEngine.createReminders(
-          calendarEvent
-        );
+    const deemedServiceDate =
+      isUets &&
+      arrival.date
+        ? addCalendarDays(
+            arrival.date,
+            5
+          )
+        : "";
 
-      await CoreEvents.publish({
-        type: "calendar.event.created",
-        source: "calendar",
-        product: "lawyer",
-        correlationId,
-        payload: {
-          extractionMode,
-          calendarEvent,
-          storedCalendarEvent,
-          reminders,
-        },
-      });
-    }
+    /*
+     * LEGAL SAFETY:
+     *
+     * UETS +5 sadece tebliğ edilmiş
+     * sayılma bilgisidir.
+     *
+     * analysis.sonTarih alanına
+     * otomatik yazılmaz.
+     *
+     * Sadece belgede açıkça
+     * "son gün / son tarih" varsa
+     * sonTarih döndürülür.
+     */
+
+    const summaryParts = [
+      court
+        ? `Yargı birimi: ${court}.`
+        : "",
+
+      fileNo
+        ? `Dosya: ${fileNo}.`
+        : "",
+
+      arrival.date
+        ? `UETS ulaşma: ${arrival.date}${
+            arrival.time
+              ? ` ${arrival.time}`
+              : ""
+          }.`
+        : "",
+
+      hearing.found
+        ? `Duruşma: ${hearing.date}${
+            hearing.time
+              ? ` ${hearing.time}`
+              : ""
+          }.`
+        : "",
+
+      deadline.date
+        ? `Belgede açık son tarih: ${deadline.date}.`
+        : "",
+    ].filter(Boolean);
 
     return NextResponse.json({
       ok: true,
 
-      data: {
-        analysis,
-        extractionMode,
-        uetsExtraction,
-        deadline: deadlineRecord,
-        calendarEvent,
-        storedCalendarEvent,
-        reminders,
+      engine:
+        "mether_rules_v1",
+
+      extractionMode:
+        isUets
+          ? "uets_rule_engine"
+          : "legal_mail_rule_engine",
+
+      uetsExtraction: {
+        found:
+          isUets,
+
+        institution:
+          isUets
+            ? "PTT UETS"
+            : "",
+
+        noticeType:
+          isUets
+            ? "electronic_notification"
+            : "",
+
+        arrivalDate:
+          arrival.date,
+
+        arrivalTime:
+          arrival.time,
+
+        arrivalDateTime:
+          arrival.date
+            ? `${arrival.date}${
+                arrival.time
+                  ? `T${arrival.time}:00`
+                  : ""
+              }`
+            : "",
+
+        deemedServiceDate,
+
+        court,
+
+        fileNo,
+
+        barcodeNo,
+
+        recipient: "",
+
+        subject,
+
+        confidence:
+          isUets
+            ? 100
+            : 0,
+
+        warnings: [],
       },
 
-      analysis,
-      extractionMode,
-      uetsExtraction,
-      deadline: deadlineRecord,
-      calendarEvent,
-      storedCalendarEvent,
-      reminders,
+      analysis: {
+        davaTuru:
+          isUets
+            ? "Elektronik Tebligat"
+            : hearing.found
+              ? "Duruşma Bildirimi"
+              : "Mail",
 
-      aiProvider,
-      aiModel,
-      correlationId,
+        mahkeme:
+          court,
+
+        dosyaNo:
+          fileNo,
+
+        kurum:
+          isUets
+            ? "PTT UETS"
+            : "",
+
+        risk: "",
+
+        /*
+         * Sadece açık son tarih.
+         * UETS +5 buraya GİRMEZ.
+         */
+        sonTarih:
+          deadline.date,
+
+        confidence:
+          deadline.date ||
+          hearing.found ||
+          isUets
+            ? 100
+            : 0,
+
+        ozet:
+          summaryParts.join(
+            " "
+          ),
+
+        yapilacaklar:
+          hearing.found
+            ? [
+                `Duruşma: ${hearing.date}${
+                  hearing.time
+                    ? ` ${hearing.time}`
+                    : ""
+                }`,
+              ]
+            : [],
+      },
+
+      document: {
+        hearing,
+
+        explicitDeadline:
+          deadline,
+      },
+
+      deadline:
+        null,
+
+      calendarEvent:
+        null,
+
+      storedCalendarEvent:
+        null,
+
+      reminders:
+        null,
     });
-  } catch (error: unknown) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Mail analizi sırasında hata oluştu.";
-
+  } catch (error) {
     return NextResponse.json(
       {
         ok: false,
-        error: message,
+
+        error:
+          error instanceof
+          Error
+            ? error.message
+            : "METHER mail analizi başarısız.",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }
-
-

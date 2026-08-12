@@ -23,12 +23,21 @@ type AdminUser = {
   created_at?: string;
 };
 
+type AdminNotification = {
+  id: string;
+  message: string;
+  created_at?: string;
+};
+
 export default function SettingsPage() {
   const [theme, setTheme] =
     useState<Theme>("dark");
 
   const [users, setUsers] =
     useState<AdminUser[]>([]);
+
+  const [adminNotifications, setAdminNotifications] =
+    useState<AdminNotification[]>([]);
 
   const [adminMode, setAdminMode] =
     useState(false);
@@ -138,6 +147,10 @@ export default function SettingsPage() {
           ? data.users
           : []
       );
+
+      setAdminNotifications(
+        Array.isArray(data?.notifications) ? data.notifications : []
+      );
     } catch (error) {
       setAdminMode(false);
 
@@ -152,12 +165,12 @@ export default function SettingsPage() {
   }
 
   async function changeUserStatus(
-    user: AdminUser
+    user: AdminUser,
+    nextStatus?: "active" | "inactive" | "rejected"
   ) {
-    const nextStatus =
-      user.status === "active"
-        ? "passive"
-        : "active";
+    const targetStatus =
+      nextStatus ||
+      (user.status === "active" ? "inactive" : "active");
 
     try {
       setChangingId(user.id);
@@ -174,7 +187,7 @@ export default function SettingsPage() {
             },
             body: JSON.stringify({
               userId: user.id,
-              status: nextStatus,
+              status: targetStatus,
             }),
           }
         );
@@ -317,6 +330,14 @@ export default function SettingsPage() {
               </div>
             )}
 
+            {adminNotifications.length > 0 && (
+              <div className="admin-notifications">
+                {adminNotifications.map((notification) => (
+                  <div key={notification.id}>{notification.message}</div>
+                ))}
+              </div>
+            )}
+
             {loadingUsers ? (
               <div className="user-empty">
                 Kullanıcılar yükleniyor...
@@ -356,41 +377,51 @@ export default function SettingsPage() {
                           user.status ===
                           "active"
                             ? "user-status active"
+                            : user.status === "pending" ||
+                                user.status === "pending_approval"
+                              ? "user-status pending"
                             : "user-status passive"
                         }
                       >
                         {user.status ===
                         "active"
                           ? "Aktif"
-                          : "Pasif"}
+                          : user.status === "pending" ||
+                              user.status === "pending_approval"
+                            ? "Onay Bekliyor"
+                            : user.status === "rejected"
+                              ? "Reddedildi"
+                              : "Pasif"}
                       </div>
 
-                      <button
-                        type="button"
-                        className="status-button"
-                        disabled={
-                          changingId ===
-                            user.id ||
-                          user.role ===
-                            "admin"
-                        }
-                        onClick={() =>
-                          changeUserStatus(
-                            user
-                          )
-                        }
-                      >
-                        {changingId ===
-                        user.id
-                          ? "Kaydediliyor..."
-                          : user.role ===
-                            "admin"
-                            ? "Yönetici"
-                            : user.status ===
-                              "active"
-                              ? "Pasif yap"
-                              : "Aktif yap"}
-                      </button>
+                      <div className="user-actions">
+                        <button
+                          type="button"
+                          className="status-button"
+                          disabled={changingId === user.id || user.role === "admin"}
+                          onClick={() => changeUserStatus(user)}
+                        >
+                          {changingId === user.id
+                            ? "Kaydediliyor..."
+                            : user.role === "admin"
+                              ? "Yönetici"
+                              : user.status === "active"
+                                ? "Pasif Yap"
+                                : "Aktif Et"}
+                        </button>
+
+                        {(user.status === "pending" ||
+                          user.status === "pending_approval") && (
+                          <button
+                            type="button"
+                            className="status-button reject"
+                            disabled={changingId === user.id}
+                            onClick={() => changeUserStatus(user, "rejected")}
+                          >
+                            Reddet
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )
                 )}
@@ -703,6 +734,31 @@ export default function SettingsPage() {
         .user-status.passive {
           color:
             var(--legal-danger);
+        }
+
+        .user-status.pending {
+          color: var(--legal-gold);
+        }
+
+        .user-actions {
+          display: flex;
+          gap: 6px;
+        }
+
+        .admin-notifications {
+          display: grid;
+          gap: 6px;
+          margin-bottom: 10px;
+          padding: 10px;
+          border: 1px solid var(--legal-gold);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-gold-soft);
+          color: var(--legal-text-soft);
+          font-size: 8.5px;
+        }
+
+        .status-button.reject {
+          color: var(--legal-danger);
         }
 
         .status-button {

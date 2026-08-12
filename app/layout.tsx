@@ -91,10 +91,12 @@ export default function RootLayout({
 
       <body>
         <GlobalLegalTheme />
-        <LegalAlarmNotifier />
-                <LegalPushRegistration />
-        <LegalPushPermissionPrompt />
-        <Providers>{children}</Providers>
+        <Providers>
+          <LegalAlarmNotifier />
+          <LegalPushRegistration />
+          <LegalPushPermissionPrompt />
+          {children}
+        </Providers>
       </body>
     </html>
   );

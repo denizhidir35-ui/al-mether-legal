@@ -17,6 +17,14 @@ type LegalDeadline = {
   title?: string | null;
   calculated_due_date?: string | null;
   status?: string | null;
+  calendar_event_id?: string | null;
+};
+
+type DeemedServiceEvent = {
+  id: string;
+  event_type: "deemed_service";
+  start_date?: string | null;
+  due_date?: string | null;
 };
 
 type CaseMail = {
@@ -46,6 +54,7 @@ type LegalCase = {
   created_at?: string | null;
   updated_at?: string | null;
   legal_deadlines?: LegalDeadline[];
+  deemed_service_events?: DeemedServiceEvent[];
   case_mails?: CaseMail[];
 };
 
@@ -214,15 +223,24 @@ export default function CasesPage() {
     ).format(date);
   }
 
-  function getNearestDeadline(
-    item: LegalCase
-  ) {
-    return (
-      (item.legal_deadlines || [])
-        .filter(
-          (deadline) =>
-            deadline.calculated_due_date
+  function getLegalDeadlineRecords(item: LegalCase) {
+    const deemedServiceEventIds = new Set(
+      (item.deemed_service_events || []).map((event) => event.id)
+    );
+
+    return (item.legal_deadlines || []).filter(
+      (deadline) =>
+        !(
+          deadline.calendar_event_id &&
+          deemedServiceEventIds.has(deadline.calendar_event_id)
         )
+    );
+  }
+
+  function getNearestDeadline(item: LegalCase) {
+    return (
+      getLegalDeadlineRecords(item)
+        .filter((deadline) => deadline.calculated_due_date)
         .sort(
           (a, b) =>
             new Date(
@@ -231,6 +249,18 @@ export default function CasesPage() {
             new Date(
               b.calculated_due_date as string
             ).getTime()
+        )[0] || null
+    );
+  }
+
+  function getDeemedServiceEvent(item: LegalCase) {
+    return (
+      (item.deemed_service_events || [])
+        .filter((event) => event.due_date || event.start_date)
+        .sort(
+          (a, b) =>
+            new Date(b.due_date || b.start_date || "").getTime() -
+            new Date(a.due_date || a.start_date || "").getTime()
         )[0] || null
     );
   }
@@ -5091,11 +5121,18 @@ export default function CasesPage() {
                       item
                     );
 
+                  const deemedServiceEvent = deadline
+                    ? null
+                    : getDeemedServiceEvent(item);
+
+                  const deemedServiceDate =
+                    deemedServiceEvent?.due_date ||
+                    deemedServiceEvent?.start_date;
+
                   const deadlineState =
-                    getDeadlineState(
-                      deadline
-                        ?.calculated_due_date
-                    );
+                    deemedServiceDate
+                      ? "deemed-service"
+                      : getDeadlineState(deadline?.calculated_due_date);
 
                   return (
                     <article
@@ -5166,18 +5203,23 @@ export default function CasesPage() {
                             )
                           }
                           title={
-                            deadline
-                              ?.calculated_due_date
-                              ? formatDate(
-                                  deadline.calculated_due_date
-                                )
+                            deemedServiceDate
+                              ? `Tebliğ edilmiş sayılma: ${formatDate(deemedServiceDate)}`
+                              : deadline?.calculated_due_date
+                                ? formatDate(deadline.calculated_due_date)
                               : "Süre yok"
                           }
                         >
-                          Süre ·{" "}
-                          {getDeadlineText(
-                            deadline
-                              ?.calculated_due_date
+                          {deemedServiceDate ? (
+                            <>
+                              Tebliğ edilmiş sayılma ·{" "}
+                              {formatDate(deemedServiceDate)}
+                            </>
+                          ) : (
+                            <>
+                              Süre ·{" "}
+                              {getDeadlineText(deadline?.calculated_due_date)}
+                            </>
                           )}
                         </button>
 
@@ -5468,13 +5510,13 @@ export default function CasesPage() {
 
                           {openCaseTab === "deadline" && (
                             <>
-                              {(item.legal_deadlines || []).length === 0 ? (
+                              {getLegalDeadlineRecords(item).length === 0 ? (
                                 <div className="inline-empty">
                                   Bu davaya ait kayıtlı süre bulunmuyor.
                                 </div>
                               ) : (
                                 <div className="case-mail-list">
-                                  {(item.legal_deadlines || [])
+                                  {getLegalDeadlineRecords(item)
                                     .filter(
                                       (deadline) =>
                                         deadline.calculated_due_date

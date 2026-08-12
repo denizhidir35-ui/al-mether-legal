@@ -1,6 +1,7 @@
 ﻿import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { getOrCreateAppUser } from "@/lib/alUser";
+import { isTestOrDevRecord } from "@/lib/testRecordVisibility";
 
 export async function GET() {
   const supabase = getSupabaseAdmin();
@@ -19,7 +20,8 @@ export async function GET() {
         title,
         calculated_due_date,
         status,
-        ai_confidence
+        ai_confidence,
+        calendar_event_id
       ),
       case_mails (
         id,
@@ -35,7 +37,39 @@ export async function GET() {
     return NextResponse.json({ error: dbError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ cases: data || [] });
+  const { data: deemedServiceEvents, error: deemedServiceError } =
+    await supabase
+      .from("calendar_events")
+      .select("id,case_id,event_type,start_date,due_date")
+      .eq("user_id", appUser.id)
+      .eq("event_type", "deemed_service");
+
+  if (deemedServiceError) {
+    return NextResponse.json(
+      { error: deemedServiceError.message },
+      { status: 500 }
+    );
+  }
+
+  const cases = (data || [])
+    .filter(
+      (legalCase) =>
+        !isTestOrDevRecord({
+          source: legalCase.source,
+          title: legalCase.case_title,
+        }) &&
+        !legalCase.case_mails?.some((mail: { subject?: string | null }) =>
+          isTestOrDevRecord({ subject: mail.subject })
+        )
+    )
+    .map((legalCase) => ({
+      ...legalCase,
+      deemed_service_events: (deemedServiceEvents || []).filter(
+        (event) => event.case_id === legalCase.id
+      ),
+    }));
+
+  return NextResponse.json({ cases });
 }
 
 export async function POST(request: Request) {

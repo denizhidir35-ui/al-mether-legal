@@ -6,6 +6,8 @@ import {
 } from "next/server";
 
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { getOrCreateAppUser } from "@/lib/alUser";
+import { isTestOrDevRecord } from "@/lib/testRecordVisibility";
 
 type CalendarEventRow = {
   id: string;
@@ -47,6 +49,19 @@ export async function GET(
   req: NextRequest
 ) {
   try {
+    const { appUser, error: authError } = await getOrCreateAppUser();
+
+    if (authError || !appUser) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: authError || "Oturum bulunamadı.",
+          events: [],
+        },
+        { status: 401 }
+      );
+    }
+
     const supabase =
       getSupabaseAdmin();
 
@@ -74,6 +89,7 @@ export async function GET(
     let query = supabase
       .from("calendar_events")
       .select("*")
+      .eq("user_id", appUser.id)
       .order("start_date", {
         ascending: true,
       });
@@ -122,32 +138,41 @@ export async function GET(
 
     const events = (
       (data || []) as CalendarEventRow[]
-    ).map((event) => ({
-      id: event.id,
-      legalEventId:
-        event.legal_event_id,
-      title: event.title,
-      description:
-        event.description || "",
-      startDate:
-        event.start_date,
-      endDate:
-        event.end_date,
-      allDay:
-        event.all_day,
-      risk:
-        event.risk || "",
-      source:
-        event.source,
-      sourceId:
-        event.source_id || "",
-      raw:
-        event.raw,
-      createdAt:
-        event.created_at,
-      updatedAt:
-        event.updated_at,
-    }));
+    )
+      .filter(
+        (event) =>
+          !isTestOrDevRecord({
+            source: event.source,
+            title: event.title,
+            raw: event.raw,
+          })
+      )
+      .map((event) => ({
+        id: event.id,
+        legalEventId:
+          event.legal_event_id,
+        title: event.title,
+        description:
+          event.description || "",
+        startDate:
+          event.start_date,
+        endDate:
+          event.end_date,
+        allDay:
+          event.all_day,
+        risk:
+          event.risk || "",
+        source:
+          event.source,
+        sourceId:
+          event.source_id || "",
+        raw:
+          event.raw,
+        createdAt:
+          event.created_at,
+        updatedAt:
+          event.updated_at,
+      }));
 
     return NextResponse.json({
       ok: true,

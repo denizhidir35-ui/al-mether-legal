@@ -94,10 +94,20 @@ export async function GET() {
     );
   }
 
+  const notifications = await supabase
+    .from("core_notifications")
+    .select("id,message,created_at")
+    .eq("user_id", auth.appUser?.id)
+    .eq("channel", "in-app")
+    .eq("source", "user-approval")
+    .order("created_at", { ascending: false })
+    .limit(20);
+
   return NextResponse.json({
     ok: true,
     users:
       result.data || [],
+    notifications: notifications.error ? [] : notifications.data || [],
   });
 }
 
@@ -153,7 +163,9 @@ export async function PATCH(
 
   if (
     status !== "active" &&
-    status !== "passive"
+    status !== "inactive" &&
+    status !== "passive" &&
+    status !== "rejected"
   ) {
     return NextResponse.json(
       {
@@ -172,7 +184,7 @@ export async function PATCH(
   if (
     userId ===
       auth.appUser.id &&
-    status === "passive"
+    status !== "active"
   ) {
     return NextResponse.json(
       {
@@ -228,7 +240,7 @@ export async function PATCH(
   if (
     existing.data.role ===
       "admin" &&
-    status === "passive"
+    status !== "active"
   ) {
     return NextResponse.json(
       {
