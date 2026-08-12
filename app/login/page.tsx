@@ -1,96 +1,79 @@
 "use client";
 
-import {
-  signIn,
-  useSession,
-} from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { FormEvent, useEffect, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 
-import {
-  useRouter,
-} from "next/navigation";
+type LoginPhase = "waiting" | "intro" | "fading" | "form";
 
-import {
-  FormEvent,
-  useEffect,
-  useState,
-} from "react";
+const INTRO_FALLBACK_MS = 7000;
+const INTRO_FADE_MS = 360;
 
 export default function LoginPage() {
-  const router =
-    useRouter();
-
-  const {
-    data: session,
-    status,
-  } = useSession();
-
-  const [error, setError] =
-    useState("");
-
-  const [submitting, setSubmitting] =
-    useState(false);
+  const router = useRouter();
+  const { data: session, status } = useSession();
+  const [phase, setPhase] = useState<LoginPhase>("waiting");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
 
   useEffect(() => {
-    if (
-      status ===
-        "authenticated" &&
-      session?.user
-    ) {
-      router.replace(
-        "/dashboard"
-      );
+    if (status === "authenticated" && session?.user) {
+      router.replace("/dashboard");
+      return;
     }
-  }, [
-    status,
-    session,
-    router,
-  ]);
 
-  async function handleSubmit(
-    event:
-      FormEvent<HTMLFormElement>
-  ) {
+    if (status === "unauthenticated" && phase === "waiting") {
+      setPhase("intro");
+    }
+  }, [phase, router, session, status]);
+
+  useEffect(() => {
+    if (phase !== "intro") return;
+
+    const fallback = window.setTimeout(
+      () => setPhase("fading"),
+      INTRO_FALLBACK_MS
+    );
+
+    return () => window.clearTimeout(fallback);
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase !== "fading") return;
+
+    const transition = window.setTimeout(
+      () => setPhase("form"),
+      INTRO_FADE_MS
+    );
+
+    return () => window.clearTimeout(transition);
+  }, [phase]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setSubmitting(true);
 
-    const formData =
-      new FormData(
-        event.currentTarget
-      );
-
-    const result =
-      await signIn(
-        "credentials",
-        {
-          email:
-            formData.get(
-              "email"
-            ),
-
-          password:
-            formData.get(
-              "password"
-            ),
-
-          redirect:
-            false,
-        }
-      );
+    const formData = new FormData(event.currentTarget);
+    const result = await signIn("credentials", {
+      email: formData.get("email"),
+      password: formData.get("password"),
+      redirect: false,
+    });
 
     if (result?.ok) {
-      router.replace(
-        "/dashboard"
-      );
+      router.replace("/dashboard");
       router.refresh();
       return;
     }
 
-    setError(
-      "E-posta veya şifre hatalı."
-    );
+    setError("E-posta veya şifre hatalı.");
     setSubmitting(false);
   }
+
+  const showIntro = phase === "intro" || phase === "fading";
 
   return (
     <main className="login-page">
@@ -100,43 +83,32 @@ export default function LoginPage() {
           min-height: 100dvh;
           display: grid;
           place-items: center;
-          padding:
-            max(24px, env(safe-area-inset-top))
-            20px
-            max(24px, env(safe-area-inset-bottom));
           overflow: hidden;
           background: #02050d;
           color: #f5f2eb;
         }
 
-        .login-shell {
-          width: min(360px, 100%);
-          text-align: center;
-        }
-
-        .signature {
-          display: block;
-          width: min(310px, 92vw);
-          aspect-ratio: 16 / 9;
-          margin: 0 auto;
+        .intro {
+          position: fixed;
+          inset: 0;
+          width: 100vw;
+          height: 100vh;
+          height: 100dvh;
           border: 0;
-          object-fit: contain;
+          object-fit: cover;
           background: #02050d;
+          opacity: ${phase === "fading" ? 0 : 1};
+          transition: opacity ${INTRO_FADE_MS}ms ease;
         }
 
-        .legal-word {
-          margin: 7px 0 34px;
-          color: #c8a45f;
-          font-size: 10px;
-          font-weight: 850;
-          letter-spacing: 0.58em;
-          text-indent: 0.58em;
+        .login-shell {
+          width: min(360px, calc(100vw - 40px));
+          animation: form-in 360ms ease both;
         }
 
         form {
           display: grid;
           gap: 16px;
-          text-align: left;
         }
 
         label {
@@ -155,62 +127,83 @@ export default function LoginPage() {
           border: 1px solid #242b36;
           border-radius: 12px;
           outline: none;
-          background:
-            rgba(14, 18, 25, 0.94);
+          background: rgba(14, 18, 25, 0.94);
           color: #f5f2eb;
           font: inherit;
           font-size: 14px;
-          transition:
-            border-color 140ms ease,
-            box-shadow 140ms ease;
+          transition: border-color 140ms ease, box-shadow 140ms ease;
         }
 
         input:focus {
           border-color: #c8a45f;
-          box-shadow:
-            0 0 0 3px
-            rgba(200, 164, 95, 0.12);
+          box-shadow: 0 0 0 3px rgba(200, 164, 95, 0.12);
         }
 
         input:-webkit-autofill {
-          -webkit-text-fill-color:
-            #f5f2eb;
-          box-shadow:
-            0 0 0 1000px
-            #0e1219 inset;
+          -webkit-text-fill-color: #f5f2eb;
+          box-shadow: 0 0 0 1000px #0e1219 inset;
         }
 
-        button {
+        .password-field {
+          position: relative;
+        }
+
+        .password-field input {
+          padding-right: 48px;
+        }
+
+        .password-toggle {
+          position: absolute;
+          top: 50%;
+          right: 4px;
+          display: grid;
+          width: 40px;
+          height: 40px;
+          padding: 0;
+          border: 0;
+          border-radius: 9px;
+          background: transparent;
+          color: #a9adb5;
+          cursor: pointer;
+          place-items: center;
+          transform: translateY(-50%);
+          transition: color 140ms ease, background-color 140ms ease;
+        }
+
+        .password-toggle:hover {
+          background: rgba(200, 164, 95, 0.08);
+          color: #d9b86e;
+        }
+
+        .password-toggle:focus-visible {
+          outline: 2px solid #c8a45f;
+          outline-offset: -2px;
+        }
+
+        .submit-button {
           width: 100%;
           height: 48px;
           margin-top: 4px;
           border: 1px solid #c8a45f;
           border-radius: 12px;
-          background:
-            linear-gradient(
-              135deg,
-              #d9b86e,
-              #a97e34
-            );
+          background: linear-gradient(135deg, #d9b86e, #a97e34);
           color: #090a0d;
           cursor: pointer;
           font-size: 12px;
           font-weight: 850;
           letter-spacing: 0.04em;
-          transition:
-            filter 140ms ease,
-            transform 140ms ease;
+          transition: filter 140ms ease, transform 140ms ease;
         }
 
-        button:hover {
+        .submit-button:hover {
           filter: brightness(1.08);
         }
 
-        button:active {
+        .submit-button:active {
           transform: translateY(1px);
         }
 
-        button:disabled {
+        .submit-button:disabled {
           cursor: wait;
           opacity: 0.65;
         }
@@ -222,78 +215,101 @@ export default function LoginPage() {
           text-align: center;
         }
 
+        @keyframes form-in {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
         @media (max-width: 500px) {
           .login-shell {
-            width: min(330px, 100%);
+            width: min(330px, calc(100vw - 36px));
           }
+        }
 
-          .signature {
-            width: min(280px, 86vw);
-          }
-
-          .legal-word {
-            margin-bottom: 28px;
+        @media (prefers-reduced-motion: reduce) {
+          .intro,
+          .login-shell {
+            transition-duration: 1ms;
+            animation-duration: 1ms;
           }
         }
       `}</style>
 
-      <section className="login-shell">
+      {showIntro ? (
         <video
-          className="signature"
+          className="intro"
           src="/brand/mether-signature.mp4"
           muted
           playsInline
           autoPlay
+          onEnded={() => setPhase("fading")}
+          onError={() => setPhase("fading")}
           aria-label="AL METHER"
         />
+      ) : null}
 
-        <div className="legal-word">
-          LEGAL
-        </div>
+      {phase === "form" ? (
+        <section className="login-shell">
+          <form onSubmit={handleSubmit}>
+            <label>
+              E-posta
+              <input
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+              />
+            </label>
 
-        <form onSubmit={handleSubmit}>
-          <label>
-            E-posta
-            <input
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-            />
-          </label>
+            <label>
+              Şifre
+              <span className="password-field">
+                <input
+                  name="password"
+                  type={passwordVisible ? "text" : "password"}
+                  autoComplete="current-password"
+                  required
+                />
+                <button
+                  className="password-toggle"
+                  type="button"
+                  aria-label={
+                    passwordVisible ? "Şifreyi gizle" : "Şifreyi göster"
+                  }
+                  aria-pressed={passwordVisible}
+                  onClick={() => setPasswordVisible((visible) => !visible)}
+                >
+                  {passwordVisible ? (
+                    <EyeOff aria-hidden="true" size={18} strokeWidth={1.8} />
+                  ) : (
+                    <Eye aria-hidden="true" size={18} strokeWidth={1.8} />
+                  )}
+                </button>
+              </span>
+            </label>
 
-          <label>
-            Şifre
-            <input
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-            />
-          </label>
+            {error ? (
+              <p className="error" role="alert">
+                {error}
+              </p>
+            ) : null}
 
-          {error ? (
-            <p
-              className="error"
-              role="alert"
+            <button
+              className="submit-button"
+              type="submit"
+              disabled={submitting}
             >
-              {error}
-            </p>
-          ) : null}
-
-          <button
-            type="submit"
-            disabled={
-              submitting ||
-              status === "loading"
-            }
-          >
-            {submitting
-              ? "Giriş yapılıyor..."
-              : "Giriş Yap"}
-          </button>
-        </form>
-      </section>
+              {submitting ? "Giriş yapılıyor..." : "Giriş Yap"}
+            </button>
+          </form>
+        </section>
+      ) : null}
     </main>
   );
 }
