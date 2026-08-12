@@ -84,7 +84,10 @@ export default function LoginPage() {
           display: grid;
           place-items: center;
           overflow: hidden;
-          background: #02050d;
+          background:
+            linear-gradient(rgba(2, 5, 13, 0.82), rgba(2, 5, 13, 0.92)),
+            url("/brand/legal-login-background.webp") center / cover no-repeat,
+            #02050d;
           color: #f5f2eb;
         }
 
