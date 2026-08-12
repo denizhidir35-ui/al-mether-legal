@@ -18,6 +18,33 @@ import {
 const PROTECTED_ADMIN_EMAIL =
   "denizhidir35@gmail.com";
 
+function isMissingNotificationStorage(
+  error: { code?: string } | null
+) {
+  return (
+    error?.code === "PGRST205" ||
+    error?.code === "42P01"
+  );
+}
+
+async function cleanupUserApprovalNotifications(
+  userId: string
+) {
+  const result =
+    await getSupabaseAdmin()
+      .from("core_notifications")
+      .delete()
+      .eq("source", "user-approval")
+      .eq("source_id", userId);
+
+  return result.error &&
+    !isMissingNotificationStorage(
+      result.error
+    )
+    ? result.error
+    : null;
+}
+
 async function findAuthUserByEmail(
   email: string
 ) {
@@ -603,14 +630,12 @@ export async function DELETE(
   }
 
   if (!existing.data) {
-    const notifications =
-      await supabase
-        .from("core_notifications")
-        .delete()
-        .eq("source", "user-approval")
-        .eq("source_id", userId);
+    const notificationError =
+      await cleanupUserApprovalNotifications(
+        userId
+      );
 
-    if (notifications.error) {
+    if (notificationError) {
       return NextResponse.json(
         {
           ok: false,
@@ -681,6 +706,22 @@ export async function DELETE(
     );
   }
 
+  const notificationError =
+    await cleanupUserApprovalNotifications(
+      userId
+    );
+
+  if (notificationError) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Kullanıcı bildirimleri temizlenemedi.",
+      },
+      { status: 500 }
+    );
+  }
+
   const authUser =
     await findAuthUserByEmail(
       email
@@ -714,24 +755,6 @@ export async function DELETE(
         { status: 500 }
       );
     }
-  }
-
-  const notifications =
-    await supabase
-      .from("core_notifications")
-      .delete()
-      .eq("source", "user-approval")
-      .eq("source_id", userId);
-
-  if (notifications.error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          "Kullanıcı bildirimleri temizlenemedi.",
-      },
-      { status: 500 }
-    );
   }
 
   const deletedUser =
