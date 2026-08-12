@@ -11,6 +11,10 @@ import {
   getSupabaseAdmin,
 } from "@/lib/supabaseAdmin";
 
+import {
+  PENDING_APPROVAL_STATUS,
+} from "@/lib/userApproval";
+
 async function requireAdmin() {
   const result =
     await getOrCreateAppUser();
@@ -109,6 +113,174 @@ export async function GET() {
       result.data || [],
     notifications: notifications.error ? [] : notifications.data || [],
   });
+}
+
+export async function POST(
+  request: NextRequest
+) {
+  const auth =
+    await requireAdmin();
+
+  if (
+    auth.response ||
+    !auth.appUser
+  ) {
+    return auth.response;
+  }
+
+  let body: any = {};
+
+  try {
+    body =
+      await request.json();
+  } catch {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Geçersiz istek.",
+      },
+      { status: 400 }
+    );
+  }
+
+  const email =
+    String(
+      body?.email || ""
+    )
+      .trim()
+      .toLowerCase();
+
+  const name =
+    String(
+      body?.name || ""
+    ).trim();
+
+  if (
+    !name ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+      email
+    )
+  ) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Ad soyad ve geçerli e-posta gerekiyor.",
+      },
+      { status: 400 }
+    );
+  }
+
+  const supabase =
+    getSupabaseAdmin();
+
+  const existing =
+    await supabase
+      .from("app_users")
+      .select("id")
+      .eq("email", email)
+      .maybeSingle();
+
+  if (existing.error) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          existing.error.message,
+      },
+      { status: 500 }
+    );
+  }
+
+  if (existing.data) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Bu e-posta zaten kullanıcı listesinde.",
+      },
+      { status: 409 }
+    );
+  }
+
+  const created =
+    await supabase
+      .from("app_users")
+      .insert({
+        email,
+        google_id: email,
+        name,
+        role: "lawyer",
+        status:
+          PENDING_APPROVAL_STATUS,
+      })
+      .select(
+        "id,email,name,role,status,created_at"
+      )
+      .single();
+
+  if (
+    created.error ||
+    !created.data
+  ) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          created.error
+            ?.message ||
+          "Kullanıcı oluşturulamadı.",
+      },
+      { status: 500 }
+    );
+  }
+
+  const redirectTo =
+    new URL(
+      "/auth/set-password",
+      request.nextUrl.origin
+    ).toString();
+
+  const invited =
+    await supabase.auth.admin
+      .inviteUserByEmail(
+        email,
+        {
+          redirectTo,
+          data: {
+            full_name: name,
+          },
+        }
+      );
+
+  if (invited.error) {
+    await supabase
+      .from("app_users")
+      .delete()
+      .eq(
+        "id",
+        created.data.id
+      );
+
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Davet e-postası gönderilemedi.",
+      },
+      { status: 502 }
+    );
+  }
+
+  return NextResponse.json(
+    {
+      ok: true,
+      user:
+        created.data,
+    },
+    { status: 201 }
+  );
 }
 
 export async function PATCH(

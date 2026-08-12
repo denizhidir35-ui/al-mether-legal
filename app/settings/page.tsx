@@ -3,6 +3,7 @@
 import LegalBrand from "@/components/LegalBrand";
 
 import {
+  type FormEvent,
   useEffect,
   useState,
 } from "react";
@@ -49,6 +50,18 @@ export default function SettingsPage() {
     useState("");
 
   const [changingId, setChangingId] =
+    useState("");
+
+  const [inviteName, setInviteName] =
+    useState("");
+
+  const [inviteEmail, setInviteEmail] =
+    useState("");
+
+  const [inviting, setInviting] =
+    useState(false);
+
+  const [inviteMessage, setInviteMessage] =
     useState("");
 
   useEffect(() => {
@@ -223,6 +236,61 @@ export default function SettingsPage() {
     }
   }
 
+  async function inviteUser(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+    setUserError("");
+    setInviteMessage("");
+    setInviting(true);
+
+    try {
+      const response =
+        await fetch(
+          "/api/admin/users",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              name: inviteName,
+              email: inviteEmail,
+            }),
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Kullanıcı davet edilemedi."
+        );
+      }
+
+      setUsers((current) => [
+        data.user,
+        ...current,
+      ]);
+      setInviteName("");
+      setInviteEmail("");
+      setInviteMessage(
+        "Davet e-postası gönderildi. Kullanıcı onay bekliyor."
+      );
+    } catch (error) {
+      setUserError(
+        error instanceof Error
+          ? error.message
+          : "Kullanıcı davet edilemedi."
+      );
+    } finally {
+      setInviting(false);
+    }
+  }
+
   return (
     <main className="legal-app settings-page">
       <header className="settings-header">
@@ -327,6 +395,52 @@ export default function SettingsPage() {
             {userError && (
               <div className="user-error">
                 {userError}
+              </div>
+            )}
+
+            <form
+              className="invite-form"
+              onSubmit={inviteUser}
+            >
+              <input
+                type="text"
+                value={inviteName}
+                onChange={(event) =>
+                  setInviteName(
+                    event.target.value
+                  )
+                }
+                placeholder="Ad Soyad"
+                autoComplete="name"
+                required
+              />
+
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(event) =>
+                  setInviteEmail(
+                    event.target.value
+                  )
+                }
+                placeholder="E-posta"
+                autoComplete="email"
+                required
+              />
+
+              <button
+                type="submit"
+                disabled={inviting}
+              >
+                {inviting
+                  ? "Gönderiliyor..."
+                  : "Kullanıcı Davet Et"}
+              </button>
+            </form>
+
+            {inviteMessage && (
+              <div className="invite-success">
+                {inviteMessage}
               </div>
             )}
 
@@ -648,6 +762,52 @@ export default function SettingsPage() {
           gap: 5px;
         }
 
+        .invite-form {
+          display: grid;
+          grid-template-columns:
+            minmax(0, 1fr)
+            minmax(0, 1fr)
+            auto;
+          gap: 7px;
+          margin-bottom: 10px;
+        }
+
+        .invite-form input,
+        .invite-form button {
+          min-width: 0;
+          height: 34px;
+          padding: 0 10px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-sm);
+          background: var(--legal-surface-2);
+          color: var(--legal-text);
+          font: inherit;
+          font-size: 8.5px;
+        }
+
+        .invite-form input:focus {
+          border-color: var(--legal-gold);
+          outline: none;
+        }
+
+        .invite-form button {
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold);
+          cursor: pointer;
+          font-weight: 850;
+        }
+
+        .invite-form button:disabled {
+          cursor: wait;
+          opacity: 0.55;
+        }
+
+        .invite-success {
+          margin-bottom: 8px;
+          color: var(--legal-success);
+          font-size: 8.5px;
+        }
+
         .user-row {
           min-height: 48px;
 
@@ -841,6 +1001,10 @@ export default function SettingsPage() {
               auto;
 
             gap: 6px;
+          }
+
+          .invite-form {
+            grid-template-columns: 1fr;
           }
 
           .user-role,
