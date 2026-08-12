@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type AccountState = "checking" | "active" | "pending" | "blocked";
 
@@ -10,17 +10,29 @@ export default function AccountApprovalGate({
 }: {
   children: React.ReactNode;
 }) {
-  const { status: sessionStatus, update } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const [accountState, setAccountState] = useState<AccountState>("checking");
   const [message, setMessage] = useState("");
+  const checkedAccountRef = useRef("");
 
   useEffect(() => {
+    if (sessionStatus === "loading") {
+      return;
+    }
+
     if (sessionStatus !== "authenticated") {
+      checkedAccountRef.current = "";
       setAccountState("checking");
       return;
     }
 
-    let cancelled = false;
+    const accountKey = session?.user?.email || "authenticated";
+
+    if (checkedAccountRef.current === accountKey) {
+      return;
+    }
+
+    checkedAccountRef.current = accountKey;
 
     async function checkAccount() {
       try {
@@ -29,10 +41,9 @@ export default function AccountApprovalGate({
         });
         const data = await response.json();
 
-        if (cancelled) return;
+        if (checkedAccountRef.current !== accountKey) return;
 
         if (data?.status === "active") {
-          await update();
           setAccountState("active");
           return;
         }
@@ -40,24 +51,21 @@ export default function AccountApprovalGate({
         setMessage(data?.message || "Hesap erişimi doğrulanamadı.");
         setAccountState(data?.pending ? "pending" : "blocked");
       } catch {
-        if (!cancelled) {
-          setMessage("Hesap erişimi doğrulanamadı.");
-          setAccountState("blocked");
-        }
+        if (checkedAccountRef.current !== accountKey) return;
+
+        setMessage("Hesap erişimi doğrulanamadı.");
+        setAccountState("blocked");
       }
     }
 
     void checkAccount();
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionStatus, update]);
+  }, [session?.user?.email, sessionStatus]);
 
   if (sessionStatus === "unauthenticated") {
     return children;
   }
 
-  if (sessionStatus === "loading" || accountState === "checking") {
+  if (accountState === "checking") {
     return <main className="account-approval-screen">Hesap doğrulanıyor...</main>;
   }
 

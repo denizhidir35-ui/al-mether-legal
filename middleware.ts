@@ -1,27 +1,57 @@
-﻿import { withAuth } from "next-auth/middleware";
+import { withAuth } from "next-auth/middleware";
+import { NextResponse } from "next/server";
 
-export default withAuth({
-  pages: {
-    signIn: "/login",
+function isPublicApi(pathname: string) {
+  return (
+    pathname.startsWith("/api/auth/") ||
+    pathname === "/api/account/status" ||
+    pathname === "/api/health" ||
+    pathname === "/api/alarm-dispatch"
+  );
+}
+
+export default withAuth(
+  function middleware(req) {
+    const pathname = req.nextUrl.pathname;
+
+    if (!pathname.startsWith("/api/") || isPublicApi(pathname)) {
+      return NextResponse.next();
+    }
+
+    const token = req.nextauth.token;
+
+    if (!token) {
+      return NextResponse.json(
+        { ok: false, error: "Oturum bulunamadı." },
+        { status: 401 }
+      );
+    }
+
+    if (token.appUserStatus !== "active") {
+      return NextResponse.json(
+        { ok: false, error: "Aktif kullanıcı hesabı gerekiyor." },
+        { status: 403 }
+      );
+    }
+
+    return NextResponse.next();
   },
-
-  callbacks: {
-    authorized: ({ token, req }) => {
-      const pathname = req.nextUrl.pathname;
-      const publicApi =
-        pathname.startsWith("/api/auth/") ||
-        pathname === "/api/account/status" ||
-        pathname === "/api/health" ||
-        pathname === "/api/alarm-dispatch";
-
-      if (pathname.startsWith("/api/") && !publicApi) {
-        return token?.appUserStatus === "active";
-      }
-
-      return Boolean(token);
+  {
+    pages: {
+      signIn: "/login",
     },
-  },
-});
+
+    callbacks: {
+      authorized: ({ token, req }) => {
+        if (req.nextUrl.pathname.startsWith("/api/")) {
+          return true;
+        }
+
+        return Boolean(token);
+      },
+    },
+  }
+);
 
 export const config = {
   matcher: [
