@@ -20,7 +20,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (status === "authenticated" && session?.user) {
-      router.replace("/dashboard");
+      router.replace("/inbox");
       return;
     }
 
@@ -64,7 +64,7 @@ export default function LoginPage() {
     });
 
     if (result?.ok) {
-      router.replace("/dashboard");
+      router.replace("/inbox");
       router.refresh();
       return;
     }
