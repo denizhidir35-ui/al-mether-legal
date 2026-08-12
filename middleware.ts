@@ -55,9 +55,17 @@ export default withAuth(
 
 export const config = {
   matcher: [
+    "/",
     "/calendar/:path*",
     "/cases/:path*",
+    "/converter/:path*",
+    "/dashboard/:path*",
+    "/dashboard-v2/:path*",
+    "/inbox/:path*",
     "/mail-connect/:path*",
+    "/search/:path*",
+    "/settings/:path*",
+    "/uets-import/:path*",
     "/api/:path*",
   ],
 };

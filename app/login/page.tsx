@@ -1,27 +1,44 @@
-﻿"use client";
+"use client";
 
 import {
   signIn,
   useSession,
 } from "next-auth/react";
 
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import {
+  useRouter,
+} from "next/navigation";
+
+import {
+  FormEvent,
+  useEffect,
+  useState,
+} from "react";
 
 export default function LoginPage() {
-  const router = useRouter();
+  const router =
+    useRouter();
 
   const {
     data: session,
     status,
   } = useSession();
 
+  const [error, setError] =
+    useState("");
+
+  const [submitting, setSubmitting] =
+    useState(false);
+
   useEffect(() => {
     if (
-      status === "authenticated" &&
+      status ===
+        "authenticated" &&
       session?.user
     ) {
-      router.replace("/mail-connect");
+      router.replace(
+        "/dashboard"
+      );
     }
   }, [
     status,
@@ -29,14 +46,50 @@ export default function LoginPage() {
     router,
   ]);
 
-  async function loginWithGoogle() {
-    await signIn(
-      "google",
-      {
-        callbackUrl:
-          "/mail-connect",
-      }
+  async function handleSubmit(
+    event:
+      FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+    setError("");
+    setSubmitting(true);
+
+    const formData =
+      new FormData(
+        event.currentTarget
+      );
+
+    const result =
+      await signIn(
+        "credentials",
+        {
+          email:
+            formData.get(
+              "email"
+            ),
+
+          password:
+            formData.get(
+              "password"
+            ),
+
+          redirect:
+            false,
+        }
+      );
+
+    if (result?.ok) {
+      router.replace(
+        "/dashboard"
+      );
+      router.refresh();
+      return;
+    }
+
+    setError(
+      "E-posta veya şifre hatalı."
     );
+    setSubmitting(false);
   }
 
   return (
@@ -44,115 +97,203 @@ export default function LoginPage() {
       <style jsx>{`
         .login-page {
           min-height: 100vh;
+          min-height: 100dvh;
           display: grid;
           place-items: center;
-          padding: 20px;
-          background:
-            var(--legal-bg);
-          color: var(--legal-text);
+          padding:
+            max(24px, env(safe-area-inset-top))
+            20px
+            max(24px, env(safe-area-inset-bottom));
+          overflow: hidden;
+          background: #02050d;
+          color: #f5f2eb;
         }
 
-        .login-card {
-          width: min(
-            390px,
-            100%
-          );
-          padding: 28px;
-          border: 1px solid
-            var(--legal-border);
-          border-radius: 22px;
-          background:
-            var(--legal-surface);
-          box-shadow:
-            var(--legal-shadow-md);
+        .login-shell {
+          width: min(360px, 100%);
           text-align: center;
         }
 
-        .kicker {
-          margin-bottom: 8px;
-          color: var(--legal-gold);
+        .signature {
+          display: block;
+          width: min(310px, 92vw);
+          aspect-ratio: 16 / 9;
+          margin: 0 auto;
+          border: 0;
+          object-fit: contain;
+          background: #02050d;
+        }
+
+        .legal-word {
+          margin: 7px 0 34px;
+          color: #c8a45f;
           font-size: 10px;
-          font-weight: 900;
-          letter-spacing: 0.18em;
+          font-weight: 850;
+          letter-spacing: 0.58em;
+          text-indent: 0.58em;
         }
 
-        h1 {
-          margin: 0;
-          font-size: 24px;
+        form {
+          display: grid;
+          gap: 16px;
+          text-align: left;
         }
 
-        p {
-          margin: 10px 0 24px;
-          color: var(--legal-muted);
-          font-size: 12px;
-          line-height: 1.6;
+        label {
+          display: grid;
+          gap: 7px;
+          color: #a9adb5;
+          font-size: 10px;
+          font-weight: 750;
+          letter-spacing: 0.04em;
+        }
+
+        input {
+          width: 100%;
+          height: 48px;
+          padding: 0 14px;
+          border: 1px solid #242b36;
+          border-radius: 12px;
+          outline: none;
+          background:
+            rgba(14, 18, 25, 0.94);
+          color: #f5f2eb;
+          font: inherit;
+          font-size: 14px;
+          transition:
+            border-color 140ms ease,
+            box-shadow 140ms ease;
+        }
+
+        input:focus {
+          border-color: #c8a45f;
+          box-shadow:
+            0 0 0 3px
+            rgba(200, 164, 95, 0.12);
+        }
+
+        input:-webkit-autofill {
+          -webkit-text-fill-color:
+            #f5f2eb;
+          box-shadow:
+            0 0 0 1000px
+            #0e1219 inset;
         }
 
         button {
           width: 100%;
-          height: 44px;
-          border: 1px solid
-            var(--legal-border);
-          border-radius: 13px;
-          background: var(--legal-surface-2);
-          color: var(--legal-text);
+          height: 48px;
+          margin-top: 4px;
+          border: 1px solid #c8a45f;
+          border-radius: 12px;
+          background:
+            linear-gradient(
+              135deg,
+              #d9b86e,
+              #a97e34
+            );
+          color: #090a0d;
           cursor: pointer;
           font-size: 12px;
-          font-weight: 900;
+          font-weight: 850;
+          letter-spacing: 0.04em;
+          transition:
+            filter 140ms ease,
+            transform 140ms ease;
         }
 
         button:hover {
-          background: var(--legal-gold-soft);
+          filter: brightness(1.08);
         }
 
-        .security {
-          margin-top: 16px;
-          color: var(--legal-muted);
-          font-size: 9px;
+        button:active {
+          transform: translateY(1px);
         }
 
-        @media (
-          max-width: 500px
-        ) {
-          .login-card {
-            padding: 24px 18px;
-            border-radius: 18px;
+        button:disabled {
+          cursor: wait;
+          opacity: 0.65;
+        }
+
+        .error {
+          margin: -4px 0 0;
+          color: #e58484;
+          font-size: 10px;
+          text-align: center;
+        }
+
+        @media (max-width: 500px) {
+          .login-shell {
+            width: min(330px, 100%);
+          }
+
+          .signature {
+            width: min(280px, 86vw);
+          }
+
+          .legal-word {
+            margin-bottom: 28px;
           }
         }
       `}</style>
 
-      <section className="login-card">
-        <div className="kicker">
-          AL METHER LEGAL
+      <section className="login-shell">
+        <video
+          className="signature"
+          src="/brand/mether-signature.mp4"
+          muted
+          playsInline
+          autoPlay
+          aria-label="AL METHER"
+        />
+
+        <div className="legal-word">
+          LEGAL
         </div>
 
-        <h1>Giriş Yap</h1>
+        <form onSubmit={handleSubmit}>
+          <label>
+            E-posta
+            <input
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+            />
+          </label>
 
-        <p>
-          Hukuki takviminize ve dava çalışma
-          alanınıza güvenli şekilde erişin.
-        </p>
+          <label>
+            Şifre
+            <input
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+            />
+          </label>
 
-        <button
-          type="button"
-          disabled={
-            status === "loading"
-          }
-          onClick={
-            loginWithGoogle
-          }
-        >
-          {status === "loading"
-            ? "Kontrol ediliyor..."
-            : "Google ile Giriş Yap"}
-        </button>
+          {error ? (
+            <p
+              className="error"
+              role="alert"
+            >
+              {error}
+            </p>
+          ) : null}
 
-        <div className="security">
-          E-posta bağlantısı girişten sonra
-          ayrıca yapılır.
-        </div>
+          <button
+            type="submit"
+            disabled={
+              submitting ||
+              status === "loading"
+            }
+          >
+            {submitting
+              ? "Giriş yapılıyor..."
+              : "Giriş Yap"}
+          </button>
+        </form>
       </section>
     </main>
   );
 }
-

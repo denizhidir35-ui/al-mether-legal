@@ -4,6 +4,12 @@ import {
 
 import GoogleProvider
   from "next-auth/providers/google";
+import CredentialsProvider
+  from "next-auth/providers/credentials";
+
+import {
+  createClient as createSupabaseAuthClient,
+} from "@supabase/supabase-js";
 
 import {
   getSupabaseAdmin,
@@ -15,24 +21,119 @@ import {
   PENDING_APPROVAL_STATUS,
 } from "@/lib/userApproval";
 
-const googleLoginProvider =
-  GoogleProvider({
-    clientId:
-      process.env
-        .GOOGLE_CLIENT_ID!,
+const credentialsProvider =
+  CredentialsProvider({
+    name:
+      "E-posta ve Şifre",
 
-    clientSecret:
-      process.env
-        .GOOGLE_CLIENT_SECRET!,
+    credentials: {
+      email: {
+        label:
+          "E-posta",
 
-    authorization: {
-      params: {
-        prompt:
-          "select_account",
-
-        scope:
-          "openid email profile",
+        type:
+          "email",
       },
+
+      password: {
+        label:
+          "Şifre",
+
+        type:
+          "password",
+      },
+    },
+
+    async authorize(
+      credentials
+    ) {
+      const email =
+        cleanEmail(
+          credentials
+            ?.email
+        );
+
+      const password =
+        typeof credentials
+          ?.password ===
+        "string"
+          ? credentials
+              .password
+          : "";
+
+      const supabaseUrl =
+        process.env
+          .NEXT_PUBLIC_SUPABASE_URL;
+
+      const supabaseAnonKey =
+        process.env
+          .NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      if (
+        !email ||
+        !password ||
+        !supabaseUrl ||
+        !supabaseAnonKey
+      ) {
+        return null;
+      }
+
+      const supabase =
+        createSupabaseAuthClient(
+          supabaseUrl,
+          supabaseAnonKey,
+          {
+            auth: {
+              autoRefreshToken:
+                false,
+
+              detectSessionInUrl:
+                false,
+
+              persistSession:
+                false,
+            },
+          }
+        );
+
+      const result =
+        await supabase.auth
+          .signInWithPassword({
+            email,
+            password,
+          });
+
+      const authUser =
+        result.data.user;
+
+      if (
+        result.error ||
+        !authUser?.email
+      ) {
+        return null;
+      }
+
+      return {
+        id:
+          authUser.id,
+
+        email:
+          cleanEmail(
+            authUser.email
+          ),
+
+        name:
+          typeof authUser
+            .user_metadata
+            ?.full_name ===
+          "string"
+            ? authUser
+                .user_metadata
+                .full_name
+            : email.split(
+                "@"
+              )[0],
+      };
     },
   });
 
@@ -161,7 +262,7 @@ const providers:
   NextAuthOptions[
     "providers"
   ] = [
-    googleLoginProvider,
+    credentialsProvider,
     googleMailProvider,
   ];
 
@@ -179,6 +280,11 @@ if (
 export const authOptions:
   NextAuthOptions = {
   providers,
+
+  session: {
+    strategy:
+      "jwt",
+  },
 
   callbacks: {
     async signIn({
