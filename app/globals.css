@@ -217,8 +217,34 @@
 
 .legal-app {
   min-height: 100vh;
-  background: var(--legal-bg);
+  position: relative;
+  isolation: isolate;
+  background: transparent !important;
   color: var(--legal-text);
+}
+
+.legal-app::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      rgba(246, 243, 236, 0.97),
+      rgba(246, 243, 236, 0.97)
+    ),
+    url("/brand/legal-login-background.webp") center / cover no-repeat;
+}
+
+html.dark .legal-app::before,
+html[data-legal-theme="dark"] .legal-app::before {
+  background:
+    linear-gradient(
+      rgba(5, 9, 17, 0.92),
+      rgba(5, 9, 17, 0.92)
+    ),
+    url("/brand/legal-login-background.webp") center / cover no-repeat;
 }
 
 .legal-surface {
