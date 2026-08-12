@@ -15,6 +15,70 @@ import {
   PENDING_APPROVAL_STATUS,
 } from "@/lib/userApproval";
 
+const PROTECTED_ADMIN_EMAIL =
+  "denizhidir35@gmail.com";
+
+async function findAuthUserByEmail(
+  email: string
+) {
+  const supabase =
+    getSupabaseAdmin();
+  const perPage = 1000;
+
+  for (
+    let page = 1;
+    page <= 100;
+    page += 1
+  ) {
+    const result =
+      await supabase.auth.admin
+        .listUsers({
+          page,
+          perPage,
+        });
+
+    if (result.error) {
+      return {
+        user: null,
+        error:
+          result.error.message,
+      };
+    }
+
+    const user =
+      result.data.users.find(
+        (item) =>
+          item.email
+            ?.trim()
+            .toLowerCase() ===
+          email
+      );
+
+    if (user) {
+      return {
+        user,
+        error: null,
+      };
+    }
+
+    if (
+      result.data.users.length <
+      perPage
+    ) {
+      return {
+        user: null,
+        error: null,
+      };
+    }
+  }
+
+  return {
+    user: null,
+    error:
+      "Auth kullanıcı listesi tamamlanamadı.",
+  };
+}
+
 async function requireAdmin() {
   const result =
     await getOrCreateAppUser();
@@ -454,5 +518,241 @@ export async function PATCH(
     ok: true,
     user:
       updated.data,
+  });
+}
+
+export async function DELETE(
+  request: NextRequest
+) {
+  const auth =
+    await requireAdmin();
+
+  if (
+    auth.response ||
+    !auth.appUser
+  ) {
+    return auth.response;
+  }
+
+  let body: any = {};
+
+  try {
+    body =
+      await request.json();
+  } catch {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Geçersiz istek.",
+      },
+      { status: 400 }
+    );
+  }
+
+  const userId =
+    String(
+      body?.userId || ""
+    ).trim();
+
+  if (!userId) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Kullanıcı seçilmedi.",
+      },
+      { status: 400 }
+    );
+  }
+
+  if (
+    userId ===
+    auth.appUser.id
+  ) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Yönetici hesabı silinemez.",
+      },
+      { status: 403 }
+    );
+  }
+
+  const supabase =
+    getSupabaseAdmin();
+  const existing =
+    await supabase
+      .from("app_users")
+      .select(
+        "id,email,name,role,status"
+      )
+      .eq("id", userId)
+      .maybeSingle();
+
+  if (existing.error) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          existing.error.message,
+      },
+      { status: 500 }
+    );
+  }
+
+  if (!existing.data) {
+    const notifications =
+      await supabase
+        .from("core_notifications")
+        .delete()
+        .eq("source", "user-approval")
+        .eq("source_id", userId);
+
+    if (notifications.error) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Kullanıcı bildirimleri temizlenemedi.",
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      ok: true,
+      userId,
+      alreadyDeleted: true,
+    });
+  }
+
+  const email =
+    String(
+      existing.data.email || ""
+    )
+      .trim()
+      .toLowerCase();
+
+  if (
+    existing.data.role ===
+      "admin" ||
+    email ===
+      PROTECTED_ADMIN_EMAIL
+  ) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Yönetici hesabı silinemez.",
+      },
+      { status: 403 }
+    );
+  }
+
+  if (
+    existing.data.status ===
+    "active"
+  ) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Aktif kullanıcı önce pasif yapılmalıdır.",
+      },
+      { status: 409 }
+    );
+  }
+
+  if (
+    existing.data.status !== "pending" &&
+    existing.data.status !== "pending_approval" &&
+    existing.data.status !== "rejected" &&
+    existing.data.status !== "inactive"
+  ) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Bu kullanıcı durumu silmeye uygun değil.",
+      },
+      { status: 409 }
+    );
+  }
+
+  const authUser =
+    await findAuthUserByEmail(
+      email
+    );
+
+  if (authUser.error) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Auth kullanıcısı doğrulanamadı.",
+      },
+      { status: 500 }
+    );
+  }
+
+  if (authUser.user) {
+    const deletedAuth =
+      await supabase.auth.admin
+        .deleteUser(
+          authUser.user.id
+        );
+
+    if (deletedAuth.error) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Auth kullanıcısı silinemedi.",
+        },
+        { status: 500 }
+      );
+    }
+  }
+
+  const notifications =
+    await supabase
+      .from("core_notifications")
+      .delete()
+      .eq("source", "user-approval")
+      .eq("source_id", userId);
+
+  if (notifications.error) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Kullanıcı bildirimleri temizlenemedi.",
+      },
+      { status: 500 }
+    );
+  }
+
+  const deletedUser =
+    await supabase
+      .from("app_users")
+      .delete()
+      .eq("id", userId);
+
+  if (deletedUser.error) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Uygulama kullanıcısı silinemedi.",
+      },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({
+    ok: true,
+    userId,
   });
 }

@@ -29,6 +29,7 @@ type AdminNotification = {
   id: string;
   message: string;
   metadata?: {
+    pendingUserId?: string;
     target?: string;
   } | null;
   created_at?: string;
@@ -234,6 +235,75 @@ export default function SettingsPage() {
         error instanceof Error
           ? error.message
           : "Kullanıcı durumu güncellenemedi."
+      );
+    } finally {
+      setChangingId("");
+    }
+  }
+
+  async function deleteUser(
+    user: AdminUser
+  ) {
+    const confirmed =
+      window.confirm(
+        "Bu kullanıcı kalıcı olarak silinecek. Devam edilsin mi?"
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setChangingId(user.id);
+      setUserError("");
+
+      const response =
+        await fetch(
+          "/api/admin/users",
+          {
+            method: "DELETE",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              userId: user.id,
+            }),
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Kullanıcı silinemedi."
+        );
+      }
+
+      setUsers(
+        (current) =>
+          current.filter(
+            (item) =>
+              item.id !== user.id
+          )
+      );
+
+      setAdminNotifications(
+        (current) =>
+          current.filter(
+            (notification) =>
+              notification.metadata
+                ?.pendingUserId !==
+              user.id
+          )
+      );
+    } catch (error) {
+      setUserError(
+        error instanceof Error
+          ? error.message
+          : "Kullanıcı silinemedi."
       );
     } finally {
       setChangingId("");
@@ -564,6 +634,25 @@ export default function SettingsPage() {
                             Reddet
                           </button>
                         )}
+
+                        {user.role !== "admin" &&
+                          user.email.trim().toLowerCase() !==
+                            "denizhidir35@gmail.com" &&
+                          (user.status === "pending" ||
+                            user.status === "pending_approval" ||
+                            user.status === "rejected" ||
+                            user.status === "inactive") && (
+                            <button
+                              type="button"
+                              className="status-button delete"
+                              disabled={changingId === user.id}
+                              onClick={() => deleteUser(user)}
+                            >
+                              {changingId === user.id
+                                ? "Siliniyor..."
+                                : "Sil"}
+                            </button>
+                          )}
                       </div>
                     </div>
                   )
@@ -961,6 +1050,11 @@ export default function SettingsPage() {
         }
 
         .status-button.reject {
+          color: var(--legal-danger);
+        }
+
+        .status-button.delete {
+          border-color: var(--legal-danger);
           color: var(--legal-danger);
         }
 
