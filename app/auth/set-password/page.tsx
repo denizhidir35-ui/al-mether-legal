@@ -95,6 +95,44 @@ export default function SetPasswordPage() {
       return;
     }
 
+    const session =
+      await supabase.auth.getSession();
+
+    const accessToken =
+      session.data.session
+        ?.access_token;
+
+    if (
+      session.error ||
+      !accessToken
+    ) {
+      setError(
+        "Şifre oluşturuldu ancak davet onayı tamamlanamadı. Lütfen yeniden deneyin."
+      );
+      setSubmitting(false);
+      return;
+    }
+
+    const notification =
+      await fetch(
+        "/api/auth/invite-accepted",
+        {
+          method: "POST",
+          headers: {
+            Authorization:
+              `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+    if (!notification.ok) {
+      setError(
+        "Şifre oluşturuldu ancak yönetici bildirimi tamamlanamadı. Lütfen yeniden deneyin."
+      );
+      setSubmitting(false);
+      return;
+    }
+
     await supabase.auth.signOut({
       scope: "local",
     });

@@ -28,6 +28,9 @@ type AdminUser = {
 type AdminNotification = {
   id: string;
   message: string;
+  metadata?: {
+    target?: string;
+  } | null;
   created_at?: string;
 };
 
@@ -392,7 +395,10 @@ export default function SettingsPage() {
         </div>
 
         {adminMode && (
-          <div className="settings-panel admin-panel">
+          <div
+            className="settings-panel admin-panel"
+            id="user-management"
+          >
             <div className="admin-head">
               <div>
                 <div className="settings-section-title">
@@ -465,7 +471,12 @@ export default function SettingsPage() {
             {adminNotifications.length > 0 && (
               <div className="admin-notifications">
                 {adminNotifications.map((notification) => (
-                  <div key={notification.id}>{notification.message}</div>
+                  <a
+                    key={notification.id}
+                    href={notification.metadata?.target || "#user-management"}
+                  >
+                    {notification.message}
+                  </a>
                 ))}
               </div>
             )}
@@ -937,6 +948,16 @@ export default function SettingsPage() {
           background: var(--legal-gold-soft);
           color: var(--legal-text-soft);
           font-size: 8.5px;
+        }
+
+        .admin-notifications a {
+          color: inherit;
+          text-decoration: none;
+        }
+
+        .admin-notifications a:hover {
+          color: var(--legal-gold);
+          text-decoration: underline;
         }
 
         .status-button.reject {

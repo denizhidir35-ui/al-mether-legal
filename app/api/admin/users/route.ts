@@ -100,7 +100,7 @@ export async function GET() {
 
   const notifications = await supabase
     .from("core_notifications")
-    .select("id,message,created_at")
+    .select("id,message,metadata,created_at")
     .eq("user_id", auth.appUser?.id)
     .eq("channel", "in-app")
     .eq("source", "user-approval")
