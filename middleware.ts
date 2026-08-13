@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 function isPublicApi(pathname: string) {
   return (
     pathname.startsWith("/api/auth/") ||
+    pathname === "/api/app/windows-version" ||
     pathname === "/api/account/status" ||
     pathname === "/api/health" ||
     pathname === "/api/alarm-dispatch"
