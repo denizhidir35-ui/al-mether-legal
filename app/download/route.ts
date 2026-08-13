@@ -1,7 +1,8 @@
 const INSTALLER_NAME = "AL-METHER-Legal-Setup.exe";
-const INSTALLER_SIZE = "10,5 MB";
+const INSTALLER_SIZE = "11.005.909 bayt";
+const INSTALLER_VERSION = "1.0.0.0";
 const INSTALLER_SHA256 =
-  "B39BA787BD3EDDA0B1F123E10E332CFF63A20CCA2428DA614E0EEBC2185CAD5D";
+  "254D77606E7941077C3FA425D7372DD49343B518542DB242BD745157A17BD5FC";
 
 const DOWNLOAD_URL =
   "https://github.com/denizhidir35-ui/al-mether-legal/releases/download/v1.0.0/AL-METHER-Legal-Setup.exe";
@@ -85,7 +86,7 @@ export async function GET() {
         </div>
 
         <aside class="installerCard" aria-label="Kurulum dosyası bilgileri">
-          <div class="cardTopline"><span>WINDOWS INSTALLER</span><span>v1.0.0</span></div>
+          <div class="cardTopline"><span>WINDOWS INSTALLER</span><span>v${INSTALLER_VERSION}</span></div>
           <div class="appIdentity">
             <div class="appIcon">
               <img src="/brand/legal-app-icon-dark.png" alt="AL METHER Legal uygulama ikonu" width="76" height="76" />
