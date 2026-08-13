@@ -16,14 +16,30 @@ export default function ForgotPasswordPage() {
     setMessage("");
 
     const supabase = createClient();
-    await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: "https://legal.almether.com/auth/reset-password",
-    });
 
-    setMessage(
-      "E-posta sistemde kayıtlıysa şifre sıfırlama bağlantısı gönderildi."
-    );
-    setSubmitting(false);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        email.trim().toLowerCase(),
+        {
+          redirectTo: "https://legal.almether.com/auth/reset-password",
+        }
+      );
+
+      if (error) {
+        console.error("Password reset request failed", {
+          code: error.code,
+          message: error.message,
+          status: error.status,
+        });
+      }
+    } catch (error) {
+      console.error("Password reset request failed", error);
+    } finally {
+      setMessage(
+        "E-posta sistemde kayıtlıysa şifre sıfırlama bağlantısı gönderildi."
+      );
+      setSubmitting(false);
+    }
   }
 
   return (
