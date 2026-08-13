@@ -13,6 +13,8 @@ import {
 } from "../lib/legal/imageNormalization.ts";
 import {
   extractLegalImageText,
+  getLegalImageOcrDiagnostics,
+  resetLegalImageOcrWorkerForTests,
 } from "../lib/legal/ocr.ts";
 import {
   extractUetsNotice,
@@ -40,6 +42,24 @@ const clientOptimizationSource =
   await readFile(
     new URL(
       "../lib/legal/clientImageOptimization.ts",
+      import.meta.url
+    ),
+    "utf8"
+  );
+
+const ocrSource =
+  await readFile(
+    new URL(
+      "../lib/legal/ocr.ts",
+      import.meta.url
+    ),
+    "utf8"
+  );
+
+const nextConfigSource =
+  await readFile(
+    new URL(
+      "../next.config.ts",
       import.meta.url
     ),
     "utf8"
@@ -193,6 +213,8 @@ test(
   "normalized camera JPEG completes OCR and structured extraction",
   { timeout: 60_000 },
   async (context) => {
+    await resetLegalImageOcrWorkerForTests();
+
     const fixture =
       await createTextFixture(
         4200,
@@ -215,6 +237,19 @@ test(
     const structured =
       extractUetsNotice(ocr.text);
 
+    const warmStarted =
+      performance.now();
+    const warmOcr =
+      await extractLegalImageText(
+        normalized.bytes,
+        normalized.mimeType
+      );
+    const warmDurationMs =
+      performance.now() -
+      warmStarted;
+    const diagnostics =
+      getLegalImageOcrDiagnostics();
+
     assert.equal(ocr.engine, "tesseract");
     assert.match(ocr.text, /2026\s*\/\s*52/iu);
     assert.equal(
@@ -223,6 +258,34 @@ test(
       ocr.text
     );
     assert.ok(durationMs < 45_000);
+    assert.match(
+      warmOcr.text,
+      /2026\s*\/\s*52/iu
+    );
+    assert.equal(
+      diagnostics.coldStarts,
+      1
+    );
+    assert.equal(
+      diagnostics.warmHits,
+      1
+    );
+    assert.deepEqual(
+      diagnostics.languages,
+      ["tur", "eng"]
+    );
+    assert.equal(
+      diagnostics.languageSource,
+      "local-bundle"
+    );
+    assert.equal(
+      diagnostics.lastInitPhase,
+      "ready"
+    );
+    assert.ok(
+      diagnostics.lastInitMs <
+        12_000
+    );
 
     context.diagnostic(
       `MOBILE_OCR_METRICS ${JSON.stringify({
@@ -234,10 +297,66 @@ test(
           `${normalized.width}x${normalized.height}`,
         ocrMs:
           Number(durationMs.toFixed(2)),
+        warmOcrMs:
+          Number(warmDurationMs.toFixed(2)),
+        coldInitMs:
+          diagnostics.lastInitMs,
       })}`
     );
+
+    await resetLegalImageOcrWorkerForTests();
   }
 );
+
+test("image OCR assets and JSON error boundary are production-wired", async () => {
+  const [
+    englishData,
+    turkishData,
+  ] =
+    await Promise.all([
+      readFile(
+        new URL(
+          "../eng.traineddata",
+          import.meta.url
+        )
+      ),
+      readFile(
+        new URL(
+          "../tur.traineddata",
+          import.meta.url
+        )
+      ),
+    ]);
+
+  assert.ok(
+    englishData.length >
+      1_000_000
+  );
+  assert.ok(
+    turkishData.length >
+      1_000_000
+  );
+  assert.match(
+    ocrSource,
+    /langPath[\s\S]*?gzip:\s*false[\s\S]*?cacheMethod:\s*"none"/
+  );
+  assert.match(
+    ocrSource,
+    /OCR motoru hazırlanırken zaman aşımına uğradı\./
+  );
+  assert.match(
+    ocrSource,
+    /Görsel OCR işlemi zaman aşımına uğradı\./
+  );
+  assert.match(
+    nextConfigSource,
+    /"\/api\/uets\/document-analyze"[\s\S]*?eng\.traineddata[\s\S]*?tur\.traineddata[\s\S]*?tesseract\.js-core/
+  );
+  assert.match(
+    analysisRoute,
+    /catch\s*\(error\)[\s\S]*?NextResponse\.json\([\s\S]*?status:\s*500/
+  );
+});
 
 test("camera inputs and same-file reselect reset remain wired", () => {
   assert.match(

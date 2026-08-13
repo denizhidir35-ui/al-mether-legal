@@ -9,6 +9,10 @@ import {
   join,
 } from "node:path";
 
+import {
+  performance,
+} from "node:perf_hooks";
+
 const nodeRequire =
   createRequire(
     join(
@@ -324,6 +328,316 @@ async function createLegalOcrWorker(
     throw error;
   }
 }
+
+type ImageOcrWorkerDiagnostics = {
+  coldStarts: number;
+  warmHits: number;
+  lastInitMs: number;
+  lastInitPhase: string;
+  languages: string[];
+  languageSource: "local-bundle";
+};
+
+const imageOcrDiagnostics:
+  ImageOcrWorkerDiagnostics = {
+    coldStarts: 0,
+    warmHits: 0,
+    lastInitMs: 0,
+    lastInitPhase: "not-started",
+    languages: [
+      "tur",
+      "eng",
+    ],
+    languageSource:
+      "local-bundle",
+  };
+
+let imageOcrWorkerPromise:
+  Promise<any> |
+  null = null;
+
+let imageOcrQueue:
+  Promise<void> =
+  Promise.resolve();
+
+async function createLegalImageOcrWorker() {
+  if (imageOcrWorkerPromise) {
+    imageOcrDiagnostics.warmHits +=
+      1;
+
+    return imageOcrWorkerPromise;
+  }
+
+  imageOcrDiagnostics.coldStarts +=
+    1;
+
+  const startedAt =
+    performance.now();
+
+  const {
+    createWorker,
+  } =
+    await import(
+      "tesseract.js"
+    );
+
+  const tesseractMain =
+    nodeRequire.resolve(
+      "tesseract.js"
+    );
+
+  const workerPath =
+    join(
+      dirname(
+        tesseractMain
+      ),
+      "worker-script",
+      "node",
+      "index.js"
+    );
+
+  const langPath =
+    process.cwd();
+
+  const phases =
+    new Map<
+      string,
+      {
+        firstMs: number;
+        lastMs: number;
+      }
+    >();
+
+  const workerPromise =
+    createWorker(
+      imageOcrDiagnostics.languages,
+      undefined,
+      {
+        workerPath,
+        langPath,
+        gzip: false,
+        cacheMethod:
+          "none",
+        logger: ({
+          status,
+        }: {
+          status: string;
+        }) => {
+          if (
+            ![
+              "loading tesseract core",
+              "initializing tesseract",
+              "loading language traineddata",
+              "initializing api",
+            ].includes(
+              status
+            )
+          ) {
+            return;
+          }
+
+          const elapsedMs =
+            performance.now() -
+            startedAt;
+
+          const phase =
+            phases.get(
+              status
+            );
+
+          phases.set(
+            status,
+            phase
+              ? {
+                  ...phase,
+                  lastMs:
+                    elapsedMs,
+                }
+              : {
+                  firstMs:
+                    elapsedMs,
+                  lastMs:
+                    elapsedMs,
+                }
+          );
+
+          imageOcrDiagnostics.lastInitPhase =
+            status;
+        },
+      }
+    );
+
+  imageOcrWorkerPromise =
+    withTimeout(
+      workerPromise,
+      12_000,
+      "OCR motoru hazırlanırken zaman aşımına uğradı."
+    )
+      .then((worker) => {
+        imageOcrDiagnostics.lastInitMs =
+          Number(
+            (
+              performance.now() -
+              startedAt
+            ).toFixed(2)
+          );
+
+        imageOcrDiagnostics.lastInitPhase =
+          "ready";
+
+        (
+          worker as typeof worker & {
+            worker?: {
+              unref?: () => void;
+            };
+          }
+        ).worker?.unref?.();
+
+        console.info(
+          "[legal-image-ocr] worker ready",
+          {
+            durationMs:
+              imageOcrDiagnostics.lastInitMs,
+            phases:
+              Object.fromEntries(
+                Array.from(
+                  phases.entries()
+                ).map(
+                  ([
+                    phase,
+                    timing,
+                  ]) => [
+                    phase,
+                    {
+                      firstMs:
+                        Number(
+                          timing.firstMs.toFixed(
+                            2
+                          )
+                        ),
+                      lastMs:
+                        Number(
+                          timing.lastMs.toFixed(
+                            2
+                          )
+                        ),
+                    },
+                  ]
+                )
+              ),
+          }
+        );
+
+        return worker;
+      })
+      .catch((error) => {
+        imageOcrWorkerPromise =
+          null;
+
+        void workerPromise
+          .then((worker) =>
+            worker.terminate()
+          )
+          .catch(() => {});
+
+        throw error;
+      });
+
+  return imageOcrWorkerPromise;
+}
+
+async function invalidateLegalImageOcrWorker(
+  worker?: any
+) {
+  const current =
+    imageOcrWorkerPromise;
+
+  imageOcrWorkerPromise =
+    null;
+
+  const resolvedWorker =
+    worker ||
+    await current?.catch(
+      () => null
+    );
+
+  await resolvedWorker
+    ?.terminate()
+    .catch(
+      () => {}
+    );
+}
+
+async function withLegalImageOcrWorker<T>(
+  action: (
+    worker: any
+  ) => Promise<T>
+) {
+  const previous =
+    imageOcrQueue;
+
+  let release:
+    () => void =
+    () => {};
+
+  imageOcrQueue =
+    new Promise<void>(
+      (resolve) => {
+        release =
+          resolve;
+      }
+    );
+
+  await previous.catch(
+    () => {}
+  );
+
+  let worker:
+    any;
+
+  try {
+    worker =
+      await createLegalImageOcrWorker();
+
+    return await action(
+      worker
+    );
+  } catch (error) {
+    await invalidateLegalImageOcrWorker(
+      worker
+    );
+
+    throw error;
+  } finally {
+    release();
+  }
+}
+
+export function getLegalImageOcrDiagnostics() {
+  return {
+    ...imageOcrDiagnostics,
+    languages: [
+      ...imageOcrDiagnostics.languages,
+    ],
+  };
+}
+
+export async function resetLegalImageOcrWorkerForTests() {
+  await invalidateLegalImageOcrWorker();
+
+  imageOcrQueue =
+    Promise.resolve();
+
+  imageOcrDiagnostics.coldStarts =
+    0;
+  imageOcrDiagnostics.warmHits =
+    0;
+  imageOcrDiagnostics.lastInitMs =
+    0;
+  imageOcrDiagnostics.lastInitPhase =
+    "not-started";
+}
+
 async function recognizeImage(
   worker: any,
   bytes: Buffer,
@@ -522,12 +836,8 @@ export async function extractLegalImageText(
     );
   }
 
-  const worker =
-    await createLegalOcrWorker(
-      12_000
-    );
-
-  try {
+  return withLegalImageOcrWorker(
+    async (worker) => {
     const text =
       await recognizeImage(
         worker,
@@ -547,13 +857,8 @@ export async function extractLegalImageText(
       engine:
         "tesseract",
     };
-  } finally {
-    await worker
-      .terminate()
-      .catch(
-        () => {}
-      );
-  }
+    }
+  );
 }
 
 export async function extractLegalPdfText(
