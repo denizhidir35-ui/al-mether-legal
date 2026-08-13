@@ -17,6 +17,7 @@ import LegalDock from "@/components/LegalDock";
 import LegalSessionControl from "@/components/LegalSessionControl";
 import { readJsonResponse } from "@/lib/apiResponse";
 import { canAddManualCaseToCalendar } from "@/lib/legal/manualCaseCalendar";
+import { optimizeCaseImageForAnalysis } from "@/lib/legal/clientImageOptimization";
 import LegalBackButton from "@/components/LegalBackButton";
 import { markSafeAppNavigation } from "@/lib/navigation/backNavigation";
 
@@ -1231,7 +1232,21 @@ export default function CasesPage() {
 
       const formData =
         new FormData();
-      formData.append("file", file);
+
+      const analysisFile =
+        file.type.startsWith("image/") ||
+        /\.(?:jpe?g|png|webp)$/i.test(
+          file.name
+        )
+          ? await optimizeCaseImageForAnalysis(
+              file
+            )
+          : file;
+
+      formData.append(
+        "file",
+        analysisFile
+      );
 
       const response = await fetch(
         "/api/uets/document-analyze",

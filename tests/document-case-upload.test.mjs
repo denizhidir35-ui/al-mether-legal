@@ -27,6 +27,15 @@ const analysisRoute = await readFile(
   "utf8"
 );
 
+const imageNormalizationSource =
+  await readFile(
+    new URL(
+      "../lib/legal/imageNormalization.ts",
+      import.meta.url
+    ),
+    "utf8"
+  );
+
 const casesRoute = await readFile(
   new URL(
     "../app/api/cases/route.ts",
@@ -120,12 +129,12 @@ test("document analysis runtime failures remain JSON responses", () => {
 
 test("image upload uses the existing OCR engine", () => {
   assert.match(
-    analysisRoute,
+    imageNormalizationSource,
     /image\/jpeg[\s\S]*?image\/png[\s\S]*?image\/webp/
   );
   assert.match(
     analysisRoute,
-    /extractLegalImageText\(\s*bytes,\s*file\.type\s*\)/
+    /normalizeLegalImageForOcr\(\s*bytes,\s*imageMimeType\s*\)[\s\S]*?extractLegalImageText\(\s*normalizedImage\.bytes,\s*normalizedImage\.mimeType\s*\)/
   );
 });
 

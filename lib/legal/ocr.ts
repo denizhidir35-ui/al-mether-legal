@@ -44,29 +44,31 @@ function withTimeout<T>(
     string =
     "OCR işlemi zaman aşımına uğradı."
 ): Promise<T> {
-  return Promise.race([
-    promise,
+  return new Promise<T>(
+    (resolve, reject) => {
+      const timeout =
+        setTimeout(
+          () =>
+            reject(
+              new Error(
+                message
+              )
+            ),
+          timeoutMs
+        );
 
-    new Promise<T>(
-      (_resolve, reject) => {
-        const timeout =
-          setTimeout(
-            () => {
-              clearTimeout(
-                timeout
-              );
-
-              reject(
-                new Error(
-                  message
-                )
-              );
-            },
-            timeoutMs
-          );
-      }
-    ),
-  ]);
+      promise.then(
+        (value) => {
+          clearTimeout(timeout);
+          resolve(value);
+        },
+        (error) => {
+          clearTimeout(timeout);
+          reject(error);
+        }
+      );
+    }
+  );
 }
 
 function cleanOcrText(
@@ -258,7 +260,9 @@ async function extractEmbeddedPdfText(
   }
 }
 
-async function createLegalOcrWorker() {
+async function createLegalOcrWorker(
+  timeoutMs?: number
+) {
   const {
     createWorker,
   } =
@@ -287,7 +291,8 @@ async function createLegalOcrWorker() {
       "index.js"
     );
 
-  return createWorker(
+  const workerPromise =
+    createWorker(
     [
       "tur",
       "eng",
@@ -299,6 +304,25 @@ async function createLegalOcrWorker() {
       workerPath,
     }
   );
+
+  if (!timeoutMs) {
+    return workerPromise;
+  }
+
+  try {
+    return await withTimeout(
+      workerPromise,
+      timeoutMs,
+      "OCR motoru hazırlanırken zaman aşımına uğradı."
+    );
+  } catch (error) {
+    void workerPromise
+      .then((worker) =>
+        worker.terminate()
+      )
+      .catch(() => {});
+    throw error;
+  }
 }
 async function recognizeImage(
   worker: any,
@@ -499,13 +523,16 @@ export async function extractLegalImageText(
   }
 
   const worker =
-    await createLegalOcrWorker();
+    await createLegalOcrWorker(
+      12_000
+    );
 
   try {
     const text =
       await recognizeImage(
         worker,
-        bytes
+        bytes,
+        30_000
       );
 
     if (!text) {

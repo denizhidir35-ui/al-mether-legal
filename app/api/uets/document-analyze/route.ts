@@ -15,6 +15,11 @@ import {
   extractLegalPdfText,
 } from "@/lib/legal/ocr";
 import {
+  LegalImageNormalizationError,
+  normalizeLegalImageForOcr,
+  resolveLegalImageMimeType,
+} from "@/lib/legal/imageNormalization";
+import {
   extractUetsDateInformation,
   extractUetsDecisionNo,
   extractUetsPartiesAndSubject,
@@ -660,15 +665,24 @@ export async function POST(
           );
         htmlText =
           "Kullanıcı tarafından yüklenen hukuki PDF belgesi analizidir.";
-      } else if (
-        new Set([
-          "image/jpeg",
-          "image/png",
-          "image/webp",
-          "image/heic",
-          "image/heif",
-        ]).has(file.type)
-      ) {
+      } else {
+        const imageMimeType =
+          resolveLegalImageMimeType(
+            file.type,
+            sourceDocument
+          );
+
+        if (!imageMimeType) {
+          return NextResponse.json(
+            {
+              ok: false,
+              error:
+                "PDF, JPG, PNG, WEBP, HEIC veya HEIF destekleniyor.",
+            },
+            { status: 400 }
+          );
+        }
+
         if (
           file.size >
           15 * 1024 * 1024
@@ -683,10 +697,36 @@ export async function POST(
           );
         }
 
+        let normalizedImage;
+
+        try {
+          normalizedImage =
+            await normalizeLegalImageForOcr(
+              bytes,
+              imageMimeType
+            );
+        } catch (error) {
+          if (
+            error instanceof
+              LegalImageNormalizationError
+          ) {
+            return NextResponse.json(
+              {
+                ok: false,
+                error:
+                  error.message,
+              },
+              { status: 422 }
+            );
+          }
+
+          throw error;
+        }
+
         const imageResult =
           await extractLegalImageText(
-            bytes,
-            file.type
+            normalizedImage.bytes,
+            normalizedImage.mimeType
           );
 
         htmlText =
@@ -695,15 +735,6 @@ export async function POST(
           );
         uploadEngine =
           imageResult.engine;
-      } else {
-        return NextResponse.json(
-          {
-            ok: false,
-            error:
-              "PDF, JPG, PNG, WEBP, HEIC veya HEIF destekleniyor.",
-          },
-          { status: 400 }
-        );
       }
     } else {
       const input =
