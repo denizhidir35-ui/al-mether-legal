@@ -4,6 +4,10 @@ import {
   useEffect,
 } from "react";
 
+import {
+  openNotificationTarget,
+} from "@/lib/notifications/clickThrough";
+
 function urlBase64ToUint8Array(
   base64String: string
 ) {
@@ -60,6 +64,17 @@ function urlBase64ToUint8Array(
 
 export default function LegalPushRegistration() {
   useEffect(() => {
+    function handleNotificationOpen(event: MessageEvent) {
+      if (event.data?.source !== "METHER_NOTIFICATION_OPEN") return;
+
+      openNotificationTarget(event.data?.url);
+    }
+
+    navigator.serviceWorker?.addEventListener(
+      "message",
+      handleNotificationOpen
+    );
+
     async function register() {
       try {
         if (
@@ -156,6 +171,13 @@ export default function LegalPushRegistration() {
     }
 
     register();
+
+    return () => {
+      navigator.serviceWorker?.removeEventListener(
+        "message",
+        handleNotificationOpen
+      );
+    };
   }, []);
 
   return null;

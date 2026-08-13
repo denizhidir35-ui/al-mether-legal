@@ -104,17 +104,27 @@ test("alarm load aborts stale date or tab requests", async () => {
   );
 });
 
-test("cases header reserves session controls without changing wide layout", async () => {
+test("cases header keeps session controls in flow and wraps by container width", async () => {
   const cases = await read("../app/cases/page.tsx");
 
   assert.match(
     cases,
-    /@media \(min-width: 901px\) and \(max-width: 1180px\)/
+    /container-type:\s*inline-size/
   );
-  assert.match(cases, /padding-right: 170px/);
-  assert.match(cases, /@media \(max-width: 760px\)/);
-  assert.match(cases, /padding-right: 90px/);
-  assert.match(cases, /grid-template-columns:\s*1fr/);
+  assert.match(
+    cases,
+    /grid-template-areas:\s*"title actions session"/
+  );
+  assert.match(cases, /@container \(max-width: 1050px\)/);
+  assert.match(
+    cases,
+    /"title session"\s*"actions actions"/
+  );
+  assert.match(
+    cases,
+    /\.cases-header\s*\.legal-session-control\s*\{[\s\S]*?position:\s*static !important/
+  );
+  assert.doesNotMatch(cases, /padding-right:\s*(?:170|90)px/);
 });
 
 test("back navigation remains present in cases and calendar", async () => {

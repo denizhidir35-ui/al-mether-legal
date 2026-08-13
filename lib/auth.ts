@@ -25,6 +25,10 @@ import {
 } from "@/lib/mail/linkContext";
 
 import {
+  mergeGoogleOAuthScopes,
+} from "@/lib/mail/googleScopes";
+
+import {
   isPendingApprovalStatus,
   notifyAdminsOfPendingUser,
   PENDING_APPROVAL_STATUS,
@@ -175,7 +179,7 @@ const googleMailProvider = {
             "openid",
             "email",
             "profile",
-            "https://www.googleapis.com/auth/gmail.modify",
+            "https://mail.google.com/",
           ].join(" "),
       },
     },
@@ -385,7 +389,7 @@ export const authOptions:
                 "mail_connections"
               )
               .select(
-                "id,refresh_token"
+                "id,refresh_token,settings"
               )
               .eq(
                 "user_id",
@@ -437,6 +441,17 @@ export const authOptions:
               null,
             token_expires_at:
               expiresAt,
+            settings:
+              mailProvider ===
+              "google"
+                ? mergeGoogleOAuthScopes(
+                    previous.data
+                      ?.settings as Record<string, unknown> | null,
+                    account?.scope
+                  )
+                : previous.data
+                    ?.settings ||
+                  {},
             updated_at:
               new Date()
                 .toISOString(),

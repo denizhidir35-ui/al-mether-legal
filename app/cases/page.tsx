@@ -9,6 +9,7 @@ import {
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -100,6 +101,47 @@ type LegalCase = {
   case_mails?: CaseMail[];
 };
 
+type DocumentCasePreview = {
+  court: string;
+  fileNo: string;
+  decisionNo: string;
+  parties: string;
+  subject: string;
+  caseType: string;
+  barcodeNo: string;
+  hearingDate: string;
+  hearingTime: string;
+  explicitDeadline: string;
+  paymentAmount: string;
+  paymentCurrency: string;
+  paymentDescription: string;
+  paymentDueDate: string;
+  paymentPeriodText: string;
+  sourceDocument: string;
+  documentIdentity: string;
+};
+
+const EMPTY_DOCUMENT_PREVIEW:
+  DocumentCasePreview = {
+    court: "",
+    fileNo: "",
+    decisionNo: "",
+    parties: "",
+    subject: "",
+    caseType: "Hukuki Belge",
+    barcodeNo: "",
+    hearingDate: "",
+    hearingTime: "",
+    explicitDeadline: "",
+    paymentAmount: "",
+    paymentCurrency: "",
+    paymentDescription: "",
+    paymentDueDate: "",
+    paymentPeriodText: "",
+    sourceDocument: "",
+    documentIdentity: "",
+  };
+
 export default function CasesPage() {
   const router =
     useRouter();
@@ -149,8 +191,38 @@ export default function CasesPage() {
   const [manualFeedback, setManualFeedback] =
     useState("");
 
+  const [documentOpen, setDocumentOpen] =
+    useState(false);
+
+  const [documentAnalyzing, setDocumentAnalyzing] =
+    useState(false);
+
+  const [documentSaving, setDocumentSaving] =
+    useState(false);
+
+  const [documentFile, setDocumentFile] =
+    useState<File | null>(null);
+
+  const [documentPreview, setDocumentPreview] =
+    useState<DocumentCasePreview | null>(null);
+
+  const [documentFeedback, setDocumentFeedback] =
+    useState("");
+
+  const pdfInputRef =
+    useRef<HTMLInputElement>(null);
+
+  const photoInputRef =
+    useRef<HTMLInputElement>(null);
+
+  const cameraInputRef =
+    useRef<HTMLInputElement>(null);
+
   const [openCaseId, setOpenCaseId] =
     useState("");
+
+  const notificationCaseHandled =
+    useRef(false);
 
   const [openCaseTab, setOpenCaseTab] =
     useState<
@@ -231,6 +303,32 @@ export default function CasesPage() {
   useEffect(() => {
     loadCases();
   }, []);
+
+  useEffect(() => {
+    if (
+      loading ||
+      notificationCaseHandled.current
+    ) {
+      return;
+    }
+
+    notificationCaseHandled.current = true;
+
+    const caseId =
+      new URLSearchParams(window.location.search)
+        .get("case")
+        ?.trim() || "";
+
+    if (
+      !/^[A-Za-z0-9_-]{1,160}$/.test(caseId) ||
+      !cases.some((item) => item.id === caseId)
+    ) {
+      return;
+    }
+
+    setOpenCaseId(caseId);
+    setOpenCaseTab("deadline");
+  }, [cases, loading]);
 
   const filteredCases =
     useMemo(() => {
@@ -1103,6 +1201,479 @@ export default function CasesPage() {
       );
     } finally {
       setManualSaving(false);
+    }
+  }
+
+  function updateDocumentPreview(
+    field: keyof DocumentCasePreview,
+    value: string
+  ) {
+    setDocumentPreview(
+      (current) =>
+        current
+          ? {
+              ...current,
+              [field]: value,
+            }
+          : current
+    );
+  }
+
+  async function analyzeCaseDocument(
+    file: File
+  ) {
+    try {
+      setDocumentAnalyzing(true);
+      setError("");
+      setDocumentFeedback("");
+      setDocumentFile(file);
+      setDocumentPreview(null);
+
+      const formData =
+        new FormData();
+      formData.append("file", file);
+
+      const response = await fetch(
+        "/api/uets/document-analyze",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data =
+        await readJsonResponse(
+          response
+        );
+
+      if (
+        !response.ok ||
+        data?.ok !== true ||
+        !data?.document
+      ) {
+        throw new Error(
+          data?.error ||
+            "Belge analiz edilemedi."
+        );
+      }
+
+      const document =
+        data.document;
+      const payment =
+        document.payment || {};
+      const hearing =
+        document.hearing || {};
+      const explicitDeadline =
+        Array.isArray(
+          document.deadlines
+        )
+          ? document.deadlines.find(
+              (item: {
+                isExplicitFinalDate?: boolean;
+                explicitDate?: string;
+              }) =>
+                item
+                  ?.isExplicitFinalDate &&
+                item.explicitDate
+            )?.explicitDate || ""
+          : "";
+
+      setDocumentPreview({
+        ...EMPTY_DOCUMENT_PREVIEW,
+        court:
+          document.court || "",
+        fileNo:
+          document.fileNo || "",
+        decisionNo:
+          document.decisionNo || "",
+        parties:
+          document.parties || "",
+        subject:
+          document.subject || "",
+        caseType:
+          document.documentType ||
+          "Hukuki Belge",
+        barcodeNo:
+          document.uets
+            ?.barcodeNo || "",
+        hearingDate:
+          hearing.date || "",
+        hearingTime:
+          hearing.time || "",
+        explicitDeadline,
+        paymentAmount:
+          typeof payment.paymentAmount ===
+            "number"
+            ? String(
+                payment.paymentAmount
+              )
+            : "",
+        paymentCurrency:
+          payment.paymentCurrency ||
+          "",
+        paymentDescription:
+          payment.paymentDescription ||
+          "",
+        paymentDueDate:
+          payment.paymentDueDate ||
+          "",
+        paymentPeriodText:
+          payment.paymentPeriodText ||
+          "",
+        sourceDocument:
+          data.source
+            ?.sourceDocument ||
+          file.name,
+        documentIdentity:
+          data.source
+            ?.documentIdentity || "",
+      });
+    } catch (analysisError) {
+      setDocumentFile(null);
+      setDocumentPreview(null);
+      setError(
+        analysisError instanceof Error
+          ? analysisError.message
+          : "Belge analiz edilemedi."
+      );
+    } finally {
+      setDocumentAnalyzing(false);
+    }
+  }
+
+  async function attachCreatedCaseDocument(
+    caseId: string,
+    file: File
+  ) {
+    if (
+      file.size >
+      20 * 1024 * 1024
+    ) {
+      return false;
+    }
+
+    const supported = new Set([
+      "application/pdf",
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+    ]);
+
+    if (!supported.has(file.type)) {
+      return false;
+    }
+
+    const formData =
+      new FormData();
+    formData.append("caseId", caseId);
+    formData.append("file", file);
+
+    const response = await fetch(
+      "/api/attachments",
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
+
+    return response.ok;
+  }
+
+  async function createDocumentCase(
+    addToCalendar: boolean
+  ) {
+    if (
+      !documentPreview ||
+      !documentFile
+    ) {
+      return;
+    }
+
+    const title =
+      documentPreview.subject.trim() ||
+      documentPreview.fileNo.trim() ||
+      documentPreview.sourceDocument.trim();
+
+    if (!title) {
+      setError(
+        "Konu veya dosya numarası girin."
+      );
+      return;
+    }
+
+    try {
+      setDocumentSaving(true);
+      setError("");
+      setDocumentFeedback("");
+
+      const note = [
+        documentPreview.decisionNo
+          ? `Karar No: ${documentPreview.decisionNo}`
+          : "",
+        documentPreview.parties
+          ? `Taraflar: ${documentPreview.parties}`
+          : "",
+        documentPreview.barcodeNo
+          ? `Barkod/Tebligat No: ${documentPreview.barcodeNo}`
+          : "",
+        documentPreview.paymentPeriodText
+          ? `Süre metni: ${documentPreview.paymentPeriodText}`
+          : "",
+        documentPreview.sourceDocument
+          ? `Kaynak belge: ${documentPreview.sourceDocument}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      const caseResponse =
+        await fetch("/api/cases", {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            case_title: title,
+            case_number:
+              documentPreview.fileNo ||
+              null,
+            court_name:
+              documentPreview.court ||
+              null,
+            case_type:
+              documentPreview.caseType ||
+              null,
+            note: note || null,
+            source:
+              "document_upload",
+            document_identity:
+              documentPreview
+                .documentIdentity ||
+              null,
+          }),
+        });
+
+      const caseData =
+        await readJsonResponse(
+          caseResponse
+        );
+
+      if (!caseResponse.ok) {
+        throw new Error(
+          caseData?.error ||
+            "Dava oluşturulamadı."
+        );
+      }
+
+      const caseId =
+        caseData?.case?.id || "";
+
+      if (!caseId) {
+        throw new Error(
+          "Dava kimliği alınamadı."
+        );
+      }
+
+      let attachmentStored = true;
+
+      if (!caseData.duplicate) {
+        attachmentStored =
+          await attachCreatedCaseDocument(
+            caseId,
+            documentFile
+          );
+      }
+
+      const hearingAt =
+        documentPreview.hearingDate &&
+        documentPreview.hearingTime
+          ? `${documentPreview.hearingDate}T${documentPreview.hearingTime}`
+          : "";
+
+      const manualDeadline =
+        documentPreview
+          .explicitDeadline &&
+        documentPreview
+          .explicitDeadline !==
+          documentPreview
+            .paymentDueDate
+          ? documentPreview
+              .explicitDeadline
+          : "";
+
+      const messages: string[] = [
+        caseData.duplicate
+          ? "Bu belgeye ait dava zaten mevcut."
+          : "Dava oluşturuldu.",
+      ];
+
+      if (
+        !caseData.duplicate &&
+        !attachmentStored
+      ) {
+        messages.push(
+          "Belge analiz edildi; mevcut dosya saklama sınırı nedeniyle ek olarak yüklenmedi."
+        );
+      }
+
+      if (
+        addToCalendar &&
+        (hearingAt ||
+          manualDeadline)
+      ) {
+        const calendarResponse =
+          await fetch(
+            "/api/cases/manual-calendar",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+              body: JSON.stringify({
+                caseId,
+                hearingAt:
+                  hearingAt || null,
+                manualDeadline:
+                  manualDeadline ||
+                  null,
+                note,
+              }),
+            }
+          );
+
+        const calendarData =
+          await readJsonResponse(
+            calendarResponse
+          );
+
+        if (!calendarResponse.ok) {
+          throw new Error(
+            calendarData?.error ||
+              "Takvim kaydı oluşturulamadı."
+          );
+        }
+
+        messages.push(
+          calendarData?.message ||
+            "Takvime eklendi."
+        );
+      }
+
+      if (
+        addToCalendar &&
+        documentPreview
+          .paymentDueDate
+      ) {
+        const amount =
+          documentPreview
+            .paymentAmount.trim()
+            ? Number(
+                documentPreview
+                  .paymentAmount
+                  .replace(",", ".")
+              )
+            : null;
+
+        const paymentResponse =
+          await fetch(
+            "/api/cases/from-analysis",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+              body: JSON.stringify({
+                case_id: caseId,
+                case_number:
+                  documentPreview.fileNo,
+                court_name:
+                  documentPreview.court,
+                case_title: title,
+                case_type:
+                  documentPreview.caseType,
+                barcode_no:
+                  documentPreview.barcodeNo,
+                record_mode:
+                  "payment_deadline",
+                payment_amount:
+                  Number.isFinite(amount)
+                    ? amount
+                    : null,
+                payment_currency:
+                  documentPreview
+                    .paymentCurrency,
+                payment_description:
+                  documentPreview
+                    .paymentDescription,
+                payment_due_date:
+                  documentPreview
+                    .paymentDueDate,
+                payment_period_text:
+                  documentPreview
+                    .paymentPeriodText,
+                source_document:
+                  documentPreview
+                    .sourceDocument,
+              }),
+            }
+          );
+
+        const paymentData =
+          await readJsonResponse(
+            paymentResponse
+          );
+
+        if (!paymentResponse.ok) {
+          throw new Error(
+            paymentData?.error ||
+              "Ödeme hatırlatıcısı oluşturulamadı."
+          );
+        }
+
+        messages.push(
+          paymentData?.message ||
+            "Ödeme hatırlatıcısı oluşturuldu."
+        );
+      }
+
+      if (
+        documentPreview
+          .paymentPeriodText &&
+        !documentPreview
+          .paymentDueDate
+      ) {
+        messages.push(
+          "Süre metni bulundu; başlangıç tarihi doğrulanamadığı için son tarih oluşturulmadı."
+        );
+      }
+
+      if (
+        documentPreview.hearingDate &&
+        !documentPreview.hearingTime
+      ) {
+        messages.push(
+          "Duruşma saati doğrulanamadığı için duruşma takvim kaydı oluşturulmadı."
+        );
+      }
+
+      setDocumentFeedback(
+        messages.join(" ")
+      );
+      setDocumentOpen(false);
+      setDocumentPreview(null);
+      setDocumentFile(null);
+      await loadCases();
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Dava oluşturulamadı."
+      );
+    } finally {
+      setDocumentSaving(false);
     }
   }
 
@@ -2050,31 +2621,6 @@ export default function CasesPage() {
           .case-meta {
             padding-top: 5px;
             border-top: 1px solid var(--legal-border);
-          }
-        }
-
-        @media (min-width: 901px) and (max-width: 1180px) {
-          .cases-header {
-            padding-right: 170px;
-            flex-wrap: wrap;
-          }
-
-          .header-actions {
-            margin-left: auto;
-          }
-        }
-
-        @media (max-width: 900px) {
-          .cases-title {
-            min-width: 0;
-            min-height: 34px;
-            padding-right: 170px;
-          }
-        }
-
-        @media (max-width: 760px) {
-          .cases-title {
-            padding-right: 90px;
           }
         }
 
@@ -5355,8 +5901,202 @@ export default function CasesPage() {
           }
         }
 
+        .cases-shell {
+          container-type: inline-size;
+        }
+
+        .cases-header {
+          display: grid;
+          grid-template-columns:
+            minmax(150px, 1fr)
+            minmax(310px, auto)
+            max-content;
+          grid-template-areas:
+            "title actions session";
+          align-items: center;
+          gap: 8px;
+        }
+
+        .cases-title {
+          grid-area: title;
+          min-width: 0;
+        }
+
+        .cases-header .header-actions {
+          grid-area: actions;
+          min-width: 0;
+          display: grid;
+          grid-template-columns:
+            minmax(190px, 250px)
+            max-content
+            max-content;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .cases-header .search-input {
+          width: 100%;
+          min-width: 0;
+        }
+
+        .cases-header
+        .legal-session-control {
+          position: static !important;
+          grid-area: session;
+          width: max-content;
+          max-width: none;
+          margin: 0;
+          z-index: auto;
+        }
+
+        @container (max-width: 1050px) {
+          .cases-header {
+            grid-template-columns:
+              minmax(0, 1fr)
+              max-content;
+            grid-template-areas:
+              "title session"
+              "actions actions";
+          }
+
+          .cases-header .header-actions {
+            width: 100%;
+            grid-template-columns:
+              minmax(0, 1fr)
+              max-content
+              max-content;
+          }
+        }
+
+        @container (max-width: 760px) {
+          .cases-header .header-actions {
+            grid-template-columns:
+              minmax(0, 1fr)
+              minmax(0, 1fr);
+          }
+
+          .cases-header .search-input {
+            grid-column: 1 / -1;
+          }
+
+          .cases-header .manual-trigger {
+            width: 100%;
+          }
+        }
+
+        @container (max-width: 430px) {
+          .cases-header .header-actions {
+            grid-template-columns: 1fr;
+          }
+
+          .cases-header .manual-trigger {
+            width: 100%;
+          }
+        }
+
         .cases-theme-button {
           display: none !important;
+        }
+
+        .document-upload-panel {
+          display: grid;
+          gap: 10px;
+          margin-bottom: 10px;
+          padding: 13px;
+          border: 1px solid var(--legal-border);
+          border-radius: 13px;
+          background: var(--legal-surface);
+        }
+
+        .document-upload-options,
+        .document-preview-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 7px;
+        }
+
+        .document-upload-options button,
+        .document-preview-actions button {
+          min-height: 36px;
+          padding: 7px 11px;
+          border: 1px solid var(--legal-gold);
+          border-radius: 9px;
+          background: var(--legal-surface-2);
+          color: var(--legal-text);
+          cursor: pointer;
+          font: inherit;
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .document-upload-options button:disabled,
+        .document-preview-actions button:disabled {
+          cursor: default;
+          opacity: .45;
+        }
+
+        .document-preview-grid {
+          display: grid;
+          grid-template-columns:
+            repeat(3, minmax(0, 1fr));
+          gap: 8px;
+        }
+
+        .document-preview-grid label {
+          min-width: 0;
+          display: grid;
+          gap: 4px;
+        }
+
+        .document-preview-grid label > span {
+          color: var(--legal-muted);
+          font-size: 8px;
+          font-weight: 750;
+        }
+
+        .document-preview-grid input,
+        .document-preview-grid textarea {
+          width: 100%;
+          min-width: 0;
+          padding: 8px;
+          border: 1px solid var(--legal-border);
+          border-radius: 8px;
+          background: var(--legal-surface-2);
+          color: var(--legal-text);
+          font: inherit;
+          font-size: 9px;
+        }
+
+        .document-preview-grid textarea {
+          min-height: 58px;
+          resize: vertical;
+        }
+
+        .document-period-warning {
+          margin: 0;
+          padding: 8px 10px;
+          border: 1px solid var(--legal-gold);
+          border-radius: 8px;
+          color: var(--legal-gold-light);
+          font-size: 8.5px;
+          line-height: 1.5;
+        }
+
+        @media (max-width: 760px) {
+          .document-preview-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .document-upload-options,
+          .document-preview-actions {
+            display: grid;
+            grid-template-columns: 1fr;
+          }
+
+          .document-upload-options button,
+          .document-preview-actions button {
+            width: 100%;
+          }
         }
 `}</style>
 
@@ -5387,16 +6127,35 @@ export default function CasesPage() {
             <button
               type="button"
               className="manual-trigger"
-              onClick={() =>
+              onClick={() => {
                 setManualOpen(
                   (current) =>
                     !current
-                )
-              }
+                );
+                setDocumentOpen(false);
+                setError("");
+              }}
             >
               + Manuel Dava
             </button>
+
+            <button
+              type="button"
+              className="manual-trigger document-trigger"
+              onClick={() => {
+                setDocumentOpen(
+                  (current) =>
+                    !current
+                );
+                setManualOpen(false);
+                setError("");
+              }}
+            >
+              PDF / Fotoğraf ile Dava Ekle
+            </button>
           </div>
+
+          <LegalSessionControl />
         </header>
 
         {manualOpen && (
@@ -5535,9 +6294,360 @@ export default function CasesPage() {
           </div>
         )}
 
+        {documentOpen && (
+          <section className="document-upload-panel">
+            <input
+              ref={pdfInputRef}
+              type="file"
+              accept="application/pdf,.pdf"
+              hidden
+              onChange={(event) => {
+                const file =
+                  event.currentTarget
+                    .files?.[0];
+                event.currentTarget.value = "";
+                if (file) {
+                  void analyzeCaseDocument(
+                    file
+                  );
+                }
+              }}
+            />
+
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+              hidden
+              onChange={(event) => {
+                const file =
+                  event.currentTarget
+                    .files?.[0];
+                event.currentTarget.value = "";
+                if (file) {
+                  void analyzeCaseDocument(
+                    file
+                  );
+                }
+              }}
+            />
+
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              hidden
+              onChange={(event) => {
+                const file =
+                  event.currentTarget
+                    .files?.[0];
+                event.currentTarget.value = "";
+                if (file) {
+                  void analyzeCaseDocument(
+                    file
+                  );
+                }
+              }}
+            />
+
+            <div className="document-upload-options">
+              <button
+                type="button"
+                disabled={documentAnalyzing}
+                onClick={() =>
+                  pdfInputRef.current
+                    ?.click()
+                }
+              >
+                PDF Seç
+              </button>
+              <button
+                type="button"
+                disabled={documentAnalyzing}
+                onClick={() =>
+                  photoInputRef.current
+                    ?.click()
+                }
+              >
+                Fotoğraf Seç
+              </button>
+              <button
+                type="button"
+                disabled={documentAnalyzing}
+                onClick={() =>
+                  cameraInputRef.current
+                    ?.click()
+                }
+              >
+                Mobilden Fotoğraf Çek
+              </button>
+            </div>
+
+            {documentAnalyzing && (
+              <div className="state-box">
+                Belge analiz ediliyor...
+              </div>
+            )}
+
+            {documentPreview && (
+              <>
+                <div className="document-preview-grid">
+                  <label>
+                    <span>Mahkeme</span>
+                    <input
+                      value={documentPreview.court}
+                      onChange={(event) =>
+                        updateDocumentPreview(
+                          "court",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    <span>Dosya / Esas No</span>
+                    <input
+                      value={documentPreview.fileNo}
+                      onChange={(event) =>
+                        updateDocumentPreview(
+                          "fileNo",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    <span>Karar No</span>
+                    <input
+                      value={documentPreview.decisionNo}
+                      onChange={(event) =>
+                        updateDocumentPreview(
+                          "decisionNo",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    <span>Taraflar</span>
+                    <textarea
+                      value={documentPreview.parties}
+                      onChange={(event) =>
+                        updateDocumentPreview(
+                          "parties",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    <span>Dava türü / Konu</span>
+                    <textarea
+                      value={documentPreview.subject}
+                      onChange={(event) =>
+                        updateDocumentPreview(
+                          "subject",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    <span>Barkod / Tebligat No</span>
+                    <input
+                      value={documentPreview.barcodeNo}
+                      onChange={(event) =>
+                        updateDocumentPreview(
+                          "barcodeNo",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    <span>Duruşma tarihi</span>
+                    <input
+                      type="date"
+                      value={documentPreview.hearingDate}
+                      onChange={(event) =>
+                        updateDocumentPreview(
+                          "hearingDate",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    <span>Duruşma saati</span>
+                    <input
+                      type="time"
+                      value={documentPreview.hearingTime}
+                      onChange={(event) =>
+                        updateDocumentPreview(
+                          "hearingTime",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    <span>Açık son tarih</span>
+                    <input
+                      type="date"
+                      value={documentPreview.explicitDeadline}
+                      onChange={(event) =>
+                        updateDocumentPreview(
+                          "explicitDeadline",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    <span>Ödeme tutarı</span>
+                    <input
+                      inputMode="decimal"
+                      value={documentPreview.paymentAmount}
+                      onChange={(event) =>
+                        updateDocumentPreview(
+                          "paymentAmount",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    <span>Ödeme para birimi</span>
+                    <input
+                      value={documentPreview.paymentCurrency}
+                      onChange={(event) =>
+                        updateDocumentPreview(
+                          "paymentCurrency",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    <span>Ödeme son tarihi</span>
+                    <input
+                      type="date"
+                      value={documentPreview.paymentDueDate}
+                      onChange={(event) =>
+                        updateDocumentPreview(
+                          "paymentDueDate",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    <span>Ödeme açıklaması</span>
+                    <textarea
+                      value={documentPreview.paymentDescription}
+                      onChange={(event) =>
+                        updateDocumentPreview(
+                          "paymentDescription",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    <span>Süre metni</span>
+                    <textarea
+                      value={documentPreview.paymentPeriodText}
+                      onChange={(event) =>
+                        updateDocumentPreview(
+                          "paymentPeriodText",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    <span>Kaynak belge</span>
+                    <input
+                      value={documentPreview.sourceDocument}
+                      onChange={(event) =>
+                        updateDocumentPreview(
+                          "sourceDocument",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+                </div>
+
+                {documentPreview.paymentPeriodText &&
+                  !documentPreview.paymentDueDate && (
+                    <p className="document-period-warning">
+                      Süre metni bulundu; başlangıç tarihi doğrulanamadığı için son tarih oluşturulmadı.
+                    </p>
+                  )}
+
+                <div className="document-preview-actions">
+                  <button
+                    type="button"
+                    disabled={documentSaving}
+                    onClick={() =>
+                      void createDocumentCase(
+                        false
+                      )
+                    }
+                  >
+                    Davayı Oluştur
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={
+                      documentSaving ||
+                      !(
+                        (documentPreview.hearingDate &&
+                          documentPreview.hearingTime) ||
+                        documentPreview.explicitDeadline ||
+                        documentPreview.paymentDueDate
+                      )
+                    }
+                    onClick={() =>
+                      void createDocumentCase(
+                        true
+                      )
+                    }
+                  >
+                    Davayı Oluştur ve Takvime Ekle
+                  </button>
+                </div>
+              </>
+            )}
+          </section>
+        )}
+
         {manualFeedback && (
           <div className="state-box manual-feedback">
             {manualFeedback}
+          </div>
+        )}
+
+        {documentFeedback && (
+          <div className="state-box manual-feedback">
+            {documentFeedback}
           </div>
         )}
 
@@ -6130,7 +7240,6 @@ export default function CasesPage() {
           )}
       </div>
 
-      <LegalSessionControl />
       <LegalDock />
     </main>
   );

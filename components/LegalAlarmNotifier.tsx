@@ -4,6 +4,10 @@ import {
   useEffect,
 } from "react";
 
+import {
+  openNotificationTarget,
+} from "@/lib/notifications/clickThrough";
+
 type AlarmRow = {
   id: string;
   calendar_event_id: string;
@@ -149,12 +153,11 @@ export default function LegalAlarmNotifier() {
 
             notification.onclick =
               () => {
-                window.focus();
-
-                window.location.href =
+                openNotificationTarget(
                   `/calendar?event=${encodeURIComponent(
                     alarm.calendar_event_id
-                  )}`;
+                  )}`
+                );
 
                 notification.close();
               };

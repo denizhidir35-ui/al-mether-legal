@@ -168,6 +168,9 @@ export async function POST(
       safeText(body.case_number) ||
       safeText(body.dosya_no);
 
+    const requestedCaseId =
+      safeText(body.case_id);
+
     const courtName =
       safeText(body.court_name) ||
       safeText(body.mahkeme);
@@ -492,7 +495,46 @@ export async function POST(
       | Record<string, any>
       | null = null;
 
-    if (caseNumber) {
+    if (requestedCaseId) {
+      const foundCase =
+        await supabase
+          .from("legal_cases")
+          .select("*")
+          .eq(
+            "id",
+            requestedCaseId
+          )
+          .eq(
+            "user_id",
+            appUser.id
+          )
+          .maybeSingle();
+
+      if (foundCase.error) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              foundCase.error.message,
+          },
+          { status: 500 }
+        );
+      }
+
+      if (!foundCase.data) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Dava bulunamadı.",
+          },
+          { status: 404 }
+        );
+      }
+
+      legalCase =
+        foundCase.data;
+    } else if (caseNumber) {
       const foundCase =
         await supabase
           .from("legal_cases")

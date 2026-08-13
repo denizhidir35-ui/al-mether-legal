@@ -241,17 +241,101 @@ export async function POST(request: Request) {
       ?.toString()
       .trim() || "";
 
+  const caseNumber =
+    body.case_number
+      ?.toString()
+      .trim() || "";
+
+  const documentIdentity =
+    body.document_identity
+      ?.toString()
+      .trim()
+      .toLocaleLowerCase("tr-TR") ||
+    "";
+
+  const isDocumentUpload =
+    body.source ===
+      "document_upload";
+
+  if (
+    isDocumentUpload &&
+    documentIdentity &&
+    !/^[a-f0-9]{64}$/.test(
+      documentIdentity
+    )
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Belge kimliği geçersiz.",
+      },
+      { status: 400 }
+    );
+  }
+
+  if (
+    isDocumentUpload &&
+    (caseNumber ||
+      documentIdentity)
+  ) {
+    let existingQuery =
+      supabase
+        .from("legal_cases")
+        .select("*")
+        .eq(
+          "user_id",
+          appUser.id
+        );
+
+    existingQuery =
+      documentIdentity
+        ? existingQuery.eq(
+            "source",
+            `document_upload:${documentIdentity}`
+          )
+        : existingQuery.eq(
+            "case_number",
+            caseNumber
+          );
+
+    const existing =
+      await existingQuery
+        .limit(1)
+        .maybeSingle();
+
+    if (existing.error) {
+      return NextResponse.json(
+        {
+          error:
+            existing.error.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    if (existing.data) {
+      return NextResponse.json({
+        case: existing.data,
+        duplicate: true,
+      });
+    }
+  }
+
   const { data, error: dbError } = await supabase
     .from("legal_cases")
     .insert({
       user_id: appUser.id,
-      case_number: body.case_number || null,
+      case_number: caseNumber || null,
       court_name: body.court_name || null,
       case_title: caseTitle,
       case_type: body.case_type || null,
       status: body.status || "active",
       risk_level: body.risk_level || "normal",
-      source: body.source || "manual",
+      source:
+        isDocumentUpload &&
+        documentIdentity
+          ? `document_upload:${documentIdentity}`
+          : body.source || "manual",
       ...(caseRecordDate
         ? {
             created_at:
@@ -301,6 +385,9 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ case: data });
+  return NextResponse.json({
+    case: data,
+    duplicate: false,
+  });
 }
 

@@ -219,6 +219,12 @@ export default function CalendarPage() {
     useState("");
 
   const loadRequestRef = useRef(0);
+  const notificationEventRef = useRef("");
+
+  const [selectedEventId, setSelectedEventId] =
+    useState("");
+  const [calendarDetailOpen, setCalendarDetailOpen] =
+    useState(true);
 
   const [activeDetailTab, setActiveDetailTab] =
     useState<
@@ -361,8 +367,21 @@ export default function CalendarPage() {
       setEvents(loadedEvents);
 
       if (loadedEvents.length > 0) {
+        const notificationEvent =
+          loadedEvents.find(
+            (event: CalendarEvent) =>
+              event.id === notificationEventRef.current
+          );
+
+        if (
+          notificationEventRef.current &&
+          !notificationEvent
+        ) {
+          return;
+        }
+
         const firstEventDate =
-          loadedEvents[0].startDate;
+          (notificationEvent || loadedEvents[0]).startDate;
 
         const match =
           firstEventDate.match(
@@ -379,6 +398,12 @@ export default function CalendarPage() {
           setYear(eventYear);
           setMonth(eventMonth);
           setSelectedDate(firstEventDate);
+
+          if (notificationEvent) {
+            setSelectedEventId(notificationEvent.id);
+            setCalendarDetailOpen(true);
+            notificationEventRef.current = "";
+          }
         }
       }
     } catch (loadError) {
@@ -408,6 +433,59 @@ export default function CalendarPage() {
     loadEvents();
   }, [loadEvents]);
 
+  useEffect(() => {
+    const eventId =
+      new URLSearchParams(window.location.search)
+        .get("event")
+        ?.trim() || "";
+
+    if (!/^[A-Za-z0-9_-]{1,160}$/.test(eventId)) return;
+
+    notificationEventRef.current = eventId;
+
+    let disposed = false;
+
+    async function locateEvent() {
+      try {
+        const response = await fetch(
+          `/api/calendar-events?eventId=${encodeURIComponent(eventId)}`,
+          { cache: "no-store" }
+        );
+        const data = (await readJsonResponse(response)) as ApiResponse;
+        const target = data.events?.find((event) => event.id === eventId);
+
+        if (disposed) return;
+
+        if (!response.ok || !data.ok || !target) {
+          notificationEventRef.current = "";
+          return;
+        }
+
+        const match = target.startDate.match(
+          /^(\d{4})-(\d{2})-(\d{2})$/
+        );
+
+        if (!match) return;
+
+        notificationEventRef.current = eventId;
+        setYear(Number(match[1]));
+        setMonth(Number(match[2]) - 1);
+        setSelectedDate(target.startDate);
+        setSelectedEventId(eventId);
+        setCalendarDetailOpen(true);
+      } catch {
+        notificationEventRef.current = "";
+        // Eski/geçersiz hedefte takvim güvenli varsayılan görünümde kalır.
+      }
+    }
+
+    void locateEvent();
+
+    return () => {
+      disposed = true;
+    };
+  }, []);
+
   const eventsByDate = useMemo(() => {
     const map =
       new Map<string, CalendarEvent[]>();
@@ -436,11 +514,6 @@ export default function CalendarPage() {
 
   const selectedEvents =
     eventsByDate.get(selectedDate) || [];
-
-  const [selectedEventId, setSelectedEventId] =
-    useState("");
-  const [calendarDetailOpen, setCalendarDetailOpen] =
-    useState(true);
 
   useEffect(() => {
     if (selectedEvents.length === 0) {

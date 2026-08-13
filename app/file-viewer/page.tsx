@@ -25,6 +25,41 @@ function FileViewerContent() {
       .get("attachmentId")
       ?.trim() || "";
 
+  const source =
+    searchParams
+      .get("source")
+      ?.trim() || "";
+
+  const connectionId =
+    searchParams
+      .get("connectionId")
+      ?.trim() || "";
+
+  const folder =
+    searchParams
+      .get("folder")
+      ?.trim() || "inbox";
+
+  const messageId =
+    searchParams
+      .get("messageId")
+      ?.trim() || "";
+
+  const filename =
+    searchParams
+      .get("filename")
+      ?.trim() || "dosya";
+
+  const mimeType =
+    searchParams
+      .get("mimeType")
+      ?.trim()
+      .toLowerCase() ||
+    "application/octet-stream";
+
+  const isMailAttachment =
+    source === "mail";
+
   const [signedUrl, setSignedUrl] =
     useState("");
 
@@ -41,6 +76,36 @@ function FileViewerContent() {
       if (!attachmentId) {
         setError(
           "Dosya seçilmedi."
+        );
+        setLoading(false);
+        return;
+      }
+
+      if (isMailAttachment) {
+        if (
+          !connectionId ||
+          !messageId
+        ) {
+          setError(
+            "Mail eki bilgileri eksik."
+          );
+          setLoading(false);
+          return;
+        }
+
+        const params =
+          new URLSearchParams({
+            connectionId,
+            folder,
+            messageId,
+            attachmentId,
+            filename,
+            mimeType,
+            mode: "open",
+          });
+
+        setSignedUrl(
+          `/api/mail/attachment?${params.toString()}`
         );
         setLoading(false);
         return;
@@ -95,13 +160,32 @@ function FileViewerContent() {
     return () => {
       active = false;
     };
-  }, [attachmentId]);
+  }, [
+    attachmentId,
+    connectionId,
+    filename,
+    folder,
+    isMailAttachment,
+    messageId,
+    mimeType,
+  ]);
+
+  const imageViewer =
+    mimeType.startsWith(
+      "image/"
+    ) ||
+    /\.(?:png|jpe?g|webp|gif)$/i
+      .test(filename);
 
   return (
     <main className="legal-app file-viewer-page">
       <header>
         <LegalBackButton
-          fallback="/cases"
+          fallback={
+            isMailAttachment
+              ? "/inbox"
+              : "/cases"
+          }
         />
 
         <LegalBrand compact />
@@ -116,10 +200,18 @@ function FileViewerContent() {
           <div className="viewer-state error">
             {error}
           </div>
+        ) : imageViewer ? (
+          <div className="image-viewer">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={signedUrl}
+              alt={filename}
+            />
+          </div>
         ) : (
           <iframe
             src={signedUrl}
-            title="Belge görüntüleyici"
+            title={`${filename} belge görüntüleyici`}
           />
         )}
       </section>
@@ -153,6 +245,23 @@ function FileViewerContent() {
           height: 100%;
           border: 0;
           background: #fff;
+        }
+
+        .image-viewer {
+          width: 100%;
+          height: 100%;
+          display: grid;
+          place-items: center;
+          overflow: auto;
+          padding: 18px;
+          background: var(--legal-surface-2);
+        }
+
+        .image-viewer img {
+          display: block;
+          max-width: 100%;
+          max-height: 100%;
+          object-fit: contain;
         }
 
         .viewer-state {

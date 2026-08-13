@@ -235,6 +235,86 @@ function formatBytes(
   ).toFixed(1)} MB`;
 }
 
+function mailAttachmentUrl({
+  connectionId,
+  folder,
+  messageId,
+  attachment,
+  mode,
+}: {
+  connectionId: string;
+  folder: MailFolder;
+  messageId: string;
+  attachment: Attachment;
+  mode: "open" | "download";
+}) {
+  const params =
+    new URLSearchParams({
+      connectionId,
+      folder,
+      messageId,
+      attachmentId:
+        attachment.attachmentId || "",
+      filename:
+        attachment.filename || "dosya",
+      mimeType:
+        attachment.mimeType ||
+        "application/octet-stream",
+      mode,
+    });
+
+  return `/api/mail/attachment?${params.toString()}`;
+}
+
+function mailAttachmentViewerUrl({
+  connectionId,
+  folder,
+  messageId,
+  attachment,
+}: {
+  connectionId: string;
+  folder: MailFolder;
+  messageId: string;
+  attachment: Attachment;
+}) {
+  const params =
+    new URLSearchParams({
+      source: "mail",
+      connectionId,
+      folder,
+      messageId,
+      attachmentId:
+        attachment.attachmentId || "",
+      filename:
+        attachment.filename || "dosya",
+      mimeType:
+        attachment.mimeType ||
+        "application/octet-stream",
+    });
+
+  return `/file-viewer?${params.toString()}`;
+}
+
+function downloadFilename(
+  disposition: string | null,
+  fallback: string
+) {
+  const encoded =
+    disposition?.match(
+      /filename\*=UTF-8''([^;]+)/i
+    )?.[1];
+
+  if (encoded) {
+    try {
+      return decodeURIComponent(
+        encoded
+      );
+    } catch {}
+  }
+
+  return fallback || "dosya";
+}
+
 function extractEmailAddresses(
   value: string
 ) {
@@ -337,6 +417,11 @@ export default function InboxPage() {
     setLoadingList,
   ] =
     useState(false);
+
+  const [
+    emptyingTrash,
+    setEmptyingTrash,
+  ] = useState(false);
 
   const [
     loadingDetail,
@@ -678,6 +763,87 @@ export default function InboxPage() {
       ]
     );
 
+  const emptyTrash =
+    useCallback(
+      async () => {
+        if (
+          folder !== "trash" ||
+          !selectedConnectionId ||
+          messages.length === 0 ||
+          emptyingTrash
+        ) {
+          return;
+        }
+
+        const confirmed =
+          window.confirm(
+            "Çöp kutusundaki tüm iletiler kalıcı olarak silinecek. Devam edilsin mi?"
+          );
+
+        if (!confirmed) {
+          return;
+        }
+
+        try {
+          setEmptyingTrash(true);
+          setError("");
+          setNotice("");
+
+          const response =
+            await fetch(
+              "/api/mail/trash",
+              {
+                method: "DELETE",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+                body: JSON.stringify({
+                  connectionId:
+                    selectedConnectionId,
+                }),
+              }
+            );
+
+          const data =
+            await response.json();
+
+          if (
+            !response.ok ||
+            data?.ok !== true
+          ) {
+            throw new Error(
+              data?.error ||
+                "Çöp kutusu boşaltılamadı."
+            );
+          }
+
+          setSelectedSummary(null);
+          setSelectedMail(null);
+          setMobileDetail(false);
+          await loadMessages(false);
+          setNotice(
+            "Çöp kutusu boşaltıldı."
+          );
+        } catch (emptyError) {
+          setError(
+            emptyError instanceof Error
+              ? emptyError.message
+              : "Çöp kutusu boşaltılamadı."
+          );
+        } finally {
+          setEmptyingTrash(false);
+        }
+      },
+      [
+        emptyingTrash,
+        folder,
+        loadMessages,
+        messages.length,
+        selectedConnectionId,
+      ]
+    );
+
   useEffect(
     () => {
       if (
@@ -934,6 +1100,99 @@ export default function InboxPage() {
     setSelectedMail(null);
     setMobileDetail(false);
     setLoadingDetail(false);
+  }
+
+  async function downloadMailAttachment(
+    attachment: Attachment
+  ) {
+    if (
+      !selectedMail ||
+      !selectedConnectionId ||
+      !attachment.attachmentId
+    ) {
+      setError(
+        "Mail eki indirilemedi."
+      );
+      return;
+    }
+
+    try {
+      setError("");
+      setNotice("");
+
+      const response =
+        await fetch(
+          mailAttachmentUrl({
+            connectionId:
+              selectedConnectionId,
+            folder,
+            messageId:
+              selectedMail.id,
+            attachment,
+            mode: "download",
+          }),
+          {
+            cache: "no-store",
+            credentials:
+              "same-origin",
+          }
+        );
+
+      if (!response.ok) {
+        const data =
+          await response
+            .json()
+            .catch(() => null);
+
+        throw new Error(
+          data?.error ||
+          "Mail eki indirilemedi."
+        );
+      }
+
+      const blob =
+        await response.blob();
+      const objectUrl =
+        window.URL
+          .createObjectURL(blob);
+      const anchor =
+        document
+          .createElement("a");
+
+      anchor.href = objectUrl;
+      anchor.download =
+        downloadFilename(
+          response.headers.get(
+            "content-disposition"
+          ),
+          attachment.filename
+        );
+
+      document.body
+        .appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+
+      window.setTimeout(
+        () =>
+          window.URL
+            .revokeObjectURL(
+              objectUrl
+            ),
+        1000
+      );
+
+      setNotice(
+        "İndirme başlatıldı."
+      );
+    } catch (downloadError) {
+      setError(
+        downloadError instanceof
+        Error
+          ? downloadError.message
+          : "Mail eki indirilemedi."
+      );
+    }
   }
 
   function changeAccount(
@@ -1524,6 +1783,26 @@ ${selectedMail.body || ""}`,
         </nav>
 
         <div className="sync-status">
+          {folder ===
+            "trash" && (
+            <button
+              type="button"
+              className="empty-trash"
+              disabled={
+                loadingList ||
+                emptyingTrash ||
+                messages.length ===
+                  0 ||
+                !selectedConnectionId
+              }
+              onClick={emptyTrash}
+            >
+              {emptyingTrash
+                ? "Boşaltılıyor..."
+                : "Çöpü Boşalt"}
+            </button>
+          )}
+
           <span>
             {loadingList
               ? "Posta getiriliyor..."
@@ -1851,30 +2130,28 @@ ${selectedMail.body || ""}`,
 
                             <div className="attachment-actions">
                               <a
-                                href={`/api/mail/attachment?connectionId=${encodeURIComponent(
-                                  selectedConnectionId
-                                )}&folder=${folder}&messageId=${encodeURIComponent(
-                                  selectedMail.id
-                                )}&attachmentId=${encodeURIComponent(
-                                  attachment.attachmentId || ""
-                                )}&filename=${encodeURIComponent(attachment.filename || "dosya")}&mimeType=${encodeURIComponent(attachment.mimeType || "application/octet-stream")}&mode=open`}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                                href={mailAttachmentViewerUrl({
+                                  connectionId:
+                                    selectedConnectionId,
+                                  folder,
+                                  messageId:
+                                    selectedMail.id,
+                                  attachment,
+                                })}
                               >
                                 Aç
                               </a>
 
-                              <a
-                                href={`/api/mail/attachment?connectionId=${encodeURIComponent(
-                                  selectedConnectionId
-                                )}&folder=${folder}&messageId=${encodeURIComponent(
-                                  selectedMail.id
-                                )}&attachmentId=${encodeURIComponent(
-                                  attachment.attachmentId || ""
-                                )}&filename=${encodeURIComponent(attachment.filename || "dosya")}&mimeType=${encodeURIComponent(attachment.mimeType || "application/octet-stream")}&mode=download`}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  downloadMailAttachment(
+                                    attachment
+                                  )
+                                }
                               >
                                 İndir
-                              </a>
+                              </button>
                             </div>
                           </div>
                         )
@@ -2293,7 +2570,9 @@ ${selectedMail.body || ""}`,
         </div>
       )}
 
-      <LegalDock />
+      {!composerOpen && (
+        <LegalDock />
+      )}
 
       <style jsx>{`
         .mether-posta {
@@ -2510,6 +2789,32 @@ ${selectedMail.body || ""}`,
           color:
             var(--legal-gold);
           cursor: pointer;
+        }
+
+        .empty-trash {
+          min-height: 30px;
+          padding: 0 10px;
+          border:
+            1px solid
+            color-mix(
+              in srgb,
+              #c84a4a 52%,
+              var(--legal-border)
+            );
+          border-radius: 9px;
+          background:
+            var(--legal-surface-2);
+          color: #d86a6a;
+          font-size: 8px;
+          font-weight: 800;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+
+        .empty-trash:disabled,
+        .refresh:disabled {
+          cursor: default;
+          opacity: 0.48;
         }
 
         .posta-message {
@@ -3558,7 +3863,8 @@ ${selectedMail.body || ""}`,
           margin-left: auto;
         }
 
-        .attachment-actions a {
+        .attachment-actions a,
+        .attachment-actions button {
           padding:
             4px 7px;
 
@@ -3579,6 +3885,8 @@ ${selectedMail.body || ""}`,
 
           font-size: 7px;
           font-weight: 850;
+          font-family: inherit;
+          cursor: pointer;
         }
 
         @media (max-width: 760px) {

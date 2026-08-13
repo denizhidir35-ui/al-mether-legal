@@ -4,9 +4,16 @@ import {
 } from "next/server";
 
 import {
+  createHash,
+} from "node:crypto";
+
+import {
   getOrCreateAppUser,
 } from "@/lib/alUser";
-import { extractLegalPdfText } from "@/lib/legal/ocr";
+import {
+  extractLegalImageText,
+  extractLegalPdfText,
+} from "@/lib/legal/ocr";
 import {
   extractUetsDateInformation,
   extractUetsDecisionNo,
@@ -14,7 +21,10 @@ import {
   extractUetsPaymentFields,
 } from "@/lib/legal/uetsPdfFields";
 import { extractUetsNotice } from "@/lib/legal/uetsExtractor";
-import { decodeUetsPdf } from "@/lib/legal/uetsPdfValidation";
+import {
+  decodeUetsPdf,
+  validateUetsPdfBytes,
+} from "@/lib/legal/uetsPdfValidation";
 
 export const runtime = "nodejs";
 
@@ -125,11 +135,11 @@ function extractCourt(
   }
 
   const patterns = [
-    /\b((?:İstanbul|İzmir|Ankara|Bursa|Antalya|Adana|Konya|Gaziantep|Kocaeli|Aydın|Manisa|Muğla|Denizli|Balıkesir|Samsun|Trabzon|Eskişehir|Kayseri)\s+\d{1,3}\.\s*(?:İş|Asliye Hukuk|Sulh Hukuk|İcra Hukuk|Ağır Ceza|Asliye Ceza|Tüketici|Aile|İdare|Vergi|Ticaret)\s+Mahkemesi)\b/iu,
+    /(?<![A-Za-zÇĞİÖŞÜçğıöşü])((?:İstanbul|İzmir|Ankara|Bursa|Antalya|Adana|Konya|Gaziantep|Kocaeli|Aydın|Manisa|Muğla|Denizli|Balıkesir|Samsun|Trabzon|Eskişehir|Kayseri)\s+\d{1,3}\.\s*(?:İş|Asliye Hukuk|Sulh Hukuk|İcra Hukuk|Ağır Ceza|Asliye Ceza|Tüketici|Aile|İdare|Vergi|Ticaret)\s+Mahkemesi)\b/iu,
 
     /\b(\d{1,3}\.\s*(?:İş|Asliye Hukuk|Sulh Hukuk|İcra Hukuk|Ağır Ceza|Asliye Ceza|Tüketici|Aile|İdare|Vergi|Ticaret)\s+Mahkemesi)\b/iu,
 
-    /\b([A-ZÇĞİÖŞÜ][^\r\n]{2,120}\s+Mahkemesi)\b/iu,
+    /(?<![A-Za-zÇĞİÖŞÜçğıöşü])([A-ZÇĞİÖŞÜ][^\r\n]{2,120}\s+Mahkemesi)\b/iu,
   ];
 
   for (
@@ -583,37 +593,145 @@ export async function POST(
       );
     }
 
-    const input =
-      await request.json();
+    const contentType =
+      request.headers.get(
+        "content-type"
+      ) || "";
 
-    const htmlText =
-      safeText(
-        input?.text
-      );
+    let htmlText = "";
+    let title = "UETS Tebligatı";
+    let sourceUrl = "";
+    let sourceDocument = "";
+    let pdfBytes: Buffer | null = null;
+    let uploadEngine = "";
+    let documentIdentity = "";
+    let sourceType =
+      "uets_browser_bridge";
 
-    const title =
-      safeText(
-        input?.title,
-        500
-      ) ||
-      "UETS Tebligatı";
+    if (
+      contentType.includes(
+        "multipart/form-data"
+      )
+    ) {
+      const formData =
+        await request.formData();
+      const file =
+        formData.get("file");
 
-    const sourceUrl =
-      safeText(
-        input?.url,
-        3000
-      );
+      if (!(file instanceof File)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Analiz edilecek belge bulunamadı.",
+          },
+          { status: 400 }
+        );
+      }
 
-    const sourceDocument =
-      safeText(
-        input?.sourceDocument,
-        500
-      );
+      sourceDocument =
+        safeText(file.name, 500);
+      title =
+        sourceDocument ||
+        "Hukuki Belge";
+      sourceType =
+        "case_document_upload";
 
-    const pdfBytes =
-      decodeUetsPdf(
-        input?.pdfBase64
-      );
+      const bytes =
+        Buffer.from(
+          await file.arrayBuffer()
+        );
+
+      documentIdentity =
+        createHash("sha256")
+          .update(bytes)
+          .digest("hex");
+
+      if (
+        file.type ===
+          "application/pdf" ||
+        sourceDocument
+          .toLocaleLowerCase("tr-TR")
+          .endsWith(".pdf")
+      ) {
+        pdfBytes =
+          validateUetsPdfBytes(
+            bytes
+          );
+        htmlText =
+          "Kullanıcı tarafından yüklenen hukuki PDF belgesi analizidir.";
+      } else if (
+        new Set([
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+          "image/heic",
+          "image/heif",
+        ]).has(file.type)
+      ) {
+        if (
+          file.size >
+          15 * 1024 * 1024
+        ) {
+          return NextResponse.json(
+            {
+              ok: false,
+              error:
+                "Fotoğraf 15 MB sınırını aşıyor.",
+            },
+            { status: 400 }
+          );
+        }
+
+        const imageResult =
+          await extractLegalImageText(
+            bytes,
+            file.type
+          );
+
+        htmlText =
+          safeText(
+            imageResult.text
+          );
+        uploadEngine =
+          imageResult.engine;
+      } else {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "PDF, JPG, PNG, WEBP, HEIC veya HEIF destekleniyor.",
+          },
+          { status: 400 }
+        );
+      }
+    } else {
+      const input =
+        await request.json();
+
+      htmlText =
+        safeText(input?.text);
+      title =
+        safeText(
+          input?.title,
+          500
+        ) ||
+        "UETS Tebligatı";
+      sourceUrl =
+        safeText(
+          input?.url,
+          3000
+        );
+      sourceDocument =
+        safeText(
+          input?.sourceDocument,
+          500
+        );
+      pdfBytes =
+        decodeUetsPdf(
+          input?.pdfBase64
+        );
+    }
 
     if (
       htmlText.length <
@@ -832,11 +950,13 @@ export async function POST(
       engine:
         pdfEngine
           ? `mether_rules_v1+${pdfEngine}`
-          : "mether_rules_v1",
+          : uploadEngine
+            ? `mether_rules_v1+${uploadEngine}`
+            : "mether_rules_v1",
 
       source: {
         type:
-          "uets_browser_bridge",
+          sourceType,
 
         title,
 
@@ -849,6 +969,8 @@ export async function POST(
           Boolean(pdfBytes),
 
         isTestDocument,
+
+        documentIdentity,
       },
 
       document,

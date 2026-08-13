@@ -19,13 +19,20 @@ import {
   resolveImapMailbox,
 } from "@/lib/mail/folders";
 
+import {
+  decodeAttachmentFilename,
+} from "@/lib/mail/filenameEncoding";
+
 export const runtime = "nodejs";
 
 function cleanFilename(
   value: unknown
 ) {
   return String(
-    value || "dosya"
+    decodeAttachmentFilename(
+      value,
+      "dosya"
+    )
   )
     .replace(
       /[\r\n"\\/:*?<>|]+/g,
@@ -628,6 +635,9 @@ export async function GET(
 
           "Cache-Control":
             "private, no-store",
+
+          "X-Content-Type-Options":
+            "nosniff",
         },
       }
     );

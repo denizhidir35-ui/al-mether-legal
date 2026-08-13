@@ -86,6 +86,11 @@ export async function GET(
         .get("source")
         ?.trim() || "";
 
+    const eventId =
+      searchParams
+        .get("eventId")
+        ?.trim() || "";
+
     let query = supabase
       .from("calendar_events")
       .select("*")
@@ -94,14 +99,21 @@ export async function GET(
         ascending: true,
       });
 
-    if (from) {
+    if (eventId) {
+      query = query.eq(
+        "id",
+        eventId
+      );
+    }
+
+    if (from && !eventId) {
       query = query.gte(
         "start_date",
         from
       );
     }
 
-    if (to) {
+    if (to && !eventId) {
       query = query.lte(
         "start_date",
         to

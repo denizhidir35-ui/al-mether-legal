@@ -55,14 +55,15 @@ test("safe app history is preferred and unsafe history falls back", () => {
   );
 });
 
-test("document and file flows use the case fallback", async () => {
+test("document and file flows use source-specific fallbacks", async () => {
   const cases = await read("../app/cases/page.tsx");
   const viewer = await read("../app/file-viewer/page.tsx");
 
   assert.match(cases, /fallback="\/cases"/);
   assert.match(cases, /onBack=\{closeCasePanel\}/);
   assert.match(cases, /router\.push\(destination\)/);
-  assert.match(viewer, /fallback="\/cases"/);
+  assert.match(viewer, /isMailAttachment/);
+  assert.match(viewer, /\? "\/inbox"\s*: "\/cases"/);
   assert.match(viewer, /@media \(max-width: 620px\)/);
 });
 

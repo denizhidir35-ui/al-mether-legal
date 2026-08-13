@@ -93,7 +93,7 @@ export async function getOwnedMailConnection(
   };
 }
 
-export function createGoogleMailClient(
+function createGoogleOAuthClient(
   connection: MailConnectionRow,
   supabase: ReturnType<
     typeof getSupabaseAdmin
@@ -174,6 +174,55 @@ export function createGoogleMailClient(
         );
     }
   );
+
+  return oauth2Client;
+}
+
+export async function getGoogleGrantedScopes(
+  connection: MailConnectionRow,
+  supabase: ReturnType<
+    typeof getSupabaseAdmin
+  >
+) {
+  const oauth2Client =
+    createGoogleOAuthClient(
+      connection,
+      supabase
+    );
+
+  const accessTokenResult =
+    await oauth2Client
+      .getAccessToken();
+
+  const accessToken =
+    accessTokenResult?.token;
+
+  if (!accessToken) {
+    throw new Error(
+      "Gmail izinleri doğrulanamadı."
+    );
+  }
+
+  const tokenInfo =
+    await oauth2Client
+      .getTokenInfo(
+        accessToken
+      );
+
+  return tokenInfo.scopes || [];
+}
+
+export function createGoogleMailClient(
+  connection: MailConnectionRow,
+  supabase: ReturnType<
+    typeof getSupabaseAdmin
+  >
+) {
+  const oauth2Client =
+    createGoogleOAuthClient(
+      connection,
+      supabase
+    );
 
   return google.gmail({
     version: "v1",

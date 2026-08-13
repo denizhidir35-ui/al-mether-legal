@@ -4,6 +4,7 @@ import Link from "next/link";
 import { type FormEvent, useState } from "react";
 
 import { createClient } from "@/lib/supabaseClient";
+import { normalizeAuthEmail } from "@/lib/auth/normalizeEmail";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -16,10 +17,12 @@ export default function ForgotPasswordPage() {
     setMessage("");
 
     const supabase = createClient();
+    const normalizedEmail =
+      normalizeAuthEmail(email);
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(
-        email.trim().toLowerCase(),
+        normalizedEmail,
         {
           redirectTo: "https://legal.almether.com/auth/reset-password",
         }

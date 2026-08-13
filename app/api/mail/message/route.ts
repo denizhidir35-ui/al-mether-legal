@@ -24,6 +24,10 @@ import {
   toMailAccountDTO,
 } from "@/lib/mail/accountModel";
 
+import {
+  decodeAttachmentFilename,
+} from "@/lib/mail/filenameEncoding";
+
 export const runtime =
   "nodejs";
 
@@ -176,7 +180,10 @@ function googleAttachments(
       attachmentId
     ) {
       output.push({
-        filename,
+        filename:
+          decodeAttachmentFilename(
+            filename
+          ),
 
         mimeType:
           String(
@@ -446,8 +453,8 @@ async function getMicrosoft(
           .map(
             (item: any) => ({
               filename:
-                String(
-                  item.name ||
+                decodeAttachmentFilename(
+                  item.name,
                   "Dosya"
                 ),
 
@@ -692,9 +699,10 @@ async function getImap(
               index
             ) => ({
               filename:
-                attachment
-                  .filename ||
-                `Dosya-${index + 1}`,
+                decodeAttachmentFilename(
+                  attachment.filename,
+                  `Dosya-${index + 1}`
+                ),
 
               mimeType:
                 attachment

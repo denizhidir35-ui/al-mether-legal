@@ -470,8 +470,9 @@ function extractCourt(text: string): string {
     /barkod numaralı ve\s+([A-Za-zÇĞİÖŞÜçğıöşü\s.-]+?\d+\.\s*Ticaret\s+Mahkemesi)\s*\[/i,
     /barkod numaralı ve\s+([A-Za-zÇĞİÖŞÜçğıöşü\s.-]+?\d+\.\s*İcra\s+(?:Müdürlüğü|Dairesi))\s*\[/i,
 
-    /\b([A-Za-zÇĞİÖŞÜçğıöşü\s.-]+?\d+\.\s*(?:İş|Aile|Asliye Hukuk|Asliye Ceza|Ağır Ceza|Sulh Hukuk|Sulh Ceza|Ticaret|İdare|Vergi)\s+Mahkemesi)\b/i,
-    /\b([A-Za-zÇĞİÖŞÜçğıöşü\s.-]+?\d+\.\s*İcra\s+(?:Müdürlüğü|Dairesi))\b/i,
+    /(?<![A-Za-zÇĞİÖŞÜçğıöşü])((?:İstanbul|İzmir|Ankara|Bursa|Antalya|Adana|Konya|Gaziantep|Kocaeli|Aydın|Manisa|Muğla|Denizli|Balıkesir|Samsun|Trabzon|Eskişehir|Kayseri)\s+\d+\.\s*(?:İş|Aile|Asliye Hukuk|Asliye Ceza|Ağır Ceza|Sulh Hukuk|Sulh Ceza|Ticaret|İdare|Vergi)\s+Mahkemesi)\b/iu,
+    /(?<![A-Za-zÇĞİÖŞÜçğıöşü])([A-Za-zÇĞİÖŞÜçğıöşü\s.-]+?\d+\.\s*(?:İş|Aile|Asliye Hukuk|Asliye Ceza|Ağır Ceza|Sulh Hukuk|Sulh Ceza|Ticaret|İdare|Vergi)\s+Mahkemesi)\b/i,
+    /(?<![A-Za-zÇĞİÖŞÜçğıöşü])([A-Za-zÇĞİÖŞÜçğıöşü\s.-]+?\d+\.\s*İcra\s+(?:Müdürlüğü|Dairesi))\b/i,
   ];
 
   for (const pattern of patterns) {

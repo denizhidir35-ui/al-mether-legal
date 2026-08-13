@@ -29,6 +29,8 @@ type MailConnection = {
   displayName?: string | null;
   status?: string | null;
   connectionStatus?: string | null;
+  gmailTrashReady?: boolean;
+  gmailReconnectRequired?: boolean;
 };
 
 type Capabilities = {
@@ -461,6 +463,23 @@ export default function MailConnectPage() {
                       connection.status ||
                       "connected"}
                   </small>
+                  {connection.provider === "google" &&
+                    connection.gmailReconnectRequired && (
+                      <div className="gmail-reconnect-warning">
+                        <p>
+                          Gmail bağlantınızı yeni izinler için yeniden bağlamanız gerekiyor.
+                        </p>
+                        <button
+                          type="button"
+                          disabled={saving || !capabilities.google}
+                          onClick={() =>
+                            void connectOAuth("google")
+                          }
+                        >
+                          Gmail&apos;i Yeniden Bağla
+                        </button>
+                      </div>
+                    )}
                 </div>
               )
             )}
@@ -916,6 +935,38 @@ export default function MailConnectPage() {
           color: var(--legal-muted);
           font-size: 8px;
           overflow-wrap: anywhere;
+        }
+        .gmail-reconnect-warning {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          margin-top: 6px;
+          padding-top: 7px;
+          border-top: 1px solid var(--legal-border);
+        }
+        .gmail-reconnect-warning p {
+          margin: 0;
+          color: var(--legal-gold);
+          font-size: 8.5px;
+          line-height: 1.45;
+        }
+        .gmail-reconnect-warning button {
+          flex: 0 0 auto;
+          min-height: 30px;
+          padding: 6px 9px;
+          border: 1px solid var(--legal-gold);
+          border-radius: 8px;
+          background: transparent;
+          color: var(--legal-gold);
+          cursor: pointer;
+          font: inherit;
+          font-size: 8px;
+          font-weight: 850;
+        }
+        .gmail-reconnect-warning button:disabled {
+          cursor: default;
+          opacity: .5;
         }
         .providers {
           display: grid;

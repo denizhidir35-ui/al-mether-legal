@@ -41,7 +41,7 @@
       data: {
         url:
           data.url ||
-          "/calendar",
+          "/inbox",
       },
     };
 
@@ -55,16 +55,51 @@
   }
 );
 
+function safeNotificationTarget(value) {
+  let url;
+
+  try {
+    url = new URL(
+      String(value || "/inbox"),
+      self.location.origin
+    );
+  } catch {
+    return "/inbox";
+  }
+
+  if (url.origin !== self.location.origin) {
+    return "/inbox";
+  }
+
+  const idPattern = /^[A-Za-z0-9_-]{1,160}$/;
+
+  if (url.pathname === "/calendar") {
+    const eventId = url.searchParams.get("event") || "";
+
+    return idPattern.test(eventId)
+      ? `/calendar?event=${encodeURIComponent(eventId)}`
+      : "/calendar";
+  }
+
+  if (url.pathname === "/cases") {
+    const caseId = url.searchParams.get("case") || "";
+
+    return idPattern.test(caseId)
+      ? `/cases?case=${encodeURIComponent(caseId)}`
+      : "/cases";
+  }
+
+  return url.pathname === "/inbox" ? "/inbox" : "/inbox";
+}
+
 self.addEventListener(
   "notificationclick",
   function (event) {
     event.notification.close();
 
-    const targetUrl =
-      event.notification
-        ?.data
-        ?.url ||
-      "/calendar";
+    const targetUrl = safeNotificationTarget(
+      event.notification?.data?.url
+    );
 
     event.waitUntil(
       clients
@@ -84,11 +119,19 @@ self.addEventListener(
               if (
                 "focus" in client
               ) {
-                client.navigate(
-                  targetUrl
-                );
+                client.postMessage({
+                  source:
+                    "METHER_NOTIFICATION_OPEN",
+                  url: targetUrl,
+                });
 
-                return client.focus();
+                return client
+                  .focus()
+                  .then(() =>
+                    client.navigate(
+                      targetUrl
+                    )
+                  );
               }
             }
 
