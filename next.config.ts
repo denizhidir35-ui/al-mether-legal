@@ -5,12 +5,14 @@ const nextConfig: NextConfig = {
     "/api/uets/document-analyze": [
       "./eng.traineddata",
       "./tur.traineddata",
-      "./node_modules/tesseract.js/src/worker-script/**/*",
-      "./node_modules/tesseract.js/src/constants/imageType.js",
+      "./node_modules/tesseract.js/package.json",
+      "./node_modules/tesseract.js/src/**/*",
+      "./node_modules/tesseract.js/node_modules/**/*",
       "./node_modules/bmp-js/**/*",
+      "./node_modules/is-url/**/*",
+      "./node_modules/regenerator-runtime/**/*",
       "./node_modules/wasm-feature-detect/**/*",
-      "./node_modules/tesseract.js-core/*.js",
-      "./node_modules/tesseract.js-core/*.wasm",
+      "./node_modules/tesseract.js-core/**/*",
     ],
   },
   serverExternalPackages: [
