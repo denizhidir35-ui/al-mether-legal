@@ -1,8 +1,8 @@
 const WINDOWS_VERSION_MANIFEST = {
-  version: "1.0.1",
+  version: "1.0.2",
   downloadUrl:
-    "https://github.com/denizhidir35-ui/al-mether-legal/releases/download/v1.0.1/AL-METHER-Legal-Setup.exe",
-  sha256: "EF0CB4A879B92D00B5920B07848C3151525872B4E00AD12D199928433119E4E5",
+    "https://github.com/denizhidir35-ui/al-mether-legal/releases/download/v1.0.2/AL-METHER-Legal-Setup.exe",
+  sha256: "6507CC6BC1AD9C49C4E25C750599647811624CDB7BB49ECBFDD90DDA509C76C3",
   mandatory: true,
 } as const;
 

@@ -1,11 +1,11 @@
 const INSTALLER_NAME = "AL-METHER-Legal-Setup.exe";
-const INSTALLER_SIZE = "11.144.896 bayt";
-const INSTALLER_VERSION = "1.0.1.0";
+const INSTALLER_SIZE = "11.142.754 bayt";
+const INSTALLER_VERSION = "1.0.2.0";
 const INSTALLER_SHA256 =
-  "EF0CB4A879B92D00B5920B07848C3151525872B4E00AD12D199928433119E4E5";
+  "6507CC6BC1AD9C49C4E25C750599647811624CDB7BB49ECBFDD90DDA509C76C3";
 
 const DOWNLOAD_URL =
-  "https://github.com/denizhidir35-ui/al-mether-legal/releases/download/v1.0.1/AL-METHER-Legal-Setup.exe";
+  "https://github.com/denizhidir35-ui/al-mether-legal/releases/download/v1.0.2/AL-METHER-Legal-Setup.exe";
 
 export const dynamic = "force-dynamic";
 
