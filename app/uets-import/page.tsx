@@ -145,6 +145,22 @@ function formatCapturedAt(
     );
 }
 
+function formatPaymentAmount(
+  amount?: number | null,
+  currency?: string
+) {
+  if (typeof amount !== "number") {
+    return "";
+  }
+
+  const currencyLabel = currency === "TRY" ? "TL" : currency || "";
+
+  return `${new Intl.NumberFormat("tr-TR", {
+    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(amount)}${currencyLabel ? ` ${currencyLabel}` : ""}`;
+}
+
 export default function UetsImportPage() {
   const [
     capture,
@@ -268,6 +284,31 @@ export default function UetsImportPage() {
                   source_url:
                     payload.url ||
                     "",
+                  payment_amount:
+                    document?.payment
+                      ?.paymentAmount ??
+                    null,
+                  payment_currency:
+                    document?.payment
+                      ?.paymentCurrency ||
+                    "",
+                  payment_description:
+                    document?.payment
+                      ?.paymentDescription ||
+                    "",
+                  payment_due_date:
+                    document?.payment
+                      ?.paymentDueDate ||
+                    "",
+                  payment_period_text:
+                    document?.payment
+                      ?.paymentPeriodText ||
+                    "",
+                  source_document:
+                    document?.payment
+                      ?.sourceDocument ||
+                    payload.sourceDocument ||
+                    "",
                 }),
             }
           );
@@ -297,6 +338,164 @@ export default function UetsImportPage() {
             (data.duplicate
               ? "Bu UETS kaydı daha önce aktarılmış."
               : "Tebliğ edilmiş sayılma tarihi takvime kaydedildi; hukuki son gün veya alarm oluşturulmadı."),
+        });
+      },
+      []
+    );
+
+  const commitPayment =
+    useCallback(
+      async (
+        payload: BridgeCapture,
+        analysis: AnalyzeResponse
+      ) => {
+        const document =
+          analysis.document;
+        const payment =
+          document?.payment;
+        const dueDate =
+          safeText(
+            payment?.paymentDueDate
+          );
+        const periodText =
+          safeText(
+            payment?.paymentPeriodText
+          );
+        const hasPayment =
+          typeof payment
+            ?.paymentAmount ===
+            "number" ||
+          Boolean(
+            safeText(
+              payment
+                ?.paymentDescription
+            ) ||
+              dueDate ||
+              periodText
+          );
+
+        if (!hasPayment) {
+          return;
+        }
+
+        if (
+          analysis.source
+            ?.isTestDocument ===
+          true
+        ) {
+          setCalendarStatus({
+            kind: "warning",
+            message:
+              "Test belgesi algılandı — ödeme takvimi veya alarm kaydı oluşturulmadı.",
+          });
+          return;
+        }
+
+        if (!dueDate) {
+          if (periodText) {
+            setCalendarStatus({
+              kind: "warning",
+              message:
+                "Süre metni bulundu; başlangıç tarihi doğrulanamadığı için son tarih oluşturulmadı.",
+            });
+          }
+          return;
+        }
+
+        const response =
+          await fetch(
+            "/api/cases/from-analysis",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+              body: JSON.stringify({
+                record_mode:
+                  "payment_deadline",
+                case_number:
+                  document?.fileNo ||
+                  "",
+                court_name:
+                  document?.court ||
+                  "",
+                case_title:
+                  payload.title ||
+                  "UETS Tebligatı",
+                institution:
+                  "PTT UETS",
+                arrival_date:
+                  document?.uets
+                    ?.arrivalDate ||
+                  "",
+                arrival_time:
+                  document?.uets
+                    ?.arrivalTime ||
+                  "",
+                deemed_service_date:
+                  document?.uets
+                    ?.deemedServiceDate ||
+                  "",
+                barcode_no:
+                  document?.uets
+                    ?.barcodeNo ||
+                  "",
+                payment_amount:
+                  payment
+                    ?.paymentAmount ??
+                  null,
+                payment_currency:
+                  payment
+                    ?.paymentCurrency ||
+                  "",
+                payment_description:
+                  payment
+                    ?.paymentDescription ||
+                  "",
+                payment_due_date:
+                  dueDate,
+                payment_period_text:
+                  periodText,
+                source_document:
+                  payment
+                    ?.sourceDocument ||
+                  payload.sourceDocument ||
+                  "",
+                source_url:
+                  payload.url ||
+                  "",
+                summary:
+                  document?.summary ||
+                  "",
+              }),
+            }
+          );
+
+        const data =
+          (await response.json()) as
+            CommitResponse;
+
+        if (
+          !response.ok ||
+          !data.ok
+        ) {
+          throw new Error(
+            data.error ||
+              "Ödeme takvim kaydı oluşturulamadı."
+          );
+        }
+
+        setCalendarStatus({
+          kind:
+            data.duplicate
+              ? "info"
+              : "success",
+          message:
+            data.message ||
+            (data.duplicate
+              ? "Bu PDF ödeme kaydı daha önce oluşturulmuş; yeni takvim veya alarm eklenmedi."
+              : "PDF ödeme son tarihi takvime ve alarm planına kaydedildi."),
         });
       },
       []
@@ -661,6 +860,11 @@ export default function UetsImportPage() {
             payload,
             data
           );
+
+          await commitPayment(
+            payload,
+            data
+          );
         }
         catch (analysisError) {
           setError(
@@ -678,6 +882,7 @@ export default function UetsImportPage() {
       },
       [
         commitHearing,
+        commitPayment,
         commitUets,
       ]
     );
@@ -1101,6 +1306,52 @@ export default function UetsImportPage() {
                 >
                   METHER Analizi
                 </strong>
+
+                {result.document.payment &&
+                  (typeof result.document.payment.paymentAmount === "number" ||
+                    result.document.payment.paymentDescription ||
+                    result.document.payment.paymentDueDate ||
+                    result.document.payment.paymentPeriodText) && (
+                    <div
+                      style={{
+                        marginBottom: 14,
+                        padding: 13,
+                        border: "1px solid #35425a",
+                        borderRadius: 12,
+                        background: "#0d1621",
+                        fontSize: 12,
+                        lineHeight: 1.7,
+                      }}
+                    >
+                      <strong>Ödeme Bilgisi</strong>
+                      <div>
+                        {formatPaymentAmount(
+                          result.document.payment.paymentAmount,
+                          result.document.payment.paymentCurrency
+                        ) || "Tutar belirtilmedi"}
+                      </div>
+                      <div>
+                        {result.document.payment.paymentDescription ||
+                          "Ödeme açıklaması bulunamadı"}
+                      </div>
+                      <div>
+                        {result.document.payment.paymentDueDate
+                          ? `Son tarih: ${result.document.payment.paymentDueDate}`
+                          : result.document.payment.paymentPeriodText ||
+                            "Son tarih bulunamadı"}
+                      </div>
+                      <div>
+                        {result.document.payment.sourceDocument ||
+                          "Kaynak PDF belirtilmedi"}
+                      </div>
+                      {!result.document.payment.paymentDueDate &&
+                        result.document.payment.paymentPeriodText && (
+                          <div style={{ color: "#e6c879", marginTop: 5 }}>
+                            Süre metni bulundu; başlangıç tarihi doğrulanamadığı için son tarih oluşturulmadı.
+                          </div>
+                        )}
+                    </div>
+                  )}
 
                 <pre
                   style={{

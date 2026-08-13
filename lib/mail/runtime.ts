@@ -23,6 +23,7 @@ export type MailConnectionRow = {
   provider: "google" | "microsoft" | "imap" | string;
   email: string | null;
   status: string | null;
+  display_name?: string | null;
 
   access_token?: string | null;
   refresh_token?: string | null;
@@ -166,6 +167,10 @@ export function createGoogleMailClient(
         .eq(
           "id",
           connection.id
+        )
+        .eq(
+          "user_id",
+          connection.user_id
         );
     }
   );
@@ -315,6 +320,10 @@ export async function getMicrosoftAccessToken(
     .eq(
       "id",
       connection.id
+    )
+    .eq(
+      "user_id",
+      connection.user_id
     );
 
   return String(

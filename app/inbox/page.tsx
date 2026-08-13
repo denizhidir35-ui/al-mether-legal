@@ -16,11 +16,25 @@ import LegalBrand
 import LegalDock
   from "@/components/LegalDock";
 
+import LegalBackButton
+  from "@/components/LegalBackButton";
+
+import {
+  attachmentLimitError,
+  attachmentTotalSize,
+  MAIL_ATTACHMENT_LIMIT_MESSAGE,
+  removeAttachmentAt,
+} from "@/lib/mail/attachments";
+
 type Connection = {
   id: string;
+  accountId?: string;
   provider: string;
   email?: string | null;
+  emailAddress?: string | null;
+  displayName?: string | null;
   status?: string | null;
+  connectionStatus?: string | null;
 };
 
 type MailFolder =
@@ -38,6 +52,7 @@ type MailSummary = {
   snippet: string;
   unread: boolean;
   hasAttachments: boolean;
+  sourceAccount?: Connection;
 };
 
 type Attachment = {
@@ -57,6 +72,7 @@ type MailDetail = {
   date: string;
   body: string;
   attachments?: Attachment[];
+  sourceAccount?: Connection;
 };
 
 const ACCOUNT_KEY =
@@ -274,6 +290,11 @@ export default function InboxPage() {
     useState("");
 
   const [
+    composerConnectionId,
+    setComposerConnectionId,
+  ] = useState("");
+
+  const [
     folder,
     setFolder,
   ] =
@@ -382,6 +403,30 @@ export default function InboxPage() {
       body: "",
     });
 
+  const [
+    composerAttachments,
+    setComposerAttachments,
+  ] = useState<File[]>([]);
+
+  const attachmentInput =
+    useRef<HTMLInputElement | null>(
+      null
+    );
+
+  const composerAttachmentTotal =
+    useMemo(
+      () =>
+        attachmentTotalSize(
+          composerAttachments
+        ),
+      [composerAttachments]
+    );
+
+  const composerAttachmentLimitError =
+    attachmentLimitError(
+      composerAttachments
+    );
+
   const listAbort =
     useRef<
       AbortController | null
@@ -404,6 +449,20 @@ export default function InboxPage() {
       [
         connections,
         selectedConnectionId,
+      ]
+    );
+
+  const composerConnection =
+    useMemo(
+      () =>
+        connections.find(
+          (item) =>
+            item.id ===
+            composerConnectionId
+        ) || null,
+      [
+        connections,
+        composerConnectionId,
       ]
     );
 
@@ -479,6 +538,9 @@ export default function InboxPage() {
                 "";
 
           setSelectedConnectionId(
+            initial
+          );
+          setComposerConnectionId(
             initial
           );
         } catch (
@@ -733,6 +795,15 @@ export default function InboxPage() {
               {
                 method:
                   "POST",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+                body:
+                  JSON.stringify({
+                    connectionId:
+                      selectedConnectionId,
+                  }),
               }
             ).catch(
               () => {}
@@ -856,6 +927,15 @@ export default function InboxPage() {
     }
   }
 
+  function closeMailDetail() {
+    detailAbort.current
+      ?.abort();
+    setSelectedSummary(null);
+    setSelectedMail(null);
+    setMobileDetail(false);
+    setLoadingDetail(false);
+  }
+
   function changeAccount(
     value: string
   ) {
@@ -886,6 +966,74 @@ export default function InboxPage() {
       subject: "",
       body: "",
     });
+    setComposerAttachments(
+      []
+    );
+
+    if (
+      attachmentInput.current
+    ) {
+      attachmentInput.current
+        .value = "";
+    }
+  }
+
+  function addComposerAttachments(
+    files: FileList | null
+  ) {
+    if (!files) {
+      return;
+    }
+
+    const next = [
+      ...composerAttachments,
+      ...Array.from(files),
+    ];
+
+    setComposerAttachments(
+      next
+    );
+
+    const limitError =
+      attachmentLimitError(
+        next
+      );
+
+    setComposerError(
+      limitError
+    );
+
+    if (
+      attachmentInput.current
+    ) {
+      attachmentInput.current
+        .value = "";
+    }
+  }
+
+  function removeComposerAttachment(
+    index: number
+  ) {
+    const next =
+      removeAttachmentAt(
+        composerAttachments,
+        index
+      );
+
+    setComposerAttachments(
+      next
+    );
+
+    if (
+      composerError ===
+      MAIL_ATTACHMENT_LIMIT_MESSAGE
+    ) {
+      setComposerError(
+        attachmentLimitError(
+          next
+        )
+      );
+    }
   }
 
   function startComposerDrag(
@@ -996,10 +1144,28 @@ export default function InboxPage() {
       | "draft"
   ) {
     setComposerError("");
+    setComposerAttachments(
+      []
+    );
     setComposerPosition({
       x: 0,
       y: 0,
     });
+
+    const sourceAccountId =
+      mode === "new"
+        ? selectedConnectionId
+        : selectedMail
+            ?.sourceAccount
+            ?.accountId ||
+          selectedMail
+            ?.sourceAccount
+            ?.id ||
+          selectedConnectionId;
+
+    setComposerConnectionId(
+      sourceAccountId
+    );
 
     if (
       mode === "new" ||
@@ -1012,8 +1178,11 @@ export default function InboxPage() {
 
     const ownEmail =
       (
-        selectedConnection
-          ?.email ||
+        connections.find(
+          (connection) =>
+            connection.id ===
+            sourceAccountId
+        )?.email ||
         ""
       )
         .trim()
@@ -1137,9 +1306,18 @@ ${selectedMail.body || ""}`,
   }
   async function sendMail() {
     if (
-      !selectedConnectionId ||
-      sending
+      !composerConnectionId ||
+      sending ||
+      composerAttachmentLimitError
     ) {
+      if (
+        composerAttachmentLimitError
+      ) {
+        setComposerError(
+          composerAttachmentLimitError
+        );
+      }
+
       return;
     }
 
@@ -1149,25 +1327,41 @@ ${selectedMail.body || ""}`,
       setNotice("");
       setComposerError("");
 
+      const form =
+        new FormData();
+
+      form.set(
+        "connectionId",
+        composerConnectionId
+      );
+
+      for (
+        const [key, value]
+        of Object.entries(
+          composer
+        )
+      ) {
+        form.set(key, value);
+      }
+
+      for (
+        const attachment
+        of composerAttachments
+      ) {
+        form.append(
+          "attachments",
+          attachment,
+          attachment.name
+        );
+      }
+
       const response =
         await fetch(
           "/api/mail/send",
           {
             method:
               "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body:
-              JSON.stringify({
-                connectionId:
-                  selectedConnectionId,
-
-                ...composer,
-              }),
+            body: form,
           }
         );
 
@@ -1475,6 +1669,17 @@ ${selectedMail.body || ""}`,
                         {mail.snippet}
                       </div>
                     )}
+
+                    <div className="mail-account-source">
+                      Hesap:{" "}
+                      {mail.sourceAccount
+                        ?.emailAddress ||
+                        mail.sourceAccount
+                          ?.email ||
+                        selectedConnection
+                          ?.email ||
+                        "Posta hesabı"}
+                    </div>
                   </button>
                 )
               )
@@ -1516,17 +1721,12 @@ ${selectedMail.body || ""}`,
           ) : selectedMail ? (
             <>
               <div className="detail-header">
-                <button
-                  type="button"
-                  className="mobile-back"
-                  onClick={() =>
-                    setMobileDetail(
-                      false
-                    )
+                <LegalBackButton
+                  fallback="/inbox"
+                  onBack={
+                    closeMailDetail
                   }
-                >
-                  ←
-                </button>
+                />
 
                 <div className="detail-heading">
                   <div className="detail-kicker">
@@ -1540,6 +1740,19 @@ ${selectedMail.body || ""}`,
                     ).toLocaleUpperCase(
                       "tr-TR"
                     )}
+                  </div>
+
+                  <div className="detail-account-source">
+                    Hesap:{" "}
+                    {selectedMail
+                      .sourceAccount
+                      ?.emailAddress ||
+                      selectedMail
+                        .sourceAccount
+                        ?.email ||
+                      selectedConnection
+                        ?.email ||
+                      "Posta hesabı"}
                   </div>
 
                   <h1>
@@ -1782,7 +1995,7 @@ ${selectedMail.body || ""}`,
                 </strong>
 
                 <span>
-                  {selectedConnection
+                  {composerConnection
                     ?.email ||
                     "Posta hesabı"}
                 </span>
@@ -1807,6 +2020,48 @@ ${selectedMail.body || ""}`,
                 {composerError}
               </div>
             )}
+
+            <div className="compose-field">
+              <label>
+                Gönderen
+              </label>
+
+              <select
+                aria-label="Gönderen posta hesabı"
+                value={
+                  composerConnectionId
+                }
+                disabled={
+                  sending ||
+                  connections.length ===
+                    0
+                }
+                onChange={(
+                  event
+                ) =>
+                  setComposerConnectionId(
+                    event.target.value
+                  )
+                }
+              >
+                {connections.map(
+                  (connection) => (
+                    <option
+                      key={connection.id}
+                      value={connection.id}
+                    >
+                      {connection.displayName ||
+                        connection.emailAddress ||
+                        connection.email ||
+                        "Posta hesabı"}{" "}
+                      · {providerName(
+                        connection.provider
+                      )}
+                    </option>
+                  )
+                )}
+              </select>
+            </div>
 
             <div className="compose-field">
               <label>
@@ -1925,10 +2180,89 @@ ${selectedMail.body || ""}`,
               placeholder="Mesajınızı yazın..."
             />
 
+            <section className="composer-attachments">
+              <input
+                ref={attachmentInput}
+                type="file"
+                multiple
+                hidden
+                onChange={(
+                  event
+                ) =>
+                  addComposerAttachments(
+                    event.target.files
+                  )
+                }
+              />
+
+              <div className="attachment-picker-row">
+                <button
+                  type="button"
+                  className="attachment-picker"
+                  disabled={sending}
+                  onClick={() =>
+                    attachmentInput
+                      .current
+                      ?.click()
+                  }
+                >
+                  Ek Ekle
+                </button>
+
+                <span>
+                  {formatBytes(
+                    composerAttachmentTotal
+                  ) || "0 B"}{" "}
+                  / 25 MB
+                </span>
+              </div>
+
+              {composerAttachments.length >
+                0 && (
+                <div className="composer-attachment-list">
+                  {composerAttachments.map(
+                    (
+                      attachment,
+                      index
+                    ) => (
+                      <div
+                        className="composer-attachment"
+                        key={`${attachment.name}-${attachment.size}-${attachment.lastModified}-${index}`}
+                      >
+                        <div>
+                          <strong>
+                            {attachment.name}
+                          </strong>
+                          <span>
+                            {formatBytes(
+                              attachment.size
+                            ) || "0 B"}
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={sending}
+                          aria-label={`${attachment.name} ekini kaldır`}
+                          onClick={() =>
+                            removeComposerAttachment(
+                              index
+                            )
+                          }
+                        >
+                          Kaldır
+                        </button>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+            </section>
+
             <footer>
               <span>
                 {providerName(
-                  selectedConnection
+                  composerConnection
                     ?.provider ||
                     ""
                 )}
@@ -1939,6 +2273,10 @@ ${selectedMail.body || ""}`,
                 className="send-button"
                 disabled={
                   sending ||
+                  !composerConnectionId ||
+                  Boolean(
+                    composerAttachmentLimitError
+                  ) ||
                   !composer.to
                     .trim()
                 }
@@ -2425,6 +2763,17 @@ ${selectedMail.body || ""}`,
             anywhere;
         }
 
+        .mail-account-source {
+          margin-top: 3px;
+          color:
+            var(--legal-gold);
+          font-size: 7px;
+          overflow: hidden;
+          text-overflow:
+            ellipsis;
+          white-space: nowrap;
+        }
+
         .list-state {
           padding: 28px;
           text-align: center;
@@ -2464,6 +2813,13 @@ ${selectedMail.body || ""}`,
           font-weight: 900;
           letter-spacing:
             .12em;
+        }
+
+        .detail-account-source {
+          margin-bottom: 4px;
+          color:
+            var(--legal-muted);
+          font-size: 8px;
         }
 
         .detail-heading h1 {
@@ -2689,6 +3045,7 @@ ${selectedMail.body || ""}`,
             );
           display: grid;
           gap: 9px;
+          overflow-y: auto;
           padding: 14px;
           border:
             1px solid
@@ -2754,6 +3111,7 @@ ${selectedMail.body || ""}`,
         }
 
         .compose-field input,
+        .compose-field select,
         .compose-body {
           width: 100%;
           border:
@@ -2767,7 +3125,8 @@ ${selectedMail.body || ""}`,
             var(--legal-text);
         }
 
-        .compose-field input {
+        .compose-field input,
+        .compose-field select {
           height: 34px;
           padding:
             0 10px;
@@ -2788,6 +3147,92 @@ ${selectedMail.body || ""}`,
           font-family: inherit;
           font-size: 10px;
           line-height: 1.6;
+        }
+
+        .composer-attachments {
+          display: grid;
+          gap: 6px;
+        }
+
+        .attachment-picker-row {
+          display: flex;
+          align-items: center;
+          justify-content:
+            space-between;
+          gap: 10px;
+        }
+
+        .attachment-picker {
+          min-height: 30px;
+          padding: 0 11px;
+          border:
+            1px solid
+            var(--legal-border);
+          border-radius: 8px;
+          background:
+            var(--legal-surface-2);
+          color:
+            var(--legal-text);
+          font-size: 8px;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .attachment-picker-row span {
+          color:
+            var(--legal-muted);
+          font-size: 8px;
+        }
+
+        .composer-attachment-list {
+          max-height: 120px;
+          display: grid;
+          gap: 5px;
+          overflow-y: auto;
+        }
+
+        .composer-attachment {
+          display: flex;
+          align-items: center;
+          justify-content:
+            space-between;
+          gap: 10px;
+          padding: 7px 8px;
+          border:
+            1px solid
+            var(--legal-border);
+          border-radius: 8px;
+          background:
+            var(--legal-surface-2);
+        }
+
+        .composer-attachment div {
+          min-width: 0;
+          display: grid;
+          gap: 2px;
+        }
+
+        .composer-attachment strong {
+          overflow: hidden;
+          text-overflow:
+            ellipsis;
+          white-space: nowrap;
+          font-size: 8.5px;
+        }
+
+        .composer-attachment span {
+          color:
+            var(--legal-muted);
+          font-size: 7px;
+        }
+
+        .composer-attachment button {
+          border: 0;
+          background: transparent;
+          color:
+            var(--legal-danger);
+          font-size: 8px;
+          cursor: pointer;
         }
 
         .composer footer {
@@ -3149,6 +3594,64 @@ ${selectedMail.body || ""}`,
             flex:
               0 0 auto;
           }
+        }
+
+        .mail-row:not(.unread):not(.selected) {
+          background:
+            color-mix(
+              in srgb,
+              var(--legal-surface)
+              42%,
+              transparent
+            );
+        }
+
+        .mail-row:not(.unread)
+        .mail-top strong,
+        .mail-row:not(.unread)
+        .mail-subject span {
+          color:
+            var(--legal-text-soft);
+          font-weight: 600;
+        }
+
+        .mail-row.unread {
+          background:
+            color-mix(
+              in srgb,
+              var(--legal-gold)
+              7%,
+              var(--legal-surface)
+            );
+        }
+
+        :global(html.dark) .mail-row.unread,
+        :global(html[data-legal-theme="dark"])
+        .mail-row.unread {
+          background:
+            color-mix(
+              in srgb,
+              var(--legal-gold)
+              10%,
+              var(--legal-surface)
+            );
+        }
+
+        .mail-row.unread
+        .mail-subject i {
+          box-shadow:
+            0 0 0 3px
+            color-mix(
+              in srgb,
+              var(--legal-gold)
+              18%,
+              transparent
+            );
+        }
+
+        .mail-row.selected {
+          background:
+            var(--legal-surface-2);
         }
 `}</style>
     </main>

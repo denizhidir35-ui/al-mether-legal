@@ -3,10 +3,6 @@ import {
 } from "node:crypto";
 
 import {
-  Readable,
-} from "node:stream";
-
-import {
   NextRequest,
   NextResponse,
 } from "next/server";
@@ -33,28 +29,21 @@ import {
   getOwnedMailConnection,
 } from "@/lib/mail/runtime";
 
+import {
+  attachmentLimitError,
+  MAIL_ATTACHMENT_LIMIT_MESSAGE,
+} from "@/lib/mail/attachments";
+
+import {
+  buildMimeMessage,
+  nodemailerOptions,
+  type OutgoingAttachment,
+  type OutgoingMessage,
+} from "@/lib/mail/outgoingMessage";
+
 export const runtime =
   "nodejs";
 
-async function mailMessageToBuffer(
-  value: Buffer | Readable
-): Promise<Buffer> {
-  if (Buffer.isBuffer(value)) {
-    return value;
-  }
-
-  const chunks: Buffer[] = [];
-
-  for await (const chunk of value) {
-    chunks.push(
-      Buffer.isBuffer(chunk)
-        ? chunk
-        : Buffer.from(chunk)
-    );
-  }
-
-  return Buffer.concat(chunks);
-}
 const EMAIL =
   /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/i;
 
@@ -116,76 +105,149 @@ function cleanHeader(
     .trim();
 }
 
-function chunkBase64(
-  value: string
-) {
-  return value
-    .match(/.{1,76}/g)
-    ?.join("\r\n") ||
-    "";
+class AttachmentLimitError
+  extends Error {
+  constructor() {
+    super(
+      MAIL_ATTACHMENT_LIMIT_MESSAGE
+    );
+  }
 }
 
-function gmailRawMessage(
+type ParsedSendRequest = {
+  connectionId: string;
+  to: string;
+  cc: string;
+  bcc: string;
+  subject: string;
+  body: string;
+  attachments: OutgoingAttachment[];
+};
+
+async function parseSendRequest(
+  request: NextRequest
+): Promise<ParsedSendRequest> {
+  const contentType =
+    request.headers.get(
+      "content-type"
+    ) || "";
+
+  if (
+    !contentType
+      .toLowerCase()
+      .startsWith(
+        "multipart/form-data"
+      )
+  ) {
+    const body =
+      await request.json();
+
+    return {
+      connectionId:
+        String(
+          body?.connectionId ||
+          ""
+        ),
+      to:
+        String(body?.to || ""),
+      cc:
+        String(body?.cc || ""),
+      bcc:
+        String(body?.bcc || ""),
+      subject:
+        String(
+          body?.subject || ""
+        ),
+      body:
+        String(body?.body || ""),
+      attachments: [],
+    };
+  }
+
+  const form =
+    await request.formData();
+
+  const files =
+    form
+      .getAll("attachments")
+      .filter(
+        (value): value is File =>
+          value instanceof File
+      );
+
+  if (
+    attachmentLimitError(
+      files
+    )
+  ) {
+    throw new AttachmentLimitError();
+  }
+
+  const attachments:
+    OutgoingAttachment[] = [];
+
+  for (const file of files) {
+    attachments.push({
+      filename:
+        cleanHeader(
+          file.name
+        ) || "dosya",
+      contentType:
+        file.type ||
+        "application/octet-stream",
+      size: file.size,
+      content:
+        Buffer.from(
+          await file.arrayBuffer()
+        ),
+    });
+  }
+
+  const field =
+    (name: string) => {
+      const value =
+        form.get(name);
+
+      return typeof value ===
+        "string"
+        ? value
+        : "";
+    };
+
+  return {
+    connectionId:
+      field("connectionId"),
+    to: field("to"),
+    cc: field("cc"),
+    bcc: field("bcc"),
+    subject:
+      field("subject"),
+    body: field("body"),
+    attachments,
+  };
+}
+
+function outgoingMessage(
   from: string,
   to: string[],
   cc: string[],
   bcc: string[],
   subject: string,
-  body: string
-) {
-  const headers = [
-    `From: ${cleanHeader(
-      from
-    )}`,
-    `To: ${to.join(", ")}`,
-  ];
-
-  if (cc.length) {
-    headers.push(
-      `Cc: ${cc.join(", ")}`
-    );
-  }
-
-  if (bcc.length) {
-    headers.push(
-      `Bcc: ${bcc.join(", ")}`
-    );
-  }
-
-  headers.push(
-    `Subject: =?UTF-8?B?${Buffer.from(
-      subject,
-      "utf8"
-    ).toString(
-      "base64"
-    )}?=`,
-
-    "MIME-Version: 1.0",
-
-    'Content-Type: text/plain; charset="UTF-8"',
-
-    "Content-Transfer-Encoding: base64"
-  );
-
-  const encodedBody =
-    chunkBase64(
-      Buffer.from(
-        body,
-        "utf8"
-      ).toString(
-        "base64"
-      )
-    );
-
-  return Buffer.from(
-    `${headers.join(
-      "\r\n"
-    )}\r\n\r\n${encodedBody}`,
-    "utf8"
-  )
-    .toString(
-      "base64url"
-    );
+  body: string,
+  attachments:
+    OutgoingAttachment[],
+  messageId?: string
+): OutgoingMessage {
+  return {
+    from,
+    to,
+    cc,
+    bcc,
+    subject,
+    text: body,
+    messageId,
+    attachments,
+  };
 }
 
 function graphRecipients(
@@ -207,7 +269,9 @@ async function sendGoogle(
   cc: string[],
   bcc: string[],
   subject: string,
-  body: string
+  body: string,
+  attachments:
+    OutgoingAttachment[]
 ) {
   const gmail =
     createGoogleMailClient(
@@ -216,14 +280,21 @@ async function sendGoogle(
     );
 
   const raw =
-    gmailRawMessage(
-      connection.email ||
-        "",
-      to,
-      cc,
-      bcc,
-      subject,
-      body
+    (
+      await buildMimeMessage(
+        outgoingMessage(
+          connection.email ||
+            "",
+          to,
+          cc,
+          bcc,
+          subject,
+          body,
+          attachments
+        )
+      )
+    ).toString(
+      "base64url"
     );
 
   await gmail.users
@@ -243,7 +314,9 @@ async function sendMicrosoft(
   cc: string[],
   bcc: string[],
   subject: string,
-  body: string
+  body: string,
+  attachments:
+    OutgoingAttachment[]
 ) {
   const token =
     await getMicrosoftAccessToken(
@@ -251,68 +324,255 @@ async function sendMicrosoft(
       supabase
     );
 
-  const response =
+  const headers = {
+    Authorization:
+      `Bearer ${token}`,
+    "Content-Type":
+      "application/json",
+  };
+
+  const message = {
+    subject,
+    body: {
+      contentType: "Text",
+      content: body,
+    },
+    toRecipients:
+      graphRecipients(to),
+    ccRecipients:
+      graphRecipients(cc),
+    bccRecipients:
+      graphRecipients(bcc),
+  };
+
+  if (
+    attachments.length === 0
+  ) {
+    const response =
+      await fetch(
+        "https://graph.microsoft.com/v1.0/me/sendMail",
+        {
+          method: "POST",
+          headers,
+          body:
+            JSON.stringify({
+              message,
+              saveToSentItems:
+                true,
+            }),
+          cache: "no-store",
+        }
+      );
+
+    if (!response.ok) {
+      const data =
+        await response.json()
+          .catch(() => null);
+
+      throw new Error(
+        data?.error
+          ?.message ||
+        "Microsoft ileti gönderemedi."
+      );
+    }
+
+    return;
+  }
+
+  const draftResponse =
     await fetch(
-      "https://graph.microsoft.com/v1.0/me/sendMail",
+      "https://graph.microsoft.com/v1.0/me/messages",
       {
         method: "POST",
-
-        headers: {
-          Authorization:
-            `Bearer ${token}`,
-
-          "Content-Type":
-            "application/json",
-        },
-
+        headers,
         body:
-          JSON.stringify({
-            message: {
-              subject,
-
-              body: {
-                contentType:
-                  "Text",
-
-                content:
-                  body,
-              },
-
-              toRecipients:
-                graphRecipients(
-                  to
-                ),
-
-              ccRecipients:
-                graphRecipients(
-                  cc
-                ),
-
-              bccRecipients:
-                graphRecipients(
-                  bcc
-                ),
-            },
-
-            saveToSentItems:
-              true,
-          }),
-
+          JSON.stringify(message),
         cache: "no-store",
       }
     );
 
-  if (!response.ok) {
-    const data =
-      await response
-        .json()
-        .catch(
-          () => null
+  const draft =
+    await draftResponse.json()
+      .catch(() => null);
+
+  if (
+    !draftResponse.ok ||
+    !draft?.id
+  ) {
+    throw new Error(
+      draft?.error?.message ||
+      "Microsoft ileti taslağı oluşturamadı."
+    );
+  }
+
+  const draftId =
+    encodeURIComponent(
+      String(draft.id)
+    );
+
+  for (
+    const attachment
+    of attachments
+  ) {
+    if (
+      attachment.size <
+      3 * 1024 * 1024
+    ) {
+      const response =
+        await fetch(
+          `https://graph.microsoft.com/v1.0/me/messages/${draftId}/attachments`,
+          {
+            method: "POST",
+            headers,
+            body:
+              JSON.stringify({
+                "@odata.type":
+                  "#microsoft.graph.fileAttachment",
+                name:
+                  attachment.filename,
+                contentType:
+                  attachment.contentType,
+                contentBytes:
+                  attachment.content
+                    .toString(
+                      "base64"
+                    ),
+              }),
+            cache: "no-store",
+          }
         );
 
+      if (!response.ok) {
+        const data =
+          await response.json()
+            .catch(() => null);
+
+        throw new Error(
+          data?.error?.message ||
+          "Microsoft eki yükleyemedi."
+        );
+      }
+
+      continue;
+    }
+
+    const sessionResponse =
+      await fetch(
+        `https://graph.microsoft.com/v1.0/me/messages/${draftId}/attachments/createUploadSession`,
+        {
+          method: "POST",
+          headers,
+          body:
+            JSON.stringify({
+              AttachmentItem: {
+                attachmentType:
+                  "file",
+                name:
+                  attachment.filename,
+                size:
+                  attachment.size,
+              },
+            }),
+          cache: "no-store",
+        }
+      );
+
+    const session =
+      await sessionResponse.json()
+        .catch(() => null);
+
+    if (
+      !sessionResponse.ok ||
+      !session?.uploadUrl
+    ) {
+      throw new Error(
+        session?.error?.message ||
+        "Microsoft büyük ek yüklemesini başlatamadı."
+      );
+    }
+
+    const chunkSize =
+      10 * 320 * 1024;
+
+    for (
+      let start = 0;
+      start < attachment.size;
+      start += chunkSize
+    ) {
+      const end =
+        Math.min(
+          start + chunkSize,
+          attachment.size
+        );
+
+      const chunk =
+        attachment.content
+          .subarray(
+            start,
+            end
+          );
+
+      const uploadBody =
+        new ArrayBuffer(
+          chunk.length
+        );
+
+      new Uint8Array(
+        uploadBody
+      ).set(chunk);
+
+      const uploadResponse =
+        await fetch(
+          session.uploadUrl,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Length":
+                String(
+                  chunk.length
+                ),
+              "Content-Range":
+                `bytes ${start}-${end - 1}/${attachment.size}`,
+            },
+            body: uploadBody,
+            cache: "no-store",
+          }
+        );
+
+      if (!uploadResponse.ok) {
+        const data =
+          await uploadResponse
+            .json()
+            .catch(() => null);
+
+        throw new Error(
+          data?.error?.message ||
+          "Microsoft büyük eki yükleyemedi."
+        );
+      }
+    }
+  }
+
+  const sendResponse =
+    await fetch(
+      `https://graph.microsoft.com/v1.0/me/messages/${draftId}/send`,
+      {
+        method: "POST",
+        headers: {
+          Authorization:
+            `Bearer ${token}`,
+        },
+        cache: "no-store",
+      }
+    );
+
+  if (!sendResponse.ok) {
+    const data =
+      await sendResponse.json()
+        .catch(() => null);
+
     throw new Error(
-      data?.error
-        ?.message ||
+      data?.error?.message ||
       "Microsoft ileti gönderemedi."
     );
   }
@@ -324,7 +584,9 @@ async function sendImap(
   cc: string[],
   bcc: string[],
   subject: string,
-  body: string
+  body: string,
+  attachments:
+    OutgoingAttachment[]
 ) {
   if (
     !connection.email ||
@@ -375,27 +637,22 @@ async function sendImap(
       "@"
     )[1] || "mether.local"}>`;
 
-  const options = {
-    from:
+  const message =
+    outgoingMessage(
       connection.email,
+      to,
+      cc,
+      bcc,
+      subject,
+      body,
+      attachments,
+      messageId
+    );
 
-    to:
-      to.join(", "),
-
-    cc:
-      cc.length
-        ? cc.join(", ")
-        : undefined,
-
-    bcc:
-      bcc.length
-        ? bcc.join(", ")
-        : undefined,
-
-    subject,
-    text: body,
-    messageId,
-  };
+  const options =
+    nodemailerOptions(
+      message
+    );
 
   const transport =
     nodemailer
@@ -431,27 +688,9 @@ async function sendImap(
   transport.close();
 
   try {
-    const builder =
-      nodemailer
-        .createTransport({
-          streamTransport:
-            true,
-
-          buffer: true,
-
-          newline:
-            "unix",
-        });
-
-    const rendered =
-      await builder
-        .sendMail(
-          options
-        );
-
     const raw =
-      await mailMessageToBuffer(
-        rendered.message
+      await buildMimeMessage(
+        message
       );
 
     const imap =
@@ -494,7 +733,9 @@ export async function POST(
 ) {
   try {
     const body =
-      await request.json();
+      await parseSendRequest(
+        request
+      );
 
     const connectionId =
       String(
@@ -559,7 +800,9 @@ export async function POST(
 
     if (
       !subject &&
-      !text
+      !text &&
+      body.attachments
+        .length === 0
     ) {
       return NextResponse.json(
         {
@@ -592,7 +835,8 @@ export async function POST(
         cc,
         bcc,
         subject,
-        text
+        text,
+        body.attachments
       );
     } else if (
       connection.provider ===
@@ -605,7 +849,8 @@ export async function POST(
         cc,
         bcc,
         subject,
-        text
+        text,
+        body.attachments
       );
     } else if (
       connection.provider ===
@@ -617,7 +862,8 @@ export async function POST(
         cc,
         bcc,
         subject,
-        text
+        text,
+        body.attachments
       );
     } else {
       throw new Error(
@@ -640,7 +886,11 @@ export async function POST(
             : "İleti gönderilemedi.",
       },
       {
-        status: 500,
+        status:
+          error instanceof
+            AttachmentLimitError
+            ? 413
+            : 500,
       }
     );
   }

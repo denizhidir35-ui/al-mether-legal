@@ -23,6 +23,10 @@ import {
   isLegalMail,
 } from "@/lib/mail/legalMailFilter";
 
+import {
+  toMailAccountDTO,
+} from "@/lib/mail/accountModel";
+
 export const runtime =
   "nodejs";
 
@@ -727,22 +731,23 @@ export async function GET(
       );
     }
 
+    const sourceAccount =
+      toMailAccountDTO(
+        connection
+      );
+
     return NextResponse.json({
       ok: true,
       folder,
-
-      connection: {
-        id:
-          connection.id,
-
-        provider:
-          connection.provider,
-
-        email:
-          connection.email,
-      },
-
-      messages,
+      connection:
+        sourceAccount,
+      messages:
+        messages.map(
+          (message) => ({
+            ...message,
+            sourceAccount,
+          })
+        ),
     });
   } catch (error) {
     return NextResponse.json(

@@ -11,6 +11,7 @@ import {
 import LegalDock from "@/components/LegalDock";
 import LegalSessionControl from "@/components/LegalSessionControl";
 import PasswordUpdateForm from "@/components/PasswordUpdateForm";
+import { markSafeAppNavigation } from "@/lib/navigation/backNavigation";
 
 type Theme =
   | "dark"
@@ -442,6 +443,9 @@ export default function SettingsPage() {
           <a
             href="/mail-connect"
             className="settings-link"
+            onClick={() =>
+              markSafeAppNavigation("/mail-connect")
+            }
           >
             Mail bağlantısını yönet
           </a>

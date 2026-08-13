@@ -8,6 +8,10 @@ import CredentialsProvider
   from "next-auth/providers/credentials";
 
 import {
+  cookies,
+} from "next/headers";
+
+import {
   createClient as createSupabaseAuthClient,
 } from "@supabase/supabase-js";
 
@@ -16,10 +20,18 @@ import {
 } from "@/lib/supabaseAdmin";
 
 import {
+  MAIL_LINK_COOKIE,
+  verifyMailLinkToken,
+} from "@/lib/mail/linkContext";
+
+import {
   isPendingApprovalStatus,
   notifyAdminsOfPendingUser,
   PENDING_APPROVAL_STATUS,
 } from "@/lib/userApproval";
+
+const TRUSTED_DEVICE_SESSION_SECONDS =
+  60 * 60 * 24 * 365;
 
 const credentialsProvider =
   CredentialsProvider({
@@ -284,6 +296,14 @@ export const authOptions:
   session: {
     strategy:
       "jwt",
+
+    maxAge:
+      TRUSTED_DEVICE_SESSION_SECONDS,
+  },
+
+  jwt: {
+    maxAge:
+      TRUSTED_DEVICE_SESSION_SECONDS,
   },
 
   callbacks: {
@@ -303,6 +323,171 @@ export const authOptions:
 
         const supabase =
           getSupabaseAdmin();
+
+        const accountProvider =
+          account?.provider ||
+          "";
+
+        const mailProvider =
+          accountProvider ===
+          "google-mail"
+            ? "google"
+            : accountProvider ===
+                "microsoft-mail"
+              ? "microsoft"
+              : "";
+
+        if (mailProvider) {
+          const cookieStore =
+            await cookies();
+
+          const linkContext =
+            verifyMailLinkToken(
+              cookieStore
+                .get(
+                  MAIL_LINK_COOKIE
+                )?.value ||
+                "",
+              mailProvider
+            );
+
+          if (!linkContext) {
+            return false;
+          }
+
+          const owner =
+            await supabase
+              .from(
+                "app_users"
+              )
+              .select("*")
+              .eq(
+                "id",
+                linkContext
+                  .userId
+              )
+              .eq(
+                "status",
+                "active"
+              )
+              .maybeSingle();
+
+          if (
+            owner.error ||
+            !owner.data
+          ) {
+            return false;
+          }
+
+          const previous =
+            await supabase
+              .from(
+                "mail_connections"
+              )
+              .select(
+                "id,refresh_token"
+              )
+              .eq(
+                "user_id",
+                owner.data.id
+              )
+              .eq(
+                "provider",
+                mailProvider
+              )
+              .eq(
+                "email",
+                email
+              )
+              .maybeSingle();
+
+          if (previous.error) {
+            return false;
+          }
+
+          const expiresAt =
+            account?.expires_at
+              ? new Date(
+                  account
+                    .expires_at *
+                    1000
+                ).toISOString()
+              : null;
+
+          const values = {
+            user_id:
+              owner.data.id,
+            provider:
+              mailProvider,
+            email,
+            display_name:
+              user?.name ||
+              email,
+            status:
+              "connected",
+            access_token:
+              account
+                ?.access_token ||
+              null,
+            refresh_token:
+              account
+                ?.refresh_token ||
+              previous.data
+                ?.refresh_token ||
+              null,
+            token_expires_at:
+              expiresAt,
+            updated_at:
+              new Date()
+                .toISOString(),
+          };
+
+          const saved =
+            previous.data?.id
+              ? await supabase
+                  .from(
+                    "mail_connections"
+                  )
+                  .update(values)
+                  .eq(
+                    "id",
+                    previous
+                      .data.id
+                  )
+                  .eq(
+                    "user_id",
+                    owner.data.id
+                  )
+              : await supabase
+                  .from(
+                    "mail_connections"
+                  )
+                  .insert(values);
+
+          if (saved.error) {
+            console.error(
+              "MAIL CONNECTION SAVE ERROR:",
+              saved.error
+                .message
+            );
+
+            return false;
+          }
+
+          user.email =
+            owner.data.email;
+          user.name =
+            owner.data.name ||
+            user.name;
+
+          try {
+            cookieStore.delete(
+              MAIL_LINK_COOKIE
+            );
+          } catch {}
+
+          return true;
+        }
 
         const existingUser =
           await supabase
@@ -384,116 +569,6 @@ export const authOptions:
           await notifyAdminsOfPendingUser(
             created.data
           );
-        }
-
-        const accountProvider =
-          account?.provider ||
-          "";
-
-        const mailProvider =
-          accountProvider ===
-          "google-mail"
-            ? "google"
-            : accountProvider ===
-                "microsoft-mail"
-              ? "microsoft"
-              : "";
-
-        if (
-          mailProvider &&
-          appUser.status === "active"
-        ) {
-          const expiresAt =
-            account?.expires_at
-              ? new Date(
-                  account
-                    .expires_at *
-                    1000
-                ).toISOString()
-              : null;
-
-          const previous =
-            await supabase
-              .from(
-                "mail_connections"
-              )
-              .select(
-                "refresh_token"
-              )
-              .eq(
-                "user_id",
-                appUser.id
-              )
-              .eq(
-                "provider",
-                mailProvider
-              )
-              .maybeSingle();
-
-          if (
-            previous.error
-          ) {
-            return false;
-          }
-
-          const refreshToken =
-            account
-              ?.refresh_token ||
-            previous.data
-              ?.refresh_token ||
-            null;
-
-          const saved =
-            await supabase
-              .from(
-                "mail_connections"
-              )
-              .upsert(
-                {
-                  user_id:
-                    appUser.id,
-
-                  provider:
-                    mailProvider,
-
-                  email,
-
-                  status:
-                    "connected",
-
-                  access_token:
-                    account
-                      ?.access_token ||
-                    null,
-
-                  refresh_token:
-                    refreshToken,
-
-                  token_expires_at:
-                    expiresAt,
-
-                  updated_at:
-                    new Date()
-                      .toISOString(),
-                },
-                {
-                  onConflict:
-                    "user_id,provider",
-                }
-              );
-
-          if (
-            saved.error
-          ) {
-            console.error(
-              "MAIL CONNECTION SAVE ERROR:",
-              saved
-                .error
-                .message
-            );
-
-            return false;
-          }
         }
 
         return true;

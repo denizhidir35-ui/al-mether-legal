@@ -3,6 +3,10 @@
 import LegalBrand from "@/components/LegalBrand";
 
 import {
+  useRouter,
+} from "next/navigation";
+
+import {
   useEffect,
   useMemo,
   useState,
@@ -11,6 +15,9 @@ import {
 import LegalDock from "@/components/LegalDock";
 import LegalSessionControl from "@/components/LegalSessionControl";
 import { readJsonResponse } from "@/lib/apiResponse";
+import { canAddManualCaseToCalendar } from "@/lib/legal/manualCaseCalendar";
+import LegalBackButton from "@/components/LegalBackButton";
+import { markSafeAppNavigation } from "@/lib/navigation/backNavigation";
 
 type LegalDeadline = {
   id: string;
@@ -32,6 +39,9 @@ type CaseMail = {
   subject?: string | null;
   sender?: string | null;
   received_at?: string | null;
+  mail_account_id?: string | null;
+  mail_account_email?: string | null;
+  mail_provider?: string | null;
 };
 
 type CaseAttachment = {
@@ -41,6 +51,30 @@ type CaseAttachment = {
   file_size?: number | null;
   source?: string | null;
   created_at?: string | null;
+};
+
+type PaymentReminder = {
+  paymentAmount?: number | null;
+  paymentCurrency?: string | null;
+  paymentDescription?: string | null;
+  paymentDueDate?: string | null;
+  paymentPeriodText?: string | null;
+  sourceDocument?: string | null;
+  calendarEventId?: string | null;
+};
+
+type ManualCalendarEvent = {
+  id: string;
+  title?: string | null;
+  event_type:
+    | "hearing"
+    | "manual_deadline";
+  start_date?: string | null;
+  due_date?: string | null;
+  raw?: {
+    hearingAt?: string | null;
+    manualDeadline?: string | null;
+  } | null;
 };
 
 type LegalCase = {
@@ -55,10 +89,21 @@ type LegalCase = {
   updated_at?: string | null;
   legal_deadlines?: LegalDeadline[];
   deemed_service_events?: DeemedServiceEvent[];
+  payment_reminders?: PaymentReminder[];
+  manual_calendar_events?: ManualCalendarEvent[];
+  mail_received_events?: Array<{
+    id: string;
+    event_type: "mail_received";
+    start_date?: string | null;
+    raw?: unknown;
+  }>;
   case_mails?: CaseMail[];
 };
 
 export default function CasesPage() {
+  const router =
+    useRouter();
+
   const [cases, setCases] =
     useState<LegalCase[]>([]);
 
@@ -84,6 +129,24 @@ export default function CasesPage() {
     useState("");
 
   const [manualTitle, setManualTitle] =
+    useState("");
+
+  const [manualRecordDate, setManualRecordDate] =
+    useState("");
+
+  const [manualHearingAt, setManualHearingAt] =
+    useState("");
+
+  const [manualDeadline, setManualDeadline] =
+    useState("");
+
+  const [manualNote, setManualNote] =
+    useState("");
+
+  const [manualSavedCaseId, setManualSavedCaseId] =
+    useState("");
+
+  const [manualFeedback, setManualFeedback] =
     useState("");
 
   const [openCaseId, setOpenCaseId] =
@@ -223,6 +286,60 @@ export default function CasesPage() {
     ).format(date);
   }
 
+  function formatDateTime(
+    value?: string | null
+  ) {
+    if (!value) {
+      return "—";
+    }
+
+    const normalized =
+      value.length === 16 &&
+      value.includes("T")
+        ? `${value}:00+03:00`
+        : value;
+
+    const date =
+      new Date(normalized);
+
+    if (
+      Number.isNaN(
+        date.getTime()
+      )
+    ) {
+      return value;
+    }
+
+    return new Intl.DateTimeFormat(
+      "tr-TR",
+      {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone:
+          "Europe/Istanbul",
+      }
+    ).format(date);
+  }
+
+  function getManualEvent(
+    item: LegalCase,
+    eventType:
+      | "hearing"
+      | "manual_deadline"
+  ) {
+    return (
+      item.manual_calendar_events
+        ?.find(
+          (event) =>
+            event.event_type ===
+            eventType
+        ) || null
+    );
+  }
+
   function getLegalDeadlineRecords(item: LegalCase) {
     const deemedServiceEventIds = new Set(
       (item.deemed_service_events || []).map((event) => event.id)
@@ -263,6 +380,23 @@ export default function CasesPage() {
             new Date(a.due_date || a.start_date || "").getTime()
         )[0] || null
     );
+  }
+
+  function formatPaymentAmount(payment: PaymentReminder) {
+    if (typeof payment.paymentAmount !== "number") {
+      return "Tutar belirtilmedi";
+    }
+
+    const currency =
+      payment.paymentCurrency === "TRY"
+        ? "TL"
+        : payment.paymentCurrency || "";
+
+    return `${new Intl.NumberFormat("tr-TR", {
+      minimumFractionDigits:
+        Number.isInteger(payment.paymentAmount) ? 0 : 2,
+      maximumFractionDigits: 2,
+    }).format(payment.paymentAmount)}${currency ? ` ${currency}` : ""}`;
   }
 
   async function loadCaseNote(
@@ -696,49 +830,24 @@ export default function CasesPage() {
     }
   }
 
-  async function openCaseFile(
+  function openCaseFile(
     attachmentId: string
   ) {
-    try {
-      setCaseFileError("");
+    const destination =
+      `/file-viewer?attachmentId=${encodeURIComponent(
+        attachmentId
+      )}`;
 
-      const response =
-        await fetch(
-          `/api/attachments?attachmentId=${encodeURIComponent(
-            attachmentId
-          )}`,
-          {
-            cache: "no-store",
-          }
-        );
+    markSafeAppNavigation(
+      "/file-viewer"
+    );
 
-      const data =
-        await readJsonResponse(
-          response
-        );
+    router.push(destination);
+  }
 
-      if (
-        !response.ok ||
-        !data?.signedUrl
-      ) {
-        throw new Error(
-          data?.error ||
-            "Dosya açılamadı."
-        );
-      }
-
-      window.open(
-        data.signedUrl,
-        "_blank",
-        "noopener,noreferrer"
-      );
-    } catch (error) {
-      setCaseFileError(
-        error instanceof Error
-          ? error.message
-          : "Dosya açılamadı."
-      );
-    }
+  function closeCasePanel() {
+    setOpenCaseId("");
+    setOpenCaseTab("");
   }
   function toggleCasePanel(
     caseId: string,
@@ -829,7 +938,20 @@ export default function CasesPage() {
     return `${days} gün`;
   }
 
-  async function createManualCase() {
+  function resetManualForm() {
+    setManualCaseNo("");
+    setManualCourt("");
+    setManualTitle("");
+    setManualRecordDate("");
+    setManualHearingAt("");
+    setManualDeadline("");
+    setManualNote("");
+    setManualSavedCaseId("");
+  }
+
+  async function createManualCase(
+    addToCalendar = false
+  ) {
     const title =
       manualTitle.trim() ||
       manualCaseNo.trim();
@@ -844,47 +966,132 @@ export default function CasesPage() {
     try {
       setManualSaving(true);
       setError("");
+      setManualFeedback("");
 
-      const response =
-        await fetch(
-          "/api/cases",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify({
-              case_title:
-                title,
+      let caseId =
+        manualSavedCaseId;
 
-              case_number:
-                manualCaseNo.trim() ||
-                null,
+      if (!caseId) {
+        const response =
+          await fetch(
+            "/api/cases",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+              body: JSON.stringify({
+                case_title:
+                  title,
+                case_number:
+                  manualCaseNo.trim() ||
+                  null,
+                court_name:
+                  manualCourt.trim() ||
+                  null,
+                case_record_date:
+                  manualRecordDate ||
+                  null,
+                note:
+                  manualNote.trim() ||
+                  null,
+                source:
+                  "manual",
+              }),
+            }
+          );
 
-              court_name:
-                manualCourt.trim() ||
-                null,
+        const data =
+          await response.json();
 
-              source:
-                "manual",
-            }),
-          }
-        );
+        if (!response.ok) {
+          throw new Error(
+            data?.error ||
+              "Dava eklenemedi."
+          );
+        }
 
-      const data =
-        await response.json();
+        caseId =
+          data?.case?.id || "";
 
-      if (!response.ok) {
-        throw new Error(
-          data?.error ||
-            "Dava eklenemedi."
+        if (!caseId) {
+          throw new Error(
+            "Dava kimliği alınamadı."
+          );
+        }
+
+        setManualSavedCaseId(
+          caseId
         );
       }
 
-      setManualCaseNo("");
-      setManualCourt("");
-      setManualTitle("");
+      if (addToCalendar) {
+        const calendarResponse =
+          await fetch(
+            "/api/cases/manual-calendar",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+              body: JSON.stringify({
+                caseId,
+                hearingAt:
+                  manualHearingAt ||
+                  null,
+                manualDeadline:
+                  manualDeadline ||
+                  null,
+                note:
+                  manualNote.trim() ||
+                  null,
+              }),
+            }
+          );
+
+        const calendarData =
+          await calendarResponse
+            .json();
+
+        if (
+          !calendarResponse.ok ||
+          calendarData?.ok !== true
+        ) {
+          throw new Error(
+            calendarData?.error ||
+            "Takvim kaydı oluşturulamadı."
+          );
+        }
+
+        setManualFeedback(
+          calendarData.message ||
+          (calendarData.duplicate
+            ? "Zaten takvimde"
+            : "Takvime eklendi")
+        );
+      } else {
+        setManualFeedback(
+          "Dava kaydedildi"
+        );
+
+        await loadCases();
+
+        if (
+          !canAddManualCaseToCalendar(
+            manualHearingAt,
+            manualDeadline
+          )
+        ) {
+          resetManualForm();
+          setManualOpen(false);
+        }
+
+        return;
+      }
+
+      resetManualForm();
       setManualOpen(false);
 
       await loadCases();
@@ -1843,6 +2050,31 @@ export default function CasesPage() {
           .case-meta {
             padding-top: 5px;
             border-top: 1px solid var(--legal-border);
+          }
+        }
+
+        @media (min-width: 901px) and (max-width: 1180px) {
+          .cases-header {
+            padding-right: 170px;
+            flex-wrap: wrap;
+          }
+
+          .header-actions {
+            margin-left: auto;
+          }
+        }
+
+        @media (max-width: 900px) {
+          .cases-title {
+            min-width: 0;
+            min-height: 34px;
+            padding-right: 170px;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .cases-title {
+            padding-right: 90px;
           }
         }
 
@@ -4998,6 +5230,131 @@ export default function CasesPage() {
 
         /* LIVE CASES HEADER FIX */
 
+        .manual-form {
+          display: grid;
+          grid-template-columns:
+            repeat(
+              3,
+              minmax(0, 1fr)
+            );
+          gap: 8px;
+          align-items: end;
+        }
+
+        .manual-form label {
+          min-width: 0;
+          display: grid;
+          gap: 4px;
+        }
+
+        .manual-form label > span {
+          color: var(--legal-muted);
+          font-size: 8px;
+          font-weight: 750;
+        }
+
+        .manual-form input,
+        .manual-form textarea {
+          width: 100%;
+          min-width: 0;
+          border: 1px solid var(--legal-border);
+          border-radius: 8px;
+          background: var(--legal-surface-2);
+          color: var(--legal-text);
+        }
+
+        .manual-form textarea {
+          min-height: 58px;
+          resize: vertical;
+          padding: 8px;
+          font: inherit;
+        }
+
+        .manual-note-field,
+        .manual-form-actions {
+          grid-column: 1 / -1;
+        }
+
+        .manual-form-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 7px;
+        }
+
+        .manual-form-actions button {
+          min-width: 120px;
+        }
+
+        .manual-form-actions button:disabled {
+          opacity: .45;
+          cursor: default;
+        }
+
+        .manual-feedback {
+          color: var(--legal-success);
+          border-color: var(--legal-success);
+        }
+
+        .case-title {
+          display: grid;
+          gap: 5px;
+        }
+
+        .case-manual-dates {
+          display: grid;
+          gap: 2px;
+        }
+
+        .case-manual-dates small {
+          color: var(--legal-gold-light);
+          font-size: 7.5px;
+          font-weight: 650;
+        }
+
+        .case-mail-timeline-label {
+          margin-bottom: 3px;
+          color: var(--legal-gold-light);
+          font-size: 7px;
+          font-weight: 850;
+          letter-spacing: .05em;
+          text-transform: uppercase;
+        }
+
+        .case-mail-account {
+          margin-top: 2px;
+          color: var(--legal-muted);
+          font-size: 7.5px;
+          overflow-wrap: anywhere;
+        }
+
+        .case-panel-back-row {
+          display: flex;
+          justify-content: flex-start;
+          margin-bottom: 8px;
+        }
+
+        @media (max-width: 760px) {
+          .manual-form {
+            grid-template-columns: 1fr;
+          }
+
+          .manual-note-field,
+          .manual-form-actions {
+            grid-column: auto;
+          }
+
+          .manual-form-actions {
+            display: grid;
+            grid-template-columns:
+              1fr 1fr;
+          }
+
+          .manual-form-actions button {
+            width: 100%;
+            min-width: 0;
+          }
+        }
+
         .cases-theme-button {
           display: none !important;
         }
@@ -5044,47 +5401,143 @@ export default function CasesPage() {
 
         {manualOpen && (
           <div className="manual-form">
-            <input
-              value={manualCaseNo}
-              onChange={(event) =>
-                setManualCaseNo(
-                  event.target.value
-                )
-              }
-              placeholder="Dava no"
-            />
+            <label>
+              <span>Dava no</span>
+              <input
+                value={manualCaseNo}
+                onChange={(event) =>
+                  setManualCaseNo(
+                    event.target.value
+                  )
+                }
+                placeholder="Dava no"
+              />
+            </label>
 
-            <input
-              value={manualCourt}
-              onChange={(event) =>
-                setManualCourt(
-                  event.target.value
-                )
-              }
-              placeholder="Mahkeme"
-            />
+            <label>
+              <span>Mahkeme</span>
+              <input
+                value={manualCourt}
+                onChange={(event) =>
+                  setManualCourt(
+                    event.target.value
+                  )
+                }
+                placeholder="Mahkeme"
+              />
+            </label>
 
-            <input
-              value={manualTitle}
-              onChange={(event) =>
-                setManualTitle(
-                  event.target.value
-                )
-              }
-              placeholder="Kısa açıklama"
-            />
+            <label>
+              <span>Kısa açıklama</span>
+              <input
+                value={manualTitle}
+                onChange={(event) =>
+                  setManualTitle(
+                    event.target.value
+                  )
+                }
+                placeholder="Kısa açıklama"
+              />
+            </label>
 
-            <button
-              type="button"
-              disabled={manualSaving}
-              onClick={
-                createManualCase
-              }
-            >
-              {manualSaving
-                ? "Kaydediliyor..."
-                : "Kaydet"}
-            </button>
+            <label>
+              <span>Dava kayıt tarihi (opsiyonel)</span>
+              <input
+                type="date"
+                value={manualRecordDate}
+                onChange={(event) =>
+                  setManualRecordDate(
+                    event.target.value
+                  )
+                }
+              />
+            </label>
+
+            <label>
+              <span>Duruşma tarihi ve saati (opsiyonel)</span>
+              <input
+                type="datetime-local"
+                value={manualHearingAt}
+                onChange={(event) =>
+                  setManualHearingAt(
+                    event.target.value
+                  )
+                }
+              />
+            </label>
+
+            <label>
+              <span>Manuel son tarih (opsiyonel)</span>
+              <input
+                type="date"
+                value={manualDeadline}
+                onChange={(event) =>
+                  setManualDeadline(
+                    event.target.value
+                  )
+                }
+              />
+            </label>
+
+            <label className="manual-note-field">
+              <span>Not (opsiyonel)</span>
+              <textarea
+                value={manualNote}
+                onChange={(event) =>
+                  setManualNote(
+                    event.target.value
+                  )
+                }
+                placeholder="Dava notu"
+              />
+            </label>
+
+            <div className="manual-form-actions">
+              <button
+                type="button"
+                disabled={
+                  manualSaving ||
+                  Boolean(
+                    manualSavedCaseId
+                  )
+                }
+                onClick={() =>
+                  void createManualCase(
+                    false
+                  )
+                }
+              >
+                {manualSaving
+                  ? "Kaydediliyor..."
+                  : manualSavedCaseId
+                    ? "Dava Kaydedildi"
+                    : "Davayı Kaydet"}
+              </button>
+
+              <button
+                type="button"
+                disabled={
+                  manualSaving ||
+                  !canAddManualCaseToCalendar(
+                    manualHearingAt,
+                    manualDeadline
+                  )
+                }
+                onClick={() =>
+                  void createManualCase(
+                    true
+                  )
+                }
+              >
+                Takvime Ekle
+              </button>
+            </div>
+          </div>
+        )}
+
+        {manualFeedback && (
+          <div className="state-box manual-feedback">
+            {manualFeedback}
           </div>
         )}
 
@@ -5134,6 +5587,18 @@ export default function CasesPage() {
                       ? "deemed-service"
                       : getDeadlineState(deadline?.calculated_due_date);
 
+                  const manualHearing =
+                    getManualEvent(
+                      item,
+                      "hearing"
+                    );
+
+                  const manualDeadlineEvent =
+                    getManualEvent(
+                      item,
+                      "manual_deadline"
+                    );
+
                   return (
                     <article
                       key={item.id}
@@ -5152,8 +5617,36 @@ export default function CasesPage() {
                       </div>
 
                       <div className="case-title">
-                        {item.case_title ||
-                          "Dava kaydı"}
+                        <span>
+                          {item.case_title ||
+                            "Dava kaydı"}
+                        </span>
+
+                        {(manualHearing ||
+                          manualDeadlineEvent) && (
+                          <div className="case-manual-dates">
+                            {manualHearing && (
+                              <small>
+                                Duruşma: {formatDateTime(
+                                  manualHearing.raw
+                                    ?.hearingAt ||
+                                  manualHearing.start_date
+                                )}
+                              </small>
+                            )}
+
+                            {manualDeadlineEvent && (
+                              <small>
+                                Manuel son tarih: {formatDate(
+                                  manualDeadlineEvent.raw
+                                    ?.manualDeadline ||
+                                  manualDeadlineEvent.due_date ||
+                                  manualDeadlineEvent.start_date
+                                )}
+                              </small>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       <div className="case-actions">
@@ -5252,6 +5745,13 @@ export default function CasesPage() {
                       {openCaseId === item.id &&
                         openCaseTab && (
                         <div className="case-inline-panel">
+                          <div className="case-panel-back-row">
+                            <LegalBackButton
+                              fallback="/cases"
+                              onBack={closeCasePanel}
+                            />
+                          </div>
+
                           {openCaseTab === "note" && (
                             <>
                               {caseNoteLoading ? (
@@ -5323,19 +5823,32 @@ export default function CasesPage() {
                                         className="case-mail-item"
                                       >
                                         <div>
+                                          <div className="case-mail-timeline-label">
+                                            E-posta alındı
+                                          </div>
+
                                           <div className="case-mail-subject">
-                                            {mail.subject ||
+                                            Konu: {mail.subject ||
                                               "Konu bilgisi yok"}
                                           </div>
 
                                           <div className="case-mail-sender">
-                                            {mail.sender ||
+                                            Gönderen: {mail.sender ||
                                               "Gönderen bilgisi yok"}
+                                          </div>
+
+                                          <div className="case-mail-account">
+                                            Hesap: {mail.mail_account_email ||
+                                              "Kaynak hesap bilgisi yok"}
+
+                                            {mail.mail_provider
+                                              ? ` · ${mail.mail_provider}`
+                                              : ""}
                                           </div>
                                         </div>
 
                                         <div className="case-mail-date">
-                                          {formatDate(
+                                          {formatDateTime(
                                             mail.received_at
                                           )}
                                         </div>
@@ -5510,10 +6023,49 @@ export default function CasesPage() {
 
                           {openCaseTab === "deadline" && (
                             <>
-                              {getLegalDeadlineRecords(item).length === 0 ? (
-                                <div className="inline-empty">
-                                  Bu davaya ait kayıtlı süre bulunmuyor.
+                              {(item.payment_reminders || []).length > 0 && (
+                                <div className="case-mail-list">
+                                  {(item.payment_reminders || []).map(
+                                    (payment, index) => (
+                                      <div
+                                        key={`${payment.sourceDocument || "payment"}-${index}`}
+                                        className="case-mail-item"
+                                      >
+                                        <div>
+                                          <div className="case-mail-subject">
+                                            {formatPaymentAmount(payment)}
+                                            {payment.paymentDescription
+                                              ? ` · ${payment.paymentDescription}`
+                                              : ""}
+                                          </div>
+                                          <div className="case-mail-sender">
+                                            {payment.paymentDueDate
+                                              ? `Son tarih: ${formatDate(payment.paymentDueDate)}`
+                                              : payment.paymentPeriodText ||
+                                                "Son tarih bulunamadı"}
+                                            {" · "}
+                                            {payment.sourceDocument ||
+                                              "Kaynak PDF belirtilmedi"}
+                                          </div>
+                                          {!payment.paymentDueDate &&
+                                            payment.paymentPeriodText && (
+                                              <div className="case-mail-sender">
+                                                Süre metni bulundu; başlangıç tarihi doğrulanamadığı için son tarih oluşturulmadı.
+                                              </div>
+                                            )}
+                                        </div>
+                                      </div>
+                                    )
+                                  )}
                                 </div>
+                              )}
+
+                              {getLegalDeadlineRecords(item).length === 0 ? (
+                                (item.payment_reminders || []).length === 0 ? (
+                                  <div className="inline-empty">
+                                    Bu davaya ait kayıtlı süre bulunmuyor.
+                                  </div>
+                                ) : null
                               ) : (
                                 <div className="case-mail-list">
                                   {getLegalDeadlineRecords(item)

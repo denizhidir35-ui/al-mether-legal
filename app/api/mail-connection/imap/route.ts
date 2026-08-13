@@ -18,6 +18,10 @@ import {
 } from "@/lib/mail/credentialCrypto";
 
 import {
+  toMailAccountDTO,
+} from "@/lib/mail/accountModel";
+
+import {
   MailProtocol,
   MailServerCandidate,
   assertPublicMailHostname,
@@ -519,48 +523,93 @@ export async function POST(
     );
   }
 
-  const saved =
-    await getSupabaseAdmin()
+  const supabase =
+    getSupabaseAdmin();
+
+  const previous =
+    await supabase
       .from("mail_connections")
-      .upsert(
-        {
-          user_id: appUser.id,
-          provider: "imap",
-          email,
-          status: "connected",
-          access_token: null,
-          refresh_token: null,
-          token_expires_at:
-            null,
-          settings: {
-            imapHost: imap.host,
-            imapPort: imap.port,
-            imapSecure:
-              imap.secure,
-            imapStarttls:
-              imap.starttls,
-            smtpHost: smtp.host,
-            smtpPort: smtp.port,
-            smtpSecure:
-              smtp.secure,
-            smtpStarttls:
-              smtp.starttls,
-          },
-          secret_encrypted:
-            secretEncrypted,
-          updated_at:
-            new Date()
-              .toISOString(),
-        },
-        {
-          onConflict:
-            "user_id,provider",
-        }
+      .select("id")
+      .eq(
+        "user_id",
+        appUser.id
       )
-      .select(
-        "id,provider,email,status,updated_at"
+      .eq(
+        "provider",
+        "imap"
       )
-      .single();
+      .eq("email", email)
+      .maybeSingle();
+
+  if (previous.error) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Mail bağlantısı kaydedilemedi.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+
+  const values = {
+    user_id: appUser.id,
+    provider: "imap",
+    email,
+    display_name: email,
+    status: "connected",
+    access_token: null,
+    refresh_token: null,
+    token_expires_at:
+      null,
+    settings: {
+      displayName: email,
+      imapHost: imap.host,
+      imapPort: imap.port,
+      imapSecure:
+        imap.secure,
+      imapStarttls:
+        imap.starttls,
+      smtpHost: smtp.host,
+      smtpPort: smtp.port,
+      smtpSecure:
+        smtp.secure,
+      smtpStarttls:
+        smtp.starttls,
+    },
+    secret_encrypted:
+      secretEncrypted,
+    updated_at:
+      new Date()
+        .toISOString(),
+  };
+
+  const saved =
+    previous.data?.id
+      ? await supabase
+          .from(
+            "mail_connections"
+          )
+          .update(values)
+          .eq(
+            "id",
+            previous.data.id
+          )
+          .eq(
+            "user_id",
+            appUser.id
+          )
+          .select("*")
+          .single()
+      : await supabase
+          .from(
+            "mail_connections"
+          )
+          .insert(values)
+          .select("*")
+          .single();
 
   if (saved.error) {
     return NextResponse.json(
@@ -577,6 +626,9 @@ export async function POST(
 
   return NextResponse.json({
     ok: true,
-    connection: saved.data,
+    connection:
+      toMailAccountDTO(
+        saved.data
+      ),
   });
 }

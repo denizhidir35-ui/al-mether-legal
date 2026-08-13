@@ -3,6 +3,10 @@ import {
   NextResponse,
 } from "next/server";
 
+import {
+  createHash,
+} from "node:crypto";
+
 import { google } from "googleapis";
 
 import {
@@ -18,12 +22,223 @@ import {
   isLegalMail,
 } from "@/lib/mail/legalMailFilter";
 
+import {
+  createMailReceivedDedupeKey,
+  createMailReceivedEventTitle,
+  resolveProviderReceivedAt,
+} from "@/lib/mail/receivedDate";
+
 type GmailAttachment = {
   filename: string;
   mimeType: string;
   size: number;
   attachmentId: string;
 };
+
+function stableUuid(
+  ...values: string[]
+) {
+  const hex =
+    createHash("sha256")
+      .update(
+        values.join("\u0000")
+      )
+      .digest("hex");
+
+  const variant =
+    (
+      parseInt(hex[16], 16) &
+      0x3 |
+      0x8
+    ).toString(16);
+
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    `4${hex.slice(13, 16)}`,
+    `${variant}${hex.slice(17, 20)}`,
+    hex.slice(20, 32),
+  ].join("-");
+}
+
+async function ensureMailReceivedRecord(
+  input: {
+    supabase: ReturnType<
+      typeof getSupabaseAdmin
+    >;
+    userId: string;
+    caseId: string;
+    messageId: string;
+    subject: string;
+    sender: string;
+    court: string;
+    receivedAt: string;
+    accountId: string;
+    accountEmail: string;
+    provider: string;
+  }
+) {
+  if (
+    !input.caseId ||
+    !input.messageId ||
+    !input.receivedAt
+  ) {
+    return {
+      created: false,
+      duplicate: false,
+    };
+  }
+
+  const mailUpdate =
+    await input.supabase
+      .from("case_mails")
+      .update({
+        received_at:
+          input.receivedAt,
+      })
+      .eq(
+        "user_id",
+        input.userId
+      )
+      .eq(
+        "case_id",
+        input.caseId
+      )
+      .eq(
+        "gmail_message_id",
+        input.messageId
+      );
+
+  if (mailUpdate.error) {
+    throw new Error(
+      mailUpdate.error.message
+    );
+  }
+
+  const dedupeKey =
+    createMailReceivedDedupeKey(
+      input.accountId,
+      input.provider,
+      input.messageId
+    );
+
+  const existing =
+    await input.supabase
+      .from("calendar_events")
+      .select("id")
+      .eq(
+        "user_id",
+        input.userId
+      )
+      .eq(
+        "event_type",
+        "mail_received"
+      )
+      .eq(
+        "source_mail_id",
+        dedupeKey
+      )
+      .maybeSingle();
+
+  if (existing.error) {
+    throw new Error(
+      existing.error.message
+    );
+  }
+
+  if (existing.data) {
+    return {
+      created: false,
+      duplicate: true,
+    };
+  }
+
+  const title =
+    createMailReceivedEventTitle(
+      input.court,
+      input.subject
+    );
+
+  const inserted =
+    await input.supabase
+      .from("calendar_events")
+      .insert({
+        id: stableUuid(
+          input.userId,
+          dedupeKey,
+          "mail-received-event"
+        ),
+        user_id: input.userId,
+        case_id: input.caseId,
+        title,
+        description: [
+          input.sender
+            ? `Gönderen: ${input.sender}`
+            : "",
+          input.subject
+            ? `Konu: ${input.subject}`
+            : "",
+          input.accountEmail
+            ? `Hesap: ${input.accountEmail}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+        event_type:
+          "mail_received",
+        start_date:
+          input.receivedAt
+            .slice(0, 10),
+        end_date:
+          input.receivedAt
+            .slice(0, 10),
+        due_date:
+          input.receivedAt
+            .slice(0, 10),
+        status: "active",
+        priority: "normal",
+        source: "mail",
+        source_mail_id:
+          dedupeKey,
+        raw: {
+          informational: true,
+          eventType:
+            "mail_received",
+          providerMessageId:
+            input.messageId,
+          receivedAt:
+            input.receivedAt,
+          sender: input.sender,
+          subject: input.subject,
+          sourceAccount: {
+            accountId:
+              input.accountId,
+            emailAddress:
+              input.accountEmail,
+            provider:
+              input.provider,
+          },
+        },
+      });
+
+  if (
+    inserted.error &&
+    inserted.error.code !==
+      "23505"
+  ) {
+    throw new Error(
+      inserted.error.message
+    );
+  }
+
+  return {
+    created:
+      !inserted.error,
+    duplicate:
+      inserted.error?.code ===
+      "23505",
+  };
+}
 
 function decodeBase64Url(
   data: string
@@ -206,12 +421,43 @@ export async function POST(
     const supabase =
       getSupabaseAdmin();
 
+    const body =
+      await request.json()
+        .catch(
+          () => null
+        );
+
+    const connectionId =
+      typeof body
+        ?.connectionId ===
+        "string"
+        ? body.connectionId
+            .trim()
+        : "";
+
+    if (!connectionId) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Google posta hesabı seçilmedi.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
     const connection =
       await supabase
         .from(
           "mail_connections"
         )
         .select("*")
+        .eq(
+          "id",
+          connectionId
+        )
         .eq(
           "user_id",
           appUser.id
@@ -411,6 +657,22 @@ export async function POST(
               "date"
           )?.value || "";
 
+        const providerReceivedAt =
+          resolveProviderReceivedAt({
+            provider: "google",
+            internalDate:
+              detail.data
+                .internalDate,
+            headerDate: date,
+          });
+
+        if (!providerReceivedAt) {
+          errors.push(
+            `${messageId}: Provider geliş tarihi okunamadı.`
+          );
+          continue;
+        }
+
         const body =
           getBody(
             detail.data.payload
@@ -464,7 +726,8 @@ export async function POST(
                 JSON.stringify({
                   subject,
                   sender,
-                  date,
+                  date:
+                    providerReceivedAt,
                   body,
                   messageId,
                 }),
@@ -565,7 +828,7 @@ export async function POST(
                   sender,
 
                   received_at:
-                    date,
+                    providerReceivedAt,
 
                   mail_body:
                     body,
@@ -656,6 +919,34 @@ export async function POST(
           saveData?.case?.id ||
           saveData?.calendarEvent?.case_id ||
           "";
+
+        if (resolvedCaseId) {
+          await ensureMailReceivedRecord({
+            supabase,
+            userId:
+              appUser.id,
+            caseId:
+              resolvedCaseId,
+            messageId,
+            subject,
+            sender,
+            court:
+              analysis.mahkeme ||
+              uets.court ||
+              "",
+            receivedAt:
+              providerReceivedAt,
+            accountId:
+              connection.data.id,
+            accountEmail:
+              connection.data
+                .email || "",
+            provider:
+              connection.data
+                .provider ||
+              "google",
+          });
+        }
 
         if (
           resolvedCaseId &&

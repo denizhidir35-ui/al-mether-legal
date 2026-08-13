@@ -10,9 +10,11 @@ import {
 
 import { createLegalAlarmEngine } from "@/lib/calendar/LegalAlarmEngine";
 import { LegalAlarmStore } from "@/lib/calendar/LegalAlarmStore";
+import { planUetsPaymentReminder } from "@/lib/legal/uetsPaymentReminder";
 
 type RecordMode =
   | "deemed_service"
+  | "payment_deadline"
   | "verified_deadline"
   | "manual_date";
 
@@ -95,6 +97,7 @@ function resolveRecordMode(
 
   if (
     explicitMode === "deemed_service" ||
+    explicitMode === "payment_deadline" ||
     explicitMode === "verified_deadline" ||
     explicitMode === "manual_date"
   ) {
@@ -214,14 +217,52 @@ export async function POST(
       safeText(body.kurum) ||
       "PTT UETS";
 
-    const calculatedDate =
-      safeText(body.calculated_due_date) ||
-      safeText(body.deadline_date) ||
-      safeText(body.son_tarih) ||
-      safeText(body.deemed_service_date);
-
     const recordMode =
       resolveRecordMode(body);
+
+    const paymentPlan =
+      planUetsPaymentReminder(
+        {
+          paymentAmount:
+            typeof body.payment_amount === "number"
+              ? body.payment_amount
+              : null,
+          paymentCurrency:
+            safeText(body.payment_currency),
+          paymentDescription:
+            safeText(body.payment_description),
+          paymentDueDate:
+            safeText(body.payment_due_date),
+          paymentPeriodText:
+            safeText(body.payment_period_text),
+          sourceDocument:
+            safeText(body.source_document),
+        },
+        {
+          sourceUrl:
+            safeText(body.source_url),
+          court:
+            courtName,
+          fileNo:
+            caseNumber,
+          barcodeNo,
+          deemedServiceDate:
+            safeText(body.deemed_service_date),
+        }
+      );
+
+    const calculatedDate =
+      recordMode === "payment_deadline"
+        ? paymentPlan.dueDate
+        : safeText(body.calculated_due_date) ||
+          safeText(body.deadline_date) ||
+          safeText(body.son_tarih) ||
+          safeText(body.deemed_service_date);
+
+    const eventTitle =
+      recordMode === "payment_deadline"
+        ? paymentPlan.title
+        : title;
 
     if (
       calculatedDate &&
@@ -273,7 +314,9 @@ export async function POST(
       isReliableUetsIdentity(identity);
 
     const dedupeKey =
-      reliableIdentity
+      recordMode === "payment_deadline"
+        ? paymentPlan.dedupeKey
+        : reliableIdentity
         ? identity.identityKey
         : createFallbackDedupeKey(
             gmailMessageId
@@ -282,6 +325,8 @@ export async function POST(
     const eventType =
       recordMode === "deemed_service"
         ? "deemed_service"
+        : recordMode === "payment_deadline"
+          ? "payment_deadline"
         : recordMode ===
             "verified_deadline"
           ? "legal_deadline"
@@ -319,12 +364,22 @@ export async function POST(
       let resolvedExistingEvent =
         existingEventResult.data;
 
-      if (!resolvedExistingEvent.raw) {
+      const existingRaw =
+        resolvedExistingEvent.raw &&
+        typeof resolvedExistingEvent.raw === "object"
+          ? resolvedExistingEvent.raw
+          : {};
+
+      if (
+        !resolvedExistingEvent.raw ||
+        (paymentPlan.hasPayment && !existingRaw.payment)
+      ) {
         const updatedEventResult =
           await supabase
             .from("calendar_events")
             .update({
               raw: {
+                ...existingRaw,
                 gmailMessageId,
                 gmailThreadId,
                 subject,
@@ -360,6 +415,14 @@ export async function POST(
                   "deemed_service"
                     ? calculatedDate
                     : "",
+                payment:
+                  paymentPlan.hasPayment
+                    ? paymentPlan.payment
+                    : existingRaw.payment,
+                paymentDedupeKey:
+                  paymentPlan.hasPayment
+                    ? paymentPlan.dedupeKey
+                    : existingRaw.paymentDedupeKey,
               },
             })
             .eq(
@@ -660,7 +723,7 @@ export async function POST(
     const calendarTitle =
       recordMode === "deemed_service"
         ? `${title} — Tebliğ edilmiş sayılma`
-        : title;
+        : eventTitle;
 
     const createdEvent =
       await supabase
@@ -676,16 +739,18 @@ export async function POST(
             calendarTitle,
 
           description:
-            safeText(
-              body.ai_summary
-            ) ||
-            safeText(
-              body.summary
-            ) ||
-            (recordMode ===
-            "deemed_service"
-              ? "Elektronik tebligatın tebliğ edilmiş sayılma tarihidir. Hukuki cevap veya itiraz süresinin son günü değildir."
-              : null),
+            recordMode === "payment_deadline"
+              ? paymentPlan.description
+              : safeText(
+                  body.ai_summary
+                ) ||
+                safeText(
+                  body.summary
+                ) ||
+                (recordMode ===
+                "deemed_service"
+                  ? "Elektronik tebligatın tebliğ edilmiş sayılma tarihidir. Hukuki cevap veya itiraz süresinin son günü değildir."
+                  : null),
 
           event_type:
             eventType,
@@ -706,7 +771,9 @@ export async function POST(
             riskLevel,
 
           source:
-            recordMode ===
+            recordMode === "payment_deadline"
+              ? "uets_bridge"
+              : recordMode ===
             "verified_deadline"
               ? "verified_rule"
               : recordMode ===
@@ -753,6 +820,14 @@ export async function POST(
               "deemed_service"
                 ? calculatedDate
                 : "",
+            payment:
+              paymentPlan.hasPayment
+                ? paymentPlan.payment
+                : null,
+            paymentDedupeKey:
+              paymentPlan.hasPayment
+                ? paymentPlan.dedupeKey
+                : "",
           },
         })
         .select("*")
@@ -777,7 +852,9 @@ export async function POST(
      */
     if (
       recordMode !==
-      "verified_deadline"
+        "verified_deadline" &&
+      recordMode !==
+        "payment_deadline"
     ) {
       return NextResponse.json({
         ok: true,
@@ -826,7 +903,8 @@ export async function POST(
           case_id:
             resolvedLegalCase.id,
 
-          title,
+          title:
+            eventTitle,
 
           notification_date:
             safeText(
@@ -919,7 +997,8 @@ export async function POST(
         caseId:
           resolvedLegalCase.id,
 
-        title,
+        title:
+          eventTitle,
 
         deadlineDate:
           calculatedDate,
@@ -990,7 +1069,9 @@ export async function POST(
       recordMode,
 
       message:
-        "Doğrulanmış hukuki son tarih ve alarm planı kendi takviminize kaydedildi.",
+        recordMode === "payment_deadline"
+          ? "PDF ödeme son tarihi ve alarm planı kendi takviminize kaydedildi."
+          : "Doğrulanmış hukuki son tarih ve alarm planı kendi takviminize kaydedildi.",
 
       identity: {
         identityKey:
@@ -1039,4 +1120,3 @@ export async function POST(
     );
   }
 }
-

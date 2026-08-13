@@ -5,7 +5,13 @@ import { PDFDocument } from "pdf-lib";
 import LegalBrand from "@/components/LegalBrand";
 import LegalDock from "@/components/LegalDock";
 import LegalSessionControl from "@/components/LegalSessionControl";
+import LegalBackButton from "@/components/LegalBackButton";
 import { readJsonResponse } from "@/lib/apiResponse";
+import {
+  ALARM_LOAD_ERROR_MESSAGE,
+  readAlarmApiResponse,
+} from "@/lib/calendar/alarmApiResponse";
+import { sortCalendarEventsForDisplay } from "@/lib/calendar/calendarDisplay";
 
 type CalendarEvent = {
   id: string;
@@ -416,6 +422,15 @@ export default function CalendarPage() {
       map.get(date)?.push(event);
     }
 
+    for (const [date, dateEvents] of map) {
+      map.set(
+        date,
+        sortCalendarEventsForDisplay(
+          dateEvents
+        )
+      );
+    }
+
     return map;
   }, [events]);
 
@@ -424,6 +439,8 @@ export default function CalendarPage() {
 
   const [selectedEventId, setSelectedEventId] =
     useState("");
+  const [calendarDetailOpen, setCalendarDetailOpen] =
+    useState(true);
 
   useEffect(() => {
     if (selectedEvents.length === 0) {
@@ -448,13 +465,14 @@ export default function CalendarPage() {
     selectedEventId,
   ]);
 
-  const selectedEvent =
-    selectedEvents.find(
-      (event) =>
-        event.id === selectedEventId
-    ) ||
-    selectedEvents[0] ||
-    null;
+  const selectedEvent = calendarDetailOpen
+    ? selectedEvents.find(
+        (event) =>
+          event.id === selectedEventId
+      ) ||
+      selectedEvents[0] ||
+      null
+    : null;
 
   const selectedRaw =
     getCalendarRaw(
@@ -1318,10 +1336,17 @@ export default function CalendarPage() {
   }
 
   useEffect(() => {
+    const controller =
+      new AbortController();
+
     async function loadAlarms() {
-      if (!selectedEvent?.id) {
+      if (
+        activeDetailTab !== "alarm" ||
+        !selectedEvent?.id
+      ) {
         setAlarms([]);
         setAlarmsError("");
+        setAlarmsLoading(false);
         return;
       }
 
@@ -1335,34 +1360,49 @@ export default function CalendarPage() {
           )}`,
           {
             cache: "no-store",
+            signal: controller.signal,
           }
         );
 
-        const data = await response.json();
+        const result =
+          await readAlarmApiResponse<{
+            ok?: boolean;
+            alarms?: AlarmRow[];
+          }>(response);
 
-        if (!response.ok || !data?.ok) {
-          throw new Error(
-            data?.error ||
-              "Alarm kayıtları alınamadı."
-          );
+        if (!result.ok) {
+          throw new Error(result.error);
         }
 
-        setAlarms(data.alarms || []);
-      } catch (error) {
-        setAlarms([]);
-
-        setAlarmsError(
-          error instanceof Error
-            ? error.message
-            : "Alarm kayıtları alınamadı."
+        setAlarms(
+          Array.isArray(result.data?.alarms)
+            ? result.data.alarms
+            : []
         );
+      } catch (error) {
+        if (
+          controller.signal.aborted ||
+          (error instanceof DOMException &&
+            error.name === "AbortError")
+        ) {
+          return;
+        }
+
+        setAlarms([]);
+        setAlarmsError(ALARM_LOAD_ERROR_MESSAGE);
       } finally {
-        setAlarmsLoading(false);
+        if (!controller.signal.aborted) {
+          setAlarmsLoading(false);
+        }
       }
     }
 
-    loadAlarms();
-  }, [selectedEvent?.id]);
+    void loadAlarms();
+
+    return () => {
+      controller.abort();
+    };
+  }, [activeDetailTab, selectedEvent?.id]);
 
   async function changeAlarmStatus(
     alarm: AlarmRow
@@ -1398,18 +1438,23 @@ export default function CalendarPage() {
           }
         );
 
-      const data =
-        await response.json();
+      const result =
+        await readAlarmApiResponse<{
+          ok?: boolean;
+          alarm?: AlarmRow;
+        }>(response);
 
       if (
-        !response.ok ||
-        !data?.ok
+        !result.ok ||
+        !result.data?.alarm
       ) {
         throw new Error(
-          data?.error ||
-            "Alarm durumu değiştirilemedi."
+          "Alarm durumu değiştirilemedi."
         );
       }
+
+      const updatedAlarm =
+        result.data.alarm;
 
       setAlarms(
         (current) =>
@@ -1417,15 +1462,13 @@ export default function CalendarPage() {
             (item) =>
               item.id ===
               alarm.id
-                ? data.alarm
+                ? updatedAlarm
                 : item
           )
       );
     } catch (error) {
       setAlarmsError(
-        error instanceof Error
-          ? error.message
-          : "Alarm durumu değiştirilemedi."
+          "Alarm durumu değiştirilemedi."
       );
     } finally {
       setAlarmChangingId("");
@@ -10026,6 +10069,98 @@ export default function CalendarPage() {
 
           font-size: 7.5px;
         }
+
+        .event-dots {
+          display: grid;
+          grid-template-columns:
+            minmax(0, 1fr);
+          align-content: start;
+          gap: 3px;
+        }
+
+        .event-dots .event-chip,
+        .event-dots .event-count-chip {
+          width: 100% !important;
+          max-width: 100%;
+          text-align: left;
+        }
+
+        .event-selector-list {
+          display: grid;
+          grid-template-columns:
+            minmax(0, 1fr);
+          gap: 6px;
+          overflow: visible;
+        }
+
+        .event-selector-button {
+          width: 100%;
+          min-height: 40px;
+          height: auto;
+          flex: none;
+          padding: 6px 8px;
+        }
+
+        .event-selector-button strong {
+          display: -webkit-box;
+          overflow: hidden;
+          -webkit-box-orient: vertical;
+          -webkit-line-clamp: 2;
+          white-space: normal;
+          line-height: 1.3;
+        }
+
+        @media (max-width: 520px) {
+          .event-dots {
+            gap: 2px;
+            margin-top: 4px;
+          }
+
+          .event-dots .event-chip,
+          .event-dots .event-count-chip {
+            width: 100% !important;
+            height: auto !important;
+            min-width: 0 !important;
+            padding: 1px 3px !important;
+            font-size: 5.5px !important;
+            line-height: 1.2;
+          }
+
+          .event-dots .event-chip {
+            color:
+              var(--legal-text-soft)
+              !important;
+          }
+
+          .event-dots .event-chip.service {
+            color:
+              var(--legal-success)
+              !important;
+          }
+
+          .event-dots .event-chip.deadline {
+            color:
+              var(--legal-danger)
+              !important;
+          }
+
+          .event-dots .event-chip.hearing {
+            color:
+              var(--legal-warning)
+              !important;
+          }
+
+          .event-dots .event-chip.notice,
+          .event-dots .event-count-chip {
+            color:
+              var(--legal-gold)
+              !important;
+          }
+
+          .event-selector-button {
+            min-height: 44px;
+          }
+        }
 `}</style>
 
       <section className="workspace">
@@ -10182,31 +10317,33 @@ export default function CalendarPage() {
                       type="button"
                       key={date}
                       className={classes}
-                      onClick={() =>
-                        setSelectedDate(date)
-                      }
+                      onClick={() => {
+                        setSelectedDate(date);
+                        setCalendarDetailOpen(true);
+                      }}
                     >
                       <span className="day-number">
                         {day}
                       </span>
 
                         <span className="event-dots">
-                          {dayEvents.length > 0 && (
-                            <>
+                          {dayEvents
+                            .slice(0, 2)
+                            .map((event) => (
                               <span
+                                key={event.id}
                                 className={`event-chip ${getEventKind(
-                                  dayEvents[0]
+                                  event
                                 )}`}
                               >
-                                {dayEvents[0].title}
+                                {event.title}
                               </span>
+                            ))}
 
-                              {dayEvents.length > 1 && (
-                                <span className="event-count-chip">
-                                  +{dayEvents.length - 1} kayıt
-                                </span>
-                              )}
-                            </>
+                          {dayEvents.length > 2 && (
+                            <span className="event-count-chip">
+                              +{dayEvents.length - 2} kayıt
+                            </span>
                           )}
                         </span>
                     </button>
@@ -10235,6 +10372,15 @@ export default function CalendarPage() {
           </section>
 
           <aside className="detail-panel">
+            {selectedEvent && (
+              <LegalBackButton
+                fallback="/calendar"
+                onBack={() =>
+                  setCalendarDetailOpen(false)
+                }
+              />
+            )}
+
             <div className="section-eyebrow">
               Seçili gün
             </div>
@@ -10265,6 +10411,7 @@ export default function CalendarPage() {
                           setSelectedEventId(
                             event.id
                           );
+                          setCalendarDetailOpen(true);
                           setActiveDetailTab(
                             "general"
                           );
@@ -10750,7 +10897,7 @@ export default function CalendarPage() {
                         </div>
                       ) : alarms.length === 0 ? (
                         <div className="detail-empty">
-                          Bu kayıt için otomatik alarm bulunmuyor.
+                          Planlanmış alarm bulunmuyor.
                         </div>
                       ) : (
                         <div className="alarm-list">

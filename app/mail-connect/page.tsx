@@ -2,6 +2,8 @@
 
 import LegalBrand
   from "@/components/LegalBrand";
+import LegalBackButton
+  from "@/components/LegalBackButton";
 
 import {
   signIn,
@@ -20,9 +22,13 @@ import {
 
 type MailConnection = {
   id: string;
+  accountId?: string;
   provider: string;
   email?: string | null;
+  emailAddress?: string | null;
+  displayName?: string | null;
   status?: string | null;
+  connectionStatus?: string | null;
 };
 
 type Capabilities = {
@@ -326,6 +332,64 @@ export default function MailConnectPage() {
     }
   }
 
+  async function connectOAuth(
+    provider:
+      | "google"
+      | "microsoft"
+  ) {
+    try {
+      setSaving(true);
+      setError("");
+
+      const response =
+        await fetch(
+          "/api/mail-connection/link-context",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body:
+              JSON.stringify({
+                provider,
+              }),
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (
+        !response.ok ||
+        data?.ok !== true
+      ) {
+        throw new Error(
+          data?.error ||
+          "Mail bağlantısı başlatılamadı."
+        );
+      }
+
+      await signIn(
+        provider === "google"
+          ? "google-mail"
+          : "microsoft-mail",
+        {
+          callbackUrl:
+            "/mail-connect",
+        }
+      );
+    } catch (connectError) {
+      setError(
+        connectError instanceof
+          Error
+          ? connectError.message
+          : "Mail bağlantısı başlatılamadı."
+      );
+      setSaving(false);
+    }
+  }
+
   if (status === "loading") {
     return (
       <main className="connect-page">
@@ -353,6 +417,10 @@ export default function MailConnectPage() {
   return (
     <main className="connect-page">
       <section className="connect-shell">
+        <div className="back-row">
+          <LegalBackButton fallback="/settings" />
+        </div>
+
         <header>
           <LegalBrand />
           <h1>E-posta hesapları</h1>
@@ -366,6 +434,39 @@ export default function MailConnectPage() {
           Oturum: {session?.user?.email || "—"}
         </div>
 
+        {connections.length > 0 && (
+          <section className="connected-accounts">
+            <h2>Bağlı posta kutuları</h2>
+            {connections.map(
+              (connection) => (
+                <div
+                  className="connected-account"
+                  key={connection.id}
+                >
+                  <strong>
+                    {connection.displayName ||
+                      connection.emailAddress ||
+                      connection.email ||
+                      "Posta hesabı"}
+                  </strong>
+                  <span>
+                    {connection.emailAddress ||
+                      connection.email ||
+                      "—"}
+                  </span>
+                  <small>
+                    ID: {connection.accountId ||
+                      connection.id} · {connection.provider} ·{" "}
+                    {connection.connectionStatus ||
+                      connection.status ||
+                      "connected"}
+                  </small>
+                </div>
+              )
+            )}
+          </section>
+        )}
+
         {error && (
           <div className="error">{error}</div>
         )}
@@ -377,12 +478,10 @@ export default function MailConnectPage() {
               google ? "connected" : ""
             }`}
             disabled={
-              loading || !capabilities.google
+              loading || saving || !capabilities.google
             }
             onClick={() =>
-              signIn("google-mail", {
-                callbackUrl: "/mail-connect",
-              })
+              void connectOAuth("google")
             }
           >
             <b>G</b>
@@ -410,12 +509,10 @@ export default function MailConnectPage() {
               microsoft ? "connected" : ""
             }`}
             disabled={
-              loading || !capabilities.microsoft
+              loading || saving || !capabilities.microsoft
             }
             onClick={() =>
-              signIn("microsoft-mail", {
-                callbackUrl: "/mail-connect",
-              })
+              void connectOAuth("microsoft")
             }
           >
             <b>M</b>
@@ -512,9 +609,7 @@ export default function MailConnectPage() {
                   type="button"
                   className="save"
                   onClick={() =>
-                    signIn("google-mail", {
-                      callbackUrl: "/mail-connect",
-                    })
+                    void connectOAuth("google")
                   }
                 >
                   Google ile Bağla
@@ -531,9 +626,7 @@ export default function MailConnectPage() {
                   type="button"
                   className="save"
                   onClick={() =>
-                    signIn("microsoft-mail", {
-                      callbackUrl: "/mail-connect",
-                    })
+                    void connectOAuth("microsoft")
                   }
                 >
                   Microsoft ile Bağla
@@ -758,6 +851,11 @@ export default function MailConnectPage() {
         .connect-shell {
           width: min(680px, 100%);
         }
+        .back-row {
+          display: flex;
+          justify-content: flex-start;
+          margin-bottom: 10px;
+        }
         header {
           display: grid;
           justify-items: center;
@@ -788,6 +886,36 @@ export default function MailConnectPage() {
         }
         .error {
           color: var(--legal-danger);
+        }
+        .connected-accounts {
+          display: grid;
+          gap: 6px;
+          margin-bottom: 9px;
+          padding: 11px;
+          border: 1px solid var(--legal-border);
+          border-radius: 12px;
+          background: var(--legal-surface);
+        }
+        .connected-accounts h2 {
+          margin: 0 0 2px;
+          font-size: 11px;
+        }
+        .connected-account {
+          display: grid;
+          gap: 2px;
+          padding: 8px 9px;
+          border: 1px solid var(--legal-border);
+          border-radius: 8px;
+          background: var(--legal-surface-2);
+        }
+        .connected-account strong {
+          font-size: 10px;
+        }
+        .connected-account span,
+        .connected-account small {
+          color: var(--legal-muted);
+          font-size: 8px;
+          overflow-wrap: anywhere;
         }
         .providers {
           display: grid;

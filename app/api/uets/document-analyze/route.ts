@@ -14,32 +14,11 @@ import {
   extractUetsPaymentFields,
 } from "@/lib/legal/uetsPdfFields";
 import { extractUetsNotice } from "@/lib/legal/uetsExtractor";
+import { decodeUetsPdf } from "@/lib/legal/uetsPdfValidation";
 
 export const runtime = "nodejs";
 
 export const maxDuration = 60;
-
-const MAX_PDF_BYTES = 3_000_000;
-
-function decodePdf(value: unknown) {
-  if (typeof value !== "string" || !value.trim()) {
-    return null;
-  }
-
-  const encoded = value.trim().replace(/^data:application\/pdf;base64,/i, "");
-
-  if (encoded.length > Math.ceil((MAX_PDF_BYTES * 4) / 3) + 8) {
-    throw new Error("PDF analiz sınırı 3 MB'tır.");
-  }
-
-  const bytes = Buffer.from(encoded, "base64");
-
-  if (bytes.length < 5 || bytes.length > MAX_PDF_BYTES || bytes.subarray(0, 5).toString() !== "%PDF-") {
-    throw new Error("Aktarılan ek geçerli bir PDF değil.");
-  }
-
-  return bytes;
-}
 
 function safeText(
   value: unknown,
@@ -632,7 +611,7 @@ export async function POST(
       );
 
     const pdfBytes =
-      decodePdf(
+      decodeUetsPdf(
         input?.pdfBase64
       );
 

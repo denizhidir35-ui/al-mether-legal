@@ -10,6 +10,10 @@ import {
   getSupabaseAdmin,
 } from "@/lib/supabaseAdmin";
 
+import {
+  toMailAccountDTO,
+} from "@/lib/mail/accountModel";
+
 export async function GET() {
   const {
     appUser,
@@ -45,9 +49,7 @@ export async function GET() {
       .from(
         "mail_connections"
       )
-      .select(
-        "id,provider,email,status,updated_at"
-      )
+      .select("*")
       .eq(
         "user_id",
         appUser.id
@@ -76,8 +78,10 @@ export async function GET() {
   }
 
   const connections =
-    result.data ||
-    [];
+    (result.data || [])
+      .map(
+        toMailAccountDTO
+      );
 
   return NextResponse.json({
     ok: true,

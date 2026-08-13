@@ -231,8 +231,8 @@
   pointer-events: none;
   background:
     linear-gradient(
-      rgba(246, 243, 236, 0.97),
-      rgba(246, 243, 236, 0.97)
+      rgba(246, 243, 236, 0.95),
+      rgba(246, 243, 236, 0.95)
     ),
     url("/brand/legal-login-background.webp") center / cover no-repeat;
 }
@@ -241,8 +241,8 @@ html.dark .legal-app::before,
 html[data-legal-theme="dark"] .legal-app::before {
   background:
     linear-gradient(
-      rgba(5, 9, 17, 0.92),
-      rgba(5, 9, 17, 0.92)
+      rgba(5, 9, 17, 0.88),
+      rgba(5, 9, 17, 0.88)
     ),
     url("/brand/legal-login-background.webp") center / cover no-repeat;
 }

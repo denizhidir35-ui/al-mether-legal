@@ -20,6 +20,10 @@ import {
   resolveImapMailbox,
 } from "@/lib/mail/folders";
 
+import {
+  toMailAccountDTO,
+} from "@/lib/mail/accountModel";
+
 export const runtime =
   "nodejs";
 
@@ -817,9 +821,17 @@ export async function GET(
       );
     }
 
+    const sourceAccount =
+      toMailAccountDTO(
+        connection
+      );
+
     return NextResponse.json({
       ok: true,
-      message,
+      message: {
+        ...message,
+        sourceAccount,
+      },
     });
   } catch (error) {
     return NextResponse.json(
