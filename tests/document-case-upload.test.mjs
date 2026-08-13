@@ -6,6 +6,10 @@ import {
   MAX_UETS_PDF_BYTES,
   validateUetsPdfBytes,
 } from "../lib/legal/uetsPdfValidation.ts";
+import {
+  extractLegalPdfText,
+  PdfTextLayerRuntimeError,
+} from "../lib/legal/ocr.ts";
 
 const casesSource = await readFile(
   new URL(
@@ -74,6 +78,43 @@ test("scanned PDF keeps the existing OCR fallback", async () => {
   assert.match(
     ocrSource,
     /engine:\s*"tesseract"/
+  );
+  assert.match(
+    ocrSource,
+    /pdfjs-dist\/legacy\/build\/pdf\.worker\.mjs/
+  );
+  assert.doesNotMatch(
+    ocrSource,
+    /GlobalWorkerOptions\.workerSrc/
+  );
+});
+
+test("PDF.js runtime errors do not fall through to OCR", async () => {
+  await assert.rejects(
+    extractLegalPdfText(
+      Buffer.from(
+        "%PDF-1.7\ninvalid xref",
+        "ascii"
+      )
+    ),
+    (error) => {
+      assert.ok(
+        error instanceof
+          PdfTextLayerRuntimeError
+      );
+      assert.equal(
+        error.message,
+        "PDF metin katmanı sunucuda okunamadı. Lütfen dosyayı yeniden deneyin."
+      );
+      return true;
+    }
+  );
+});
+
+test("document analysis runtime failures remain JSON responses", () => {
+  assert.match(
+    analysisRoute,
+    /catch \(error\)[\s\S]*?NextResponse\.json\([\s\S]*?status:\s*500/
   );
 });
 

@@ -9,10 +9,6 @@ import {
   join,
 } from "node:path";
 
-import {
-  pathToFileURL,
-} from "node:url";
-
 const nodeRequire =
   createRequire(
     join(
@@ -28,6 +24,18 @@ export type LegalOcrResult = {
     | "pdf-text"
     | "tesseract";
 };
+
+export class PdfTextLayerRuntimeError extends Error {
+  constructor(options?: ErrorOptions) {
+    super(
+      "PDF metin katmanı sunucuda okunamadı. Lütfen dosyayı yeniden deneyin.",
+      options
+    );
+
+    this.name =
+      "PdfTextLayerRuntimeError";
+  }
+}
 
 function withTimeout<T>(
   promise: Promise<T>,
@@ -87,34 +95,33 @@ function cleanOcrText(
 }
 
 async function loadPdfJs() {
-  const pdfjs =
-    await import(
-      "pdfjs-dist/legacy/build/pdf.mjs"
-    );
-
   /*
-   * Next/Turbopack bundle içindeki sahte worker yerine
-   * node_modules içindeki gerçek PDF.js worker kullanılır.
+   * PDF.js 6.x Node'da Web Worker açmaz. WorkerMessageHandler'ı
+   * aynı process içindeki fake-worker portuna bağlar.
+   * Literal import, Vercel trace'inin worker modülünü pakete
+   * dahil etmesini de garanti eder.
    */
-  const pdfMain =
-    nodeRequire.resolve(
-      "pdfjs-dist/legacy/build/pdf.mjs"
+  const worker =
+    await import(
+      "pdfjs-dist/legacy/build/pdf.worker.mjs"
     );
 
-  const workerPath =
-    join(
-      dirname(
-        pdfMain
-      ),
-      "pdf.worker.mjs"
-    );
+  const pdfjsWorkerGlobal =
+    globalThis as typeof globalThis & {
+      pdfjsWorker?: {
+        WorkerMessageHandler:
+          typeof worker.WorkerMessageHandler;
+      };
+    };
 
-  pdfjs.GlobalWorkerOptions.workerSrc =
-    pathToFileURL(
-      workerPath
-    ).href;
+  pdfjsWorkerGlobal.pdfjsWorker = {
+    WorkerMessageHandler:
+      worker.WorkerMessageHandler,
+  };
 
-  return pdfjs;
+  return import(
+    "pdfjs-dist/legacy/build/pdf.mjs"
+  );
 }
 
 async function extractEmbeddedPdfText(
@@ -540,51 +547,58 @@ export async function extractLegalPdfText(
    * Normal dijital PDF ise OCR yok.
    * En hızlı yol budur.
    */
+  let embedded:
+    Awaited<
+      ReturnType<
+        typeof extractEmbeddedPdfText
+      >
+    >;
+
   try {
-    const embedded =
+    embedded =
       await extractEmbeddedPdfText(
         bytes
       );
-
-    const compactLength =
-      embedded.text
-        .replace(
-          /\s+/g,
-          ""
-        )
-        .length;
-
-    const requiredPages =
-      Math.max(
-        1,
-
-        Math.ceil(
-          embedded.pageCount *
-          0.8
-        )
-      );
-
-    if (
-      compactLength >= 80 &&
-      embedded.pagesWithText >=
-        requiredPages
-    ) {
-      return {
-        text:
-          embedded.text,
-
-        engine:
-          "pdf-text",
-      };
-    }
   } catch (error) {
-    console.error(
-      "LEGAL PDF TEXT LAYER:",
-      error instanceof
-        Error
-        ? error.message
-        : "Text layer okunamadı."
+    /*
+     * Parser/runtime/module hatası taranmış PDF kanıtı değildir.
+     * Pahalı OCR'a geçmeden kontrollü hata dönülür.
+     */
+    throw new PdfTextLayerRuntimeError({
+      cause: error,
+    });
+  }
+
+  const compactLength =
+    embedded.text
+      .replace(
+        /\s+/g,
+        ""
+      )
+      .length;
+
+  const requiredPages =
+    Math.max(
+      1,
+
+      Math.ceil(
+        embedded.pageCount *
+        0.8
+      )
     );
+
+  if (
+    compactLength >= 80 &&
+    embedded.pagesWithText >=
+      requiredPages
+  ) {
+    return {
+      text:
+        embedded.text,
+
+      engine:
+        "pdf-text",
+    };
   }
 
   /*
