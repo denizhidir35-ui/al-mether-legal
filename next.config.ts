@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
       "./tur.traineddata",
       "./node_modules/tesseract.js/src/worker-script/**/*",
       "./node_modules/tesseract.js/src/constants/imageType.js",
+      "./node_modules/bmp-js/**/*",
       "./node_modules/wasm-feature-detect/**/*",
       "./node_modules/tesseract.js-core/*.js",
       "./node_modules/tesseract.js-core/*.wasm",
