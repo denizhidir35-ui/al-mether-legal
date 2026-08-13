@@ -8,6 +8,11 @@ import {
 } from "@/lib/alUser";
 
 import {
+  createInvitedAppUser,
+  verifyAuthUserBeforeActivation,
+} from "@/lib/adminUserLifecycle";
+
+import {
   getSupabaseAdmin,
 } from "@/lib/supabaseAdmin";
 
@@ -295,72 +300,60 @@ export async function POST(
     );
   }
 
-  const created =
-    await supabase
-      .from("app_users")
-      .insert({
-        email,
-        google_id: email,
-        name,
-        role: "lawyer",
-        status:
-          PENDING_APPROVAL_STATUS,
-      })
-      .select(
-        "id,email,name,role,status,created_at"
-      )
-      .single();
-
-  if (
-    created.error ||
-    !created.data
-  ) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          created.error
-            ?.message ||
-          "Kullanıcı oluşturulamadı.",
-      },
-      { status: 500 }
-    );
-  }
-
   const redirectTo =
     new URL(
       "/auth/set-password",
       request.nextUrl.origin
     ).toString();
 
-  const invited =
-    await supabase.auth.admin
-      .inviteUserByEmail(
-        email,
-        {
-          redirectTo,
-          data: {
-            full_name: name,
-          },
-        }
-      );
+  const created =
+    await createInvitedAppUser({
+      email,
+      name,
+      redirectTo,
+      inviteAuthUser:
+        (inviteEmail, options) =>
+          supabase.auth.admin
+            .inviteUserByEmail(
+              inviteEmail,
+              options
+            ),
+      createAppUser:
+        async () =>
+          supabase
+            .from("app_users")
+            .insert({
+              email,
+              google_id: email,
+              name,
+              role: "lawyer",
+              status:
+                PENDING_APPROVAL_STATUS,
+            })
+            .select(
+              "id,email,name,role,status,created_at"
+            )
+            .single(),
+      deleteAuthUser:
+        (userId) =>
+          supabase.auth.admin
+            .deleteUser(userId),
+    });
 
-  if (invited.error) {
-    await supabase
-      .from("app_users")
-      .delete()
-      .eq(
-        "id",
-        created.data.id
+  if (!created.ok) {
+    if (created.rollbackError) {
+      console.error(
+        "AUTH USER ROLLBACK ERROR:",
+        created.rollbackError
       );
+    }
 
     return NextResponse.json(
       {
         ok: false,
-        error:
-          "Davet e-postası gönderilemedi.",
+        error: created.error,
       },
-      { status: 502 }
+      { status: created.status }
     );
   }
 
@@ -368,7 +361,7 @@ export async function POST(
     {
       ok: true,
       user:
-        created.data,
+        created.user,
     },
     { status: 201 }
   );
@@ -512,6 +505,33 @@ export async function PATCH(
           "Yönetici hesabı bu ekrandan pasif yapılamaz.",
       },
       { status: 400 }
+    );
+  }
+
+  const activationCheck =
+    await verifyAuthUserBeforeActivation({
+      email:
+        String(
+          existing.data.email || ""
+        )
+          .trim()
+          .toLowerCase(),
+      status,
+      findAuthUser:
+        findAuthUserByEmail,
+    });
+
+  if (!activationCheck.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          activationCheck.error,
+      },
+      {
+        status:
+          activationCheck.status,
+      }
     );
   }
 
