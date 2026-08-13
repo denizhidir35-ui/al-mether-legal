@@ -3,13 +3,13 @@ const INSTALLER_SIZE = "10,5 MB";
 const INSTALLER_SHA256 =
   "B39BA787BD3EDDA0B1F123E10E332CFF63A20CCA2428DA614E0EEBC2185CAD5D";
 
-// Gerçek public dosya doğrulandıktan sonra bu değer doldurulur.
-const DOWNLOAD_URL: string | null = null;
+const DOWNLOAD_URL =
+  "https://github.com/denizhidir35-ui/al-mether-legal/releases/download/v1.0.0/AL-METHER-Legal-Setup.exe";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
-function renderDownloadButton() {
-  if (!DOWNLOAD_URL) {
+function renderDownloadButton(downloadAvailable: boolean) {
+  if (!downloadAvailable) {
     return `
       <span class="downloadButton downloadDisabled" aria-disabled="true">
         <b class="downloadGlyph" aria-hidden="true">↓</b>
@@ -30,7 +30,20 @@ function renderDownloadButton() {
     </a>`;
 }
 
-export function GET() {
+export async function GET() {
+  let downloadAvailable = false;
+
+  try {
+    const installerResponse = await fetch(DOWNLOAD_URL, {
+      method: "HEAD",
+      cache: "no-store",
+    });
+
+    downloadAvailable = installerResponse.ok;
+  } catch {
+    // Depolama geçici olarak doğrulanamazsa kullanıcıya bozuk bağlantı sunma.
+  }
+
   const html = `<!doctype html>
 <html lang="tr">
   <head>
@@ -66,7 +79,7 @@ export function GET() {
             takviminize ve hukuk çalışma alanınıza doğrudan masaüstünüzden erişin.
           </p>
           <div class="actions">
-            ${renderDownloadButton()}
+            ${renderDownloadButton(downloadAvailable)}
             <div class="compatibility"><b aria-hidden="true">✓</b> Windows 10 ve Windows 11 ile uyumlu</div>
           </div>
         </div>
@@ -101,7 +114,7 @@ export function GET() {
 
   return new Response(html, {
     headers: {
-      "Cache-Control": "public, max-age=0, s-maxage=3600",
+      "Cache-Control": "public, max-age=0, s-maxage=60",
       "Content-Type": "text/html; charset=utf-8",
       "Content-Security-Policy":
         "default-src 'none'; img-src 'self'; style-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
