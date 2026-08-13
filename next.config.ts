@@ -5,7 +5,8 @@ const nextConfig: NextConfig = {
     "/api/uets/document-analyze": [
       "./eng.traineddata",
       "./tur.traineddata",
-      "./node_modules/tesseract.js/src/worker-script/node/**/*",
+      "./node_modules/tesseract.js/src/worker-script/**/*",
+      "./node_modules/wasm-feature-detect/**/*",
       "./node_modules/tesseract.js-core/*.js",
       "./node_modules/tesseract.js-core/*.wasm",
     ],
