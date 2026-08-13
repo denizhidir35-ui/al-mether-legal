@@ -5,6 +5,15 @@ import {
 } from "node:module";
 
 import {
+  constants as fsConstants,
+} from "node:fs";
+
+import {
+  access,
+  stat,
+} from "node:fs/promises";
+
+import {
   dirname,
   join,
 } from "node:path";
@@ -360,6 +369,177 @@ let imageOcrQueue:
   Promise<void> =
   Promise.resolve();
 
+type ImageOcrRuntimeAsset = {
+  asset:
+    | "eng.traineddata"
+    | "tur.traineddata"
+    | "tesseract-worker"
+    | "tesseract-core-js"
+    | "tesseract-core-wasm";
+  resolvedPath: string;
+  exists: boolean;
+  size: number | null;
+  readable: boolean;
+};
+
+async function inspectImageOcrRuntimeAsset(
+  asset: ImageOcrRuntimeAsset["asset"],
+  resolvedPath: string
+): Promise<ImageOcrRuntimeAsset> {
+  let exists =
+    false;
+
+  let size:
+    number |
+    null =
+    null;
+
+  let readable =
+    false;
+
+  try {
+    const fileStat =
+      await stat(
+        resolvedPath
+      );
+
+    exists =
+      fileStat.isFile();
+
+    size =
+      exists
+        ? fileStat.size
+        : null;
+  } catch {}
+
+  try {
+    await access(
+      resolvedPath,
+      fsConstants.R_OK
+    );
+
+    readable =
+      true;
+  } catch {}
+
+  return {
+    asset,
+    resolvedPath,
+    exists,
+    size,
+    readable,
+  };
+}
+
+function safeImageOcrError(
+  error: unknown
+) {
+  const type =
+    error instanceof Error
+      ? error.name ||
+        "Error"
+      : typeof error;
+
+  const message =
+    (
+      error instanceof Error
+        ? error.message
+        : String(
+            error ||
+            "Unknown error"
+          )
+    )
+      .replace(
+        /[\r\n\t]+/g,
+        " "
+      )
+      .replace(
+        /\s{2,}/g,
+        " "
+      )
+      .slice(
+        0,
+        240
+      );
+
+  return {
+    type,
+    message,
+  };
+}
+
+async function resolveImageOcrRuntimeAssets(
+  workerPath: string,
+  langPath: string
+) {
+  const {
+    simd,
+    relaxedSimd,
+  } =
+    nodeRequire(
+      "wasm-feature-detect"
+    ) as {
+      simd: () => Promise<boolean>;
+      relaxedSimd: () => Promise<boolean>;
+    };
+
+  const [
+    simdSupported,
+    relaxedSimdSupported,
+  ] =
+    await Promise.all([
+      simd(),
+      relaxedSimd(),
+    ]);
+
+  const coreModule =
+    relaxedSimdSupported
+      ? "tesseract.js-core/tesseract-core-relaxedsimd-lstm"
+      : simdSupported
+        ? "tesseract.js-core/tesseract-core-simd-lstm"
+        : "tesseract.js-core/tesseract-core-lstm";
+
+  const coreJsPath =
+    nodeRequire.resolve(
+      coreModule
+    );
+
+  const coreWasmPath =
+    coreJsPath.replace(
+      /\.js$/u,
+      ".wasm"
+    );
+
+  return Promise.all([
+    inspectImageOcrRuntimeAsset(
+      "eng.traineddata",
+      join(
+        langPath,
+        "eng.traineddata"
+      )
+    ),
+    inspectImageOcrRuntimeAsset(
+      "tur.traineddata",
+      join(
+        langPath,
+        "tur.traineddata"
+      )
+    ),
+    inspectImageOcrRuntimeAsset(
+      "tesseract-worker",
+      workerPath
+    ),
+    inspectImageOcrRuntimeAsset(
+      "tesseract-core-js",
+      coreJsPath
+    ),
+    inspectImageOcrRuntimeAsset(
+      "tesseract-core-wasm",
+      coreWasmPath
+    ),
+  ]);
+}
+
 async function createLegalImageOcrWorker() {
   if (imageOcrWorkerPromise) {
     imageOcrDiagnostics.warmHits +=
@@ -399,6 +579,50 @@ async function createLegalImageOcrWorker() {
   const langPath =
     process.cwd();
 
+  console.info(
+    "[legal-image-ocr] init start",
+    {
+      cwd:
+        process.cwd(),
+      elapsedMs:
+        Number(
+          (
+            performance.now() -
+            startedAt
+          ).toFixed(2)
+        ),
+    }
+  );
+
+  let runtimeAssets:
+    ImageOcrRuntimeAsset[] =
+    [];
+
+  try {
+    runtimeAssets =
+      await resolveImageOcrRuntimeAssets(
+        workerPath,
+        langPath
+      );
+  } catch (error) {
+    console.error(
+      "[legal-image-ocr] asset inspection error",
+      safeImageOcrError(
+        error
+      )
+    );
+  }
+
+  for (
+    const runtimeAsset
+    of runtimeAssets
+  ) {
+    console.info(
+      "[legal-image-ocr] runtime asset",
+      runtimeAsset
+    );
+  }
+
   const phases =
     new Map<
       string,
@@ -407,6 +631,24 @@ async function createLegalImageOcrWorker() {
         lastMs: number;
       }
     >();
+
+  let loggedPhase =
+    "";
+
+  console.info(
+    "[legal-image-ocr] init phase",
+    {
+      phase:
+        "create worker",
+      elapsedMs:
+        Number(
+          (
+            performance.now() -
+            startedAt
+          ).toFixed(2)
+        ),
+    }
+  );
 
   const workerPromise =
     createWorker(
@@ -418,6 +660,16 @@ async function createLegalImageOcrWorker() {
         gzip: false,
         cacheMethod:
           "none",
+        errorHandler: (
+          error: unknown
+        ) => {
+          console.error(
+            "[legal-image-ocr] worker error",
+            safeImageOcrError(
+              error
+            )
+          );
+        },
         logger: ({
           status,
         }: {
@@ -463,6 +715,28 @@ async function createLegalImageOcrWorker() {
 
           imageOcrDiagnostics.lastInitPhase =
             status;
+
+          if (
+            loggedPhase !==
+            status
+          ) {
+            loggedPhase =
+              status;
+
+            console.info(
+              "[legal-image-ocr] init phase",
+              {
+                phase:
+                  status,
+                elapsedMs:
+                  Number(
+                    elapsedMs.toFixed(
+                      2
+                    )
+                  ),
+              }
+            );
+          }
         },
       }
     );
@@ -531,6 +805,29 @@ async function createLegalImageOcrWorker() {
         return worker;
       })
       .catch((error) => {
+        const elapsedMs =
+          Number(
+            (
+              performance.now() -
+              startedAt
+            ).toFixed(2)
+          );
+
+        if (
+          error instanceof Error &&
+          error.message ===
+            "OCR motoru hazırlanırken zaman aşımına uğradı."
+        ) {
+          console.error(
+            "[legal-image-ocr] init timeout",
+            {
+              lastInitPhase:
+                imageOcrDiagnostics.lastInitPhase,
+              elapsedMs,
+            }
+          );
+        }
+
         imageOcrWorkerPromise =
           null;
 
