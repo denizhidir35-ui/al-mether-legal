@@ -12,6 +12,8 @@ type BridgeCapture = {
   text?: string;
   capturedAt?: string;
   links?: string[];
+  pdfBase64?: string;
+  sourceDocument?: string;
 };
 
 type Hearing = {
@@ -43,6 +45,18 @@ type UetsDocument = {
     text?: string;
     evidence?: string;
   }>;
+
+  parties?: string;
+  subject?: string;
+
+  payment?: {
+    paymentAmount?: number | null;
+    paymentCurrency?: string;
+    paymentDescription?: string;
+    paymentDueDate?: string;
+    paymentPeriodText?: string;
+    sourceDocument?: string;
+  };
 
   uets?: {
     arrivalDate?: string;
@@ -606,6 +620,14 @@ export default function UetsImportPage() {
 
                     text:
                       capturedText,
+
+                    pdfBase64:
+                      payload.pdfBase64 ||
+                      "",
+
+                    sourceDocument:
+                      payload.sourceDocument ||
+                      "",
                   }),
               }
             );

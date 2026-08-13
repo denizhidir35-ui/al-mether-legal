@@ -6,9 +6,39 @@ import {
 import {
   getOrCreateAppUser,
 } from "@/lib/alUser";
+import { extractLegalPdfText } from "@/lib/legal/ocr";
+import {
+  extractUetsDateInformation,
+  extractUetsPartiesAndSubject,
+  extractUetsPaymentFields,
+} from "@/lib/legal/uetsPdfFields";
 import { extractUetsNotice } from "@/lib/legal/uetsExtractor";
 
 export const runtime = "nodejs";
+
+export const maxDuration = 60;
+
+const MAX_PDF_BYTES = 3_000_000;
+
+function decodePdf(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+
+  const encoded = value.trim().replace(/^data:application\/pdf;base64,/i, "");
+
+  if (encoded.length > Math.ceil((MAX_PDF_BYTES * 4) / 3) + 8) {
+    throw new Error("PDF analiz sınırı 3 MB'tır.");
+  }
+
+  const bytes = Buffer.from(encoded, "base64");
+
+  if (bytes.length < 5 || bytes.length > MAX_PDF_BYTES || bytes.subarray(0, 5).toString() !== "%PDF-") {
+    throw new Error("Aktarılan ek geçerli bir PDF değil.");
+  }
+
+  return bytes;
+}
 
 function safeText(
   value: unknown,
@@ -502,6 +532,14 @@ function extractUets(
       ]
     );
 
+  const noticeNo =
+    findEvidence(
+      text,
+      [
+        /tebligat\s*(?:no|numarası)\s*[:\-]?\s*([A-Z0-9\-/]{6,40})/iu,
+      ]
+    );
+
   return {
     arrivalDate:
       arrival
@@ -528,6 +566,11 @@ function extractUets(
 
     barcodeNo:
       barcode
+        ?.match[1] ||
+      "",
+
+    noticeNo:
+      noticeNo
         ?.match[1] ||
       "",
   };
@@ -563,7 +606,7 @@ export async function POST(
     const input =
       await request.json();
 
-    const text =
+    const htmlText =
       safeText(
         input?.text
       );
@@ -581,8 +624,19 @@ export async function POST(
         3000
       );
 
+    const sourceDocument =
+      safeText(
+        input?.sourceDocument,
+        500
+      );
+
+    const pdfBytes =
+      decodePdf(
+        input?.pdfBase64
+      );
+
     if (
-      text.length <
+      htmlText.length <
       30
     ) {
       return NextResponse.json(
@@ -596,6 +650,41 @@ export async function POST(
         }
       );
     }
+
+    let pdfText = "";
+    let pdfEngine = "";
+
+    if (pdfBytes) {
+      const pdfResult =
+        await extractLegalPdfText(
+          pdfBytes
+        );
+
+      pdfText =
+        safeText(
+          pdfResult.text
+        );
+      pdfEngine =
+        pdfResult.engine;
+
+      if (pdfText.length < 30) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "PDF metni okunamadı.",
+          },
+          {
+            status: 422,
+          }
+        );
+      }
+    }
+
+    const text =
+      pdfText
+        ? `${htmlText}\n\n--- UETS PDF: ${sourceDocument || "Ek Belge"} ---\n${pdfText}`
+        : htmlText;
 
     const isTestDocument =
       /METHER UETS BRIDGE TEST|GERÇEK TEBLİGAT DEĞİLDİR|HUKUKİ DEĞERİ YOKTUR/i
@@ -630,6 +719,22 @@ export async function POST(
     const parsedUets =
       extractUets(text);
 
+    const partyAndSubject =
+      extractUetsPartiesAndSubject(
+        text
+      );
+
+    const payment =
+      extractUetsPaymentFields(
+        text,
+        sourceDocument
+      );
+
+    const dateInformation =
+      extractUetsDateInformation(
+        text
+      );
+
     const uets = {
       arrivalDate:
         parsedUets.arrivalDate ||
@@ -646,6 +751,9 @@ export async function POST(
       barcodeNo:
         parsedUets.barcodeNo ||
         extractedUets.barcodeNo,
+
+      noticeNo:
+        parsedUets.noticeNo,
     };
 
     const hasDeemedService =
@@ -711,6 +819,16 @@ export async function POST(
 
       tasks,
 
+      parties:
+        partyAndSubject.parties,
+
+      subject:
+        partyAndSubject.subject,
+
+      payment,
+
+      dateInformation,
+
       uets,
 
       needsHumanReview,
@@ -726,7 +844,9 @@ export async function POST(
       ok: true,
 
       engine:
-        "mether_rules_v1",
+        pdfEngine
+          ? `mether_rules_v1+${pdfEngine}`
+          : "mether_rules_v1",
 
       source: {
         type:
@@ -736,6 +856,11 @@ export async function POST(
 
         url:
           sourceUrl,
+
+        sourceDocument,
+
+        pdfCaptured:
+          Boolean(pdfBytes),
 
         isTestDocument,
       },
