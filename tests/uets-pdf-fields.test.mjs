@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   extractUetsDateInformation,
+  extractUetsDecisionNo,
   extractUetsPartiesAndSubject,
   extractUetsPaymentFields,
 } from "../lib/legal/uetsPdfFields.ts";
@@ -51,4 +52,22 @@ test("preserves labelled PDF date evidence", () => {
     result.map((item) => item.date),
     ["2026-08-13", "2026-08-24"]
   );
+});
+
+test("extracts the real UETS PDF payment period without inventing a due date", () => {
+  const text = `
+    İzmir 23. Asliye Hukuk Mahkemesi
+    Esas No: 2026/52
+    Karar No: 2026/255
+    İstinaf avansı 1.500,00 TL'nin iki haftalık süre içerisinde yatırılması gerekir.
+  `;
+  const payment = extractUetsPaymentFields(text, "ustyazi (21).pdf");
+
+  assert.equal(extractUetsDecisionNo(text), "2026/255");
+  assert.equal(payment.paymentAmount, 1500);
+  assert.equal(payment.paymentCurrency, "TRY");
+  assert.equal(payment.paymentDescription, "İstinaf avansı");
+  assert.equal(payment.paymentPeriodText, "iki haftalık süre içerisinde");
+  assert.equal(payment.paymentDueDate, "");
+  assert.equal(payment.sourceDocument, "ustyazi (21).pdf");
 });

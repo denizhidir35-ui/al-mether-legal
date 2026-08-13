@@ -9,6 +9,7 @@ import {
 import { extractLegalPdfText } from "@/lib/legal/ocr";
 import {
   extractUetsDateInformation,
+  extractUetsDecisionNo,
   extractUetsPartiesAndSubject,
   extractUetsPaymentFields,
 } from "@/lib/legal/uetsPdfFields";
@@ -701,6 +702,11 @@ export async function POST(
       extractFileNo(text) ||
       extractedUets.fileNo;
 
+    const decisionNo =
+      extractUetsDecisionNo(
+        text
+      );
+
     const hearing =
       extractHearing(
         text
@@ -791,6 +797,7 @@ export async function POST(
 
       court,
       fileNo,
+      decisionNo,
 
       summary:
         [

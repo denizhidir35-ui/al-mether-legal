@@ -28,6 +28,7 @@ type UetsDocument = {
   documentType?: string;
   court?: string;
   fileNo?: string;
+  decisionNo?: string;
   summary?: string;
 
   hearing?: Hearing;

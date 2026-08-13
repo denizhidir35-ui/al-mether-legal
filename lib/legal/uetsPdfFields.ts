@@ -54,9 +54,11 @@ export function extractUetsPaymentFields(
   sourceDocument: string
 ): UetsPaymentFields {
   const paymentContext =
-    /(?:öde(?:me|nmesi|yiniz)|yatır(?:ma|ılması|ınız)|harç|gider\s+avansı|masraf|bakiye|tutar)/iu;
+    /(?:öde(?:me|nmesi|yiniz)|yatır(?:ma|ılması|ınız)|harç|avans[ıi]?|masraf|bakiye|tutar)/iu;
+  const paymentDescriptionPattern =
+    /((?:[İi]stinaf|temyiz|başvuru|gider|posta|tebligat)\s+avans[ıi]|(?:harç|masraf|bakiye|ödeme)\s+(?:tutar[ıi]|bedeli))/iu;
   const amountPattern =
-    /(\d{1,3}(?:[.\s]\d{3})*(?:,\d{1,2})?|\d+(?:,\d{1,2})?)\s*(TRY|TL|₺|EUR|€|USD|\$)(?=\s|[.,;)]|$)/giu;
+    /(\d{1,3}(?:[.\s]\d{3})*(?:,\d{1,2})?|\d+(?:,\d{1,2})?)\s*(TRY|TL|₺|EUR|€|USD|\$)(?=\s|[.,;)'’]|$)/giu;
 
   let amount: number | null = null;
   let currency = "";
@@ -71,7 +73,7 @@ export function extractUetsPaymentFields(
 
     amount = parseTurkishAmount(match[1]);
     currency = normalizeCurrency(match[2]);
-    description = context;
+    description = context.match(paymentDescriptionPattern)?.[1] || context;
     break;
   }
 
@@ -94,7 +96,8 @@ export function extractUetsPaymentFields(
   }
 
   let paymentPeriodText = "";
-  const periodPattern = /\b(\d+\s*(?:gün|hafta|ay)\s*(?:içinde|içerisinde|süre\s+içinde))\b/giu;
+  const periodPattern =
+    /\b((?:\d+\s*(?:gün|hafta|ay)|(?:bir|iki|üç|dört|beş|altı|yedi|sekiz|dokuz|on)\s+(?:günlük|haftalık|aylık))\s*(?:süre\s+)?(?:içinde|içerisinde))\b/giu;
 
   for (const match of text.matchAll(periodPattern)) {
     const context = contextAround(text, match.index ?? 0, match[0].length);
@@ -130,6 +133,14 @@ export function extractUetsPartiesAndSubject(text: string) {
     parties: parties ? cleanSpace(parties[1]) : "",
     subject: subject ? cleanSpace(subject[1]) : "",
   };
+}
+
+export function extractUetsDecisionNo(text: string) {
+  const match = text.match(
+    /(?:Karar\s*(?:No|Numarası)?|K\.)\s*[:\-]?\s*(\d{4}\s*\/\s*\d+)/iu
+  );
+
+  return match ? cleanSpace(match[1]).replace(/\s+/g, "") : "";
 }
 
 export function extractUetsDateInformation(text: string) {
