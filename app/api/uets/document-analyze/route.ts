@@ -20,8 +20,11 @@ import {
   resolveLegalImageMimeType,
 } from "@/lib/legal/imageNormalization";
 import {
+  extractUetsBarcodeNo,
   extractUetsDateInformation,
   extractUetsDecisionNo,
+  extractUetsExplicitDeadlines,
+  extractUetsHearingFields,
   extractUetsPartiesAndSubject,
   extractUetsPaymentFields,
 } from "@/lib/legal/uetsPdfFields";
@@ -836,12 +839,12 @@ export async function POST(
       );
 
     const hearing =
-      extractHearing(
+      extractUetsHearingFields(
         text
       );
 
     const deadlines =
-      extractExplicitDeadlines(
+      extractUetsExplicitDeadlines(
         text
       );
 
@@ -883,6 +886,7 @@ export async function POST(
         extractedUets.deemedServiceDate,
 
       barcodeNo:
+        extractUetsBarcodeNo(text) ||
         parsedUets.barcodeNo ||
         extractedUets.barcodeNo,
 

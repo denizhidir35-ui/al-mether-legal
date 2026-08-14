@@ -2,11 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  extractUetsBarcodeNo,
   extractUetsDateInformation,
   extractUetsDecisionNo,
+  extractUetsExplicitDeadlines,
+  extractUetsHearingFields,
   extractUetsPartiesAndSubject,
   extractUetsPaymentFields,
 } from "../lib/legal/uetsPdfFields.ts";
+import { extractUetsNotice } from "../lib/legal/uetsExtractor.ts";
 
 test("extracts payment amount, currency, explicit due date and source", () => {
   const result = extractUetsPaymentFields(
@@ -70,4 +74,73 @@ test("extracts the real UETS PDF payment period without inventing a due date", (
   assert.equal(payment.paymentPeriodText, "iki haftalık süre içerisinde");
   assert.equal(payment.paymentDueDate, "");
   assert.equal(payment.sourceDocument, "ustyazi (21).pdf");
+});
+
+test("separates hearing, UETS, general deadline and payment date contexts", () => {
+  const text = `
+    PTT UETS Elektronik Tebligat
+    E-Tebligat Barkod No: 5003009126745
+    Kurum: İzmir 12. İş Mahkemesi
+    Dosya No: 2026/427
+    Karar No: 2026/693
+
+    UETS teslim tarihi: 17.08.2026 09:12
+    UETS açılma tarihi: 18.08.2026 10:06
+    Tebliğ edilmiş sayılma tarihi: 22.08.2026 23:59
+
+    Duruşması 15.10.2026 günü saat 10:30 yapılacaktır.
+    Açık/kesin son tarih: 07.09.2026
+
+    Gider Avansı: 3.250,00 TL
+    Son ödeme tarihi: 10.09.2026
+    Gider avansının tebliğ edilmiş sayılma tarihinden itibaren iki haftalık süre içerisinde yatırılması gerekir.
+  `;
+
+  const notice = extractUetsNotice(text);
+  const hearing = extractUetsHearingFields(text);
+  const deadlines = extractUetsExplicitDeadlines(text);
+  const payment = extractUetsPaymentFields(text, "uets-multi-date.pdf");
+
+  assert.equal(notice.court, "İzmir 12. İş Mahkemesi");
+  assert.equal(notice.fileNo, "2026/427");
+  assert.equal(extractUetsDecisionNo(text), "2026/693");
+  assert.equal(extractUetsBarcodeNo(text), "5003009126745");
+  assert.equal(hearing.date, "2026-10-15");
+  assert.equal(hearing.time, "10:30");
+  assert.notEqual(hearing.date, "2026-08-17");
+  assert.deepEqual(
+    deadlines.filter((item) => item.isExplicitFinalDate).map((item) => item.explicitDate),
+    ["2026-09-07"]
+  );
+  assert.notEqual(deadlines[0]?.explicitDate, "2026-08-22");
+  assert.equal(payment.paymentAmount, 3250);
+  assert.equal(payment.paymentCurrency, "TRY");
+  assert.equal(payment.paymentDescription, "Gider Avansı");
+  assert.equal(payment.paymentDueDate, "2026-09-10");
+  assert.match(
+    payment.paymentPeriodText,
+    /tebliğ edilmiş sayılma tarihinden itibaren iki haftalık süre içerisinde/iu
+  );
+});
+
+test("keeps the existing 2026/318 hearing and deadline context", () => {
+  const text = `
+    PTT UETS
+    Kurum: Ankara 7. İş Mahkemesi
+    Dosya No: 2026/318
+    Barkod No: 5003003180001
+    Teslim tarihi: 13.08.2026 08:45
+    Duruşma tarihi: 20.08.2026
+    Duruşma saati: 10:30
+    Son tarih: 24.08.2026
+  `;
+
+  const notice = extractUetsNotice(text);
+  const hearing = extractUetsHearingFields(text);
+  const deadlines = extractUetsExplicitDeadlines(text);
+
+  assert.equal(notice.fileNo, "2026/318");
+  assert.equal(hearing.date, "2026-08-20");
+  assert.equal(hearing.time, "10:30");
+  assert.equal(deadlines[0]?.explicitDate, "2026-08-24");
 });
