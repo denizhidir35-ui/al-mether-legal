@@ -79,6 +79,97 @@ test("explicit payment produces a LegalAlarmEngine plan", async () => {
   assert.equal(alarmPlan.alarms[0].metadata.eventType, "payment_deadline");
 });
 
+test("business-day shifts keep only the highest-priority same-time alarm", async () => {
+  const { createLegalAlarmEngine } = await loadLegalAlarmEngine();
+  const alarmPlan = createLegalAlarmEngine().createPlan({
+    userId: "user-1",
+    deadlineId: "deadline-1",
+    calendarEventId: "event-1",
+    caseId: "case-1",
+    title: "7.850 TL Gider Avansı",
+    deadlineDate: "2026-10-12",
+    eventType: "payment_deadline",
+    reminderDays: [7, 3, 1],
+    includeSameDay: true,
+    includeOverdue: false,
+    now: "2026-08-14T09:00:00+03:00",
+  });
+
+  assert.deepEqual(
+    alarmPlan.alarms.map((alarm) => alarm.triggerAt),
+    [
+      "2026-10-05T09:00:00",
+      "2026-10-09T09:00:00",
+      "2026-10-12T09:00:00",
+    ]
+  );
+  assert.equal(alarmPlan.summary.total, 3);
+
+  const shiftedAlarm = alarmPlan.alarms.find(
+    (alarm) => alarm.triggerAt === "2026-10-09T09:00:00"
+  );
+
+  assert.equal(shiftedAlarm?.daysBefore, 1);
+  assert.equal(shiftedAlarm?.kind, "advance");
+});
+
+test("non-colliding alarm plans keep every reminder", async () => {
+  const { createLegalAlarmEngine } = await loadLegalAlarmEngine();
+  const alarmPlan = createLegalAlarmEngine().createPlan({
+    userId: "user-1",
+    deadlineId: "deadline-2",
+    calendarEventId: "event-2",
+    title: "Normal Son Tarih",
+    deadlineDate: "2026-10-15",
+    eventType: "legal_deadline",
+    reminderDays: [7, 3, 1],
+    includeSameDay: true,
+    includeOverdue: false,
+    now: "2026-08-14T09:00:00+03:00",
+  });
+
+  assert.deepEqual(
+    alarmPlan.alarms.map((alarm) => alarm.triggerAt),
+    [
+      "2026-10-08T09:00:00",
+      "2026-10-12T09:00:00",
+      "2026-10-14T09:00:00",
+      "2026-10-15T09:00:00",
+    ]
+  );
+});
+
+test("manual deadline alarm plans remain unchanged when times do not collide", async () => {
+  const { createLegalAlarmEngine } = await loadLegalAlarmEngine();
+  const alarmPlan = createLegalAlarmEngine().createPlan({
+    userId: "user-1",
+    deadlineId: "deadline-3",
+    calendarEventId: "event-3",
+    title: "Manuel Son Tarih",
+    deadlineDate: "2026-10-08",
+    eventType: "manual_deadline",
+    reminderDays: [7, 3, 1],
+    includeSameDay: true,
+    includeOverdue: false,
+    now: "2026-08-14T09:00:00+03:00",
+  });
+
+  assert.deepEqual(
+    alarmPlan.alarms.map((alarm) => alarm.triggerAt),
+    [
+      "2026-10-01T09:00:00",
+      "2026-10-05T09:00:00",
+      "2026-10-07T09:00:00",
+      "2026-10-08T09:00:00",
+    ]
+  );
+  assert.ok(
+    alarmPlan.alarms.every(
+      (alarm) => alarm.metadata.eventType === "manual_deadline"
+    )
+  );
+});
+
 test("period-only payment never invents a date from deemed service", () => {
   const plan = planUetsPaymentReminder(
     {

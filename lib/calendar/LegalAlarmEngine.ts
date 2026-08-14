@@ -338,6 +338,28 @@ function getPriority(
   return "normal";
 }
 
+function getSameTimeRank(
+  alarm: LegalAlarmDefinition
+): number {
+  if (alarm.kind === "same_day") {
+    return 4;
+  }
+
+  if (alarm.daysBefore === 1) {
+    return 3;
+  }
+
+  if (alarm.daysBefore === 3) {
+    return 2;
+  }
+
+  if (alarm.daysBefore === 7) {
+    return 1;
+  }
+
+  return 0;
+}
+
 function buildContextText(
   input: LegalAlarmPlanInput
 ): string {
@@ -743,10 +765,24 @@ export class LegalAlarmEngine {
       >();
 
     for (const alarm of alarms) {
-      uniqueMap.set(
-        alarm.id,
-        alarm
-      );
+      const key = [
+        alarm.calendarEventId,
+        alarm.triggerAt,
+      ].join("|");
+
+      const existing =
+        uniqueMap.get(key);
+
+      if (
+        !existing ||
+        getSameTimeRank(alarm) >
+          getSameTimeRank(existing)
+      ) {
+        uniqueMap.set(
+          key,
+          alarm
+        );
+      }
     }
 
     const uniqueAlarms =
