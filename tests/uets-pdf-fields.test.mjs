@@ -144,3 +144,73 @@ test("keeps the existing 2026/318 hearing and deadline context", () => {
   assert.equal(hearing.time, "10:30");
   assert.equal(deadlines[0]?.explicitDate, "2026-08-24");
 });
+
+test("extracts Antalya 2026/742 labelled hearing, parties and case type", () => {
+  const text = `
+    PTT UETS Elektronik Tebligat
+    E-Tebligat Barkod No: 5003007421901
+    Kurum: Antalya 4. Sulh Hukuk Mahkemesi
+    Dosya No: 2026/742
+    Karar No: 2026/981
+
+    UETS teslim tarihi: 17.08.2026 09:12
+    UETS açılma tarihi: 18.08.2026 10:06
+    Tebliğ edilmiş sayılma tarihi: 22.08.2026 23:59
+
+    Duruşmasının 19.11.2026 günü saat 13:30'da yapılmasına karar verilmiştir.
+    Açık/kesin son tarih: 07.09.2026
+
+    DAVACI
+    Selin Yalçın
+    DAVALI
+    Akdeniz Gayrimenkul Yönetim A.Ş.
+    DAVA TÜRÜ / KONU
+    Kira ilişkisinden kaynaklanan alacak ve tahliye istemi
+
+    Gider Avansı: 3.250,00 TL
+    Son ödeme tarihi: 10.09.2026
+    Gider avansının tebliğ edilmiş sayılma tarihinden itibaren iki haftalık süre içerisinde yatırılması gerekir.
+  `;
+
+  const notice = extractUetsNotice(text);
+  const hearing = extractUetsHearingFields(text);
+  const partiesAndSubject = extractUetsPartiesAndSubject(text);
+  const deadlines = extractUetsExplicitDeadlines(text);
+  const payment = extractUetsPaymentFields(text, "antalya-2026-742.pdf");
+
+  assert.equal(notice.court, "Antalya 4. Sulh Hukuk Mahkemesi");
+  assert.equal(notice.fileNo, "2026/742");
+  assert.equal(extractUetsDecisionNo(text), "2026/981");
+  assert.equal(extractUetsBarcodeNo(text), "5003007421901");
+  assert.equal(hearing.date, "2026-11-19");
+  assert.equal(hearing.time, "13:30");
+  assert.equal(
+    partiesAndSubject.parties,
+    "Davacı: Selin Yalçın\nDavalı: Akdeniz Gayrimenkul Yönetim A.Ş."
+  );
+  assert.equal(
+    partiesAndSubject.subject,
+    "Kira ilişkisinden kaynaklanan alacak ve tahliye istemi"
+  );
+  assert.deepEqual(
+    deadlines.filter((item) => item.isExplicitFinalDate).map((item) => item.explicitDate),
+    ["2026-09-07"]
+  );
+  assert.equal(payment.paymentAmount, 3250);
+  assert.equal(payment.paymentDescription, "Gider Avansı");
+  assert.equal(payment.paymentDueDate, "2026-09-10");
+  assert.match(payment.paymentPeriodText, /iki haftalık süre içerisinde/iu);
+});
+
+test("accepts labelled hearing time sentence variants", () => {
+  for (const text of [
+    "Duruşma tarihi: 19.11.2026 günü saat 13:30'da yapılacaktır.",
+    "Duruşma günü: 19.11.2026 günü saat 13:30 yapılacaktır.",
+    "Duruşmasının 19.11.2026 günü saat 13:30'da yapılmasına karar verilmiştir.",
+  ]) {
+    const hearing = extractUetsHearingFields(text);
+
+    assert.equal(hearing.date, "2026-11-19");
+    assert.equal(hearing.time, "13:30");
+  }
+});

@@ -71,7 +71,7 @@ const paymentContextPattern =
 
 export function extractUetsHearingFields(text: string): UetsHearingFields {
   const patterns = [
-    /(?:duruşma(?:sı|nın)?|celse)(?:\s+(?:tarihi|günü))?\s*[:\-]?\s*(\d{1,2}[./-]\d{1,2}[./-]\d{4})(?:\s+günü)?(?:\s+(?:saat|saati)\s*[:\-]?\s*([01]?\d|2[0-3])[:.]([0-5]\d))?/iu,
+    /(?:duruşma(?:sı|sının|nın)?|celse)(?:\s+(?:tarihi|günü))?\s*[:\-]?\s*[^\d\r\n]{0,80}(\d{1,2}[./-]\d{1,2}[./-]\d{4})(?:\s+günü)?(?:\s+(?:saat|saati)\s*[:\-]?\s*([01]?\d|2[0-3])[:.]([0-5]\d)(?:['’](?:da|de))?)?/iu,
     /(?:duruşma\s+tarihi|duruşma\s+günü|celse\s+tarihi)\s*[:\-]?\s*(\d{1,2}[./-]\d{1,2}[./-]\d{4})/iu,
   ];
 
@@ -265,10 +265,27 @@ export function extractUetsPartiesAndSubject(text: string) {
   const parties = text.match(
     /(?:Taraf(?:lar)?|Davacı\s*\/\s*Davalı|Muhatap)\s*[:\-]\s*([^\r\n]{3,300})/iu
   );
-  const subject = text.match(/(?:Konu|Tebligat\s+Konusu)\s*[:\-]\s*([^\r\n]{3,500})/iu);
+  const claimant = text.match(
+    /(?:^|\n)\s*DAVACI\s*[:\-]?\s*(?:\r?\n\s*)?([^\r\n]{3,300})/imu
+  );
+  const defendant = text.match(
+    /(?:^|\n)\s*DAVALI\s*[:\-]?\s*(?:\r?\n\s*)?([^\r\n]{3,300})/imu
+  );
+  const subject =
+    text.match(
+      /(?:^|\n)\s*DAVA\s*TÜRÜ\s*(?:\/\s*KONU)?\s*[:\-]?\s*(?:\r?\n\s*)?([^\r\n]{3,500})/imu
+    ) ||
+    text.match(/(?:Konu|Tebligat\s+Konusu)\s*[:\-]\s*([^\r\n]{3,500})/iu);
+
+  const labelledParties = [
+    claimant?.[1] ? `Davacı: ${cleanSpace(claimant[1])}` : "",
+    defendant?.[1] ? `Davalı: ${cleanSpace(defendant[1])}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   return {
-    parties: parties ? cleanSpace(parties[1]) : "",
+    parties: labelledParties || (parties ? cleanSpace(parties[1]) : ""),
     subject: subject ? cleanSpace(subject[1]) : "",
   };
 }
