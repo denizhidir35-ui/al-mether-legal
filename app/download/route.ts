@@ -6,8 +6,51 @@ const INSTALLER_SHA256 =
 
 const DOWNLOAD_URL =
   "https://github.com/denizhidir35-ui/al-mether-legal/releases/download/v1.0.3/AL-METHER-Legal-Setup.exe";
+const MOBILE_WEB_URL = "https://legal.almether.com";
+
+// Sabit hedef için önceden üretilmiş QR matrisi; runtime bağımlılığı veya dış istek yoktur.
+const MOBILE_QR_MATRIX = [
+  "1111111001000000101111111",
+  "1000001011011011101000001",
+  "1011101001110011101011101",
+  "1011101011010110001011101",
+  "1011101000101010101011101",
+  "1000001010100011001000001",
+  "1111111010101010101111111",
+  "0000000000001001100000000",
+  "1111101111101110010101010",
+  "1110010101000100100100010",
+  "1100001101011001111001011",
+  "1010000101110001011110001",
+  "1110111011011111011010111",
+  "1111010011101000100101010",
+  "1001101011100011011111011",
+  "1011000100100010110110001",
+  "1011011010011110111110100",
+  "0000000011010011100011000",
+  "1111111011100100101010111",
+  "1000001000110001100011000",
+  "1011101011111101111110100",
+  "1011101010010101011011111",
+  "1011101010100110100001101",
+  "1000001011011001101111001",
+  "1111111010001110011111111",
+] as const;
 
 export const dynamic = "force-dynamic";
+
+function renderMobileQrCode() {
+  const modules = MOBILE_QR_MATRIX.flatMap((row, y) =>
+    [...row].map((module, x) => (module === "1" ? `M${x} ${y}h1v1h-1z` : "")),
+  ).join("");
+
+  return `<svg class="desktopQr" viewBox="0 0 33 33" role="img" aria-labelledby="desktopQrTitle desktopQrDescription" shape-rendering="crispEdges">
+    <title id="desktopQrTitle">legal.almether.com QR kodu</title>
+    <desc id="desktopQrDescription">AL METHER Legal'i telefonda açmak için tarayın.</desc>
+    <rect width="33" height="33" rx="1.6" fill="#f8f5ed" />
+    <path d="${modules}" transform="translate(4 4)" fill="#07101f" />
+  </svg>`;
+}
 
 function renderDownloadButton(downloadAvailable: boolean) {
   if (!downloadAvailable) {
@@ -146,7 +189,25 @@ export async function GET() {
               Dosya bütünlüğünü doğrulamak için indirme sonrası SHA-256 değerini karşılaştırabilirsiniz.
             </p>
           </aside>
-          <p class="desktopMobileHint"><strong>Telefonda da kullanın</strong><span>legal.almether.com</span></p>
+          <section class="desktopMobileCard" aria-labelledby="desktopMobileTitle">
+            <div class="desktopMobileCopy">
+              <span class="desktopMobileKicker">MOBİL ERİŞİM</span>
+              <h2 id="desktopMobileTitle">Telefonda da kullanın</h2>
+              <p class="desktopMobileDescription">
+                Kameradan belge çekin, PDF ve fotoğraf yükleyin;<br />
+                davalarınızı ve kritik tarihlerinizi telefondan yönetin.
+              </p>
+              <div class="desktopPlatformGuides">
+                <p><strong>iPhone / iPad</strong><span>Safari → Paylaş → Ana Ekrana Ekle</span></p>
+                <p><strong>Android</strong><span>Chrome → Uygulamayı Yükle / Ana ekrana ekle</span></p>
+              </div>
+              <a class="desktopMobileUrl" href="${MOBILE_WEB_URL}">legal.almether.com</a>
+            </div>
+            <a class="desktopQrLink" href="${MOBILE_WEB_URL}" aria-label="AL METHER Legal'i telefonda aç: legal.almether.com">
+              ${renderMobileQrCode()}
+              <span>Telefonunuzla tarayın</span>
+            </a>
+          </section>
         </div>
       </section>
 
