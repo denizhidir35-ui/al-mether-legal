@@ -55,12 +55,168 @@ body {
 }
 
 .header,
+.mobileInstallSection,
 .hero,
 .footer {
   position: relative;
   z-index: 1;
   width: min(1180px, 100%);
   margin-inline: auto;
+}
+
+.mobileInstallSection {
+  display: none;
+}
+
+.mobileInstallCard {
+  padding: 24px;
+  border: 1px solid rgba(200, 164, 95, 0.24);
+  border-radius: 22px;
+  background: linear-gradient(145deg, rgba(18, 24, 34, 0.96), rgba(8, 13, 22, 0.94));
+  box-shadow: 0 24px 65px rgba(0, 0, 0, 0.38), inset 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.mobileAppIdentity {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.mobileAppIdentity img {
+  width: 58px;
+  height: 58px;
+  border: 1px solid rgba(200, 164, 95, 0.23);
+  border-radius: 16px;
+}
+
+.mobileEyebrow {
+  display: block;
+  margin-bottom: 5px;
+  color: #c8a45f;
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.mobileInstallCard h2 {
+  margin: 0;
+  font-size: clamp(22px, 6.7vw, 31px);
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.mobileLead {
+  margin: 20px 0;
+  color: #aab0bb;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.mobileFeatures {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  list-style: none;
+}
+
+.mobileFeatures li {
+  display: grid;
+  min-height: 46px;
+  align-items: center;
+  padding: 7px;
+  border-block: 1px solid rgba(255, 255, 255, 0.075);
+  color: #d7d3ca;
+  font-size: 8px;
+  font-weight: 750;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.mobileFeatures li + li {
+  border-left: 1px solid rgba(255, 255, 255, 0.075);
+}
+
+.mobileInstallOptions {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.iosInstall,
+.androidInstall {
+  display: grid;
+  gap: 10px;
+}
+
+.iosInstall {
+  display: none;
+}
+
+.platform-ios .iosInstall {
+  display: grid;
+}
+
+.platform-ios .androidInstall {
+  display: none;
+}
+
+.mobilePrimaryButton,
+.mobileWebButton {
+  display: flex;
+  min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 13px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.mobilePrimaryButton {
+  border: 1px solid #d4b56e;
+  background: linear-gradient(135deg, #e0c77f, #aa7e34);
+  color: #090a0d;
+}
+
+button.mobilePrimaryButton {
+  width: 100%;
+  cursor: pointer;
+}
+
+.pwaInstallButton {
+  display: none;
+}
+
+.can-install .pwaInstallButton {
+  display: flex;
+}
+
+.can-install .androidFallback {
+  display: none;
+}
+
+.mobileWebButton {
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.035);
+  color: #e4e0d8;
+}
+
+.mobilePrimaryButton:focus-visible,
+.mobileWebButton:focus-visible {
+  outline: 2px solid #f3d995;
+  outline-offset: 3px;
+}
+
+.iosInstall p,
+.androidInstall p {
+  margin: 0;
+  color: #7f8794;
+  font-size: 10px;
+  line-height: 1.55;
+  text-align: center;
 }
 
 .header {
@@ -259,6 +415,29 @@ a.downloadButton:focus-visible {
   backdrop-filter: blur(24px);
 }
 
+.installerRail {
+  min-width: 0;
+}
+
+.desktopMobileHint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin: 15px 0 0;
+  color: #737c89;
+  font-size: 9px;
+}
+
+.desktopMobileHint strong {
+  color: #aaaead;
+  font-weight: 750;
+}
+
+.desktopMobileHint span {
+  color: #c8a45f;
+}
+
 .installerCard::after {
   content: "";
   position: absolute;
@@ -409,6 +588,11 @@ a.downloadButton:focus-visible {
 }
 
 @media (max-width: 900px) {
+  .mobileInstallSection {
+    display: block;
+    padding-top: 34px;
+  }
+
   .hero {
     grid-template-columns: 1fr;
     gap: 58px;
@@ -421,6 +605,10 @@ a.downloadButton:focus-visible {
 
   .installerCard {
     width: min(560px, 100%);
+  }
+
+  .desktopMobileHint {
+    display: none;
   }
 }
 
@@ -451,6 +639,14 @@ a.downloadButton:focus-visible {
     min-height: auto;
     gap: 46px;
     padding: 54px 0 64px;
+  }
+
+  .mobileInstallSection {
+    padding-top: 24px;
+  }
+
+  .mobileInstallCard {
+    padding: 20px;
   }
 
   .eyebrow {

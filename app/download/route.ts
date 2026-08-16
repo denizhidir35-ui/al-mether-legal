@@ -55,6 +55,7 @@ export async function GET() {
     <title>Windows için İndir | AL METHER Legal</title>
     <link rel="icon" href="/brand/legal-app-icon-light.png" />
     <link rel="stylesheet" href="/download.css" />
+    <script src="/download-install.js" defer></script>
   </head>
   <body>
     <main class="page">
@@ -67,6 +68,44 @@ export async function GET() {
         </a>
         <div class="officialBadge"><b aria-hidden="true">✓</b> Resmî indirme</div>
       </header>
+
+      <section class="mobileInstallSection" aria-labelledby="mobileInstallTitle">
+        <div class="mobileInstallCard">
+          <div class="mobileAppIdentity">
+            <img src="/brand/legal-app-icon-dark.png" alt="" width="58" height="58" />
+            <div>
+              <span class="mobileEyebrow">Mobil çalışma alanı</span>
+              <h2 id="mobileInstallTitle">AL METHER Legal cebinizde.</h2>
+            </div>
+          </div>
+
+          <p class="mobileLead">
+            PDF ve fotoğraf yükleyin, kameradan belge çekin;<br />
+            davalarınızı ve kritik tarihlerinizi telefondan yönetin.
+          </p>
+
+          <ul class="mobileFeatures" aria-label="Mobil özellikler">
+            <li>Kameradan Belge</li>
+            <li>PDF &amp; Fotoğraf</li>
+            <li>Dava</li>
+            <li>Takvim &amp; Alarm</li>
+          </ul>
+
+          <div class="mobileInstallOptions">
+            <div class="iosInstall">
+              <a class="mobilePrimaryButton" href="/inbox">Telefonda Aç</a>
+              <p>Safari <span aria-hidden="true">→</span> Paylaş <span aria-hidden="true">→</span> Ana Ekrana Ekle</p>
+            </div>
+
+            <div class="androidInstall">
+              <button class="mobilePrimaryButton pwaInstallButton" type="button">Uygulamayı Yükle</button>
+              <p class="androidFallback">Chrome <span aria-hidden="true">→</span> Menü <span aria-hidden="true">→</span> Uygulamayı yükle / Ana ekrana ekle</p>
+            </div>
+
+            <a class="mobileWebButton" href="/inbox">Web'de Aç</a>
+          </div>
+        </div>
+      </section>
 
       <section class="hero">
         <div class="copy">
@@ -85,27 +124,30 @@ export async function GET() {
           </div>
         </div>
 
-        <aside class="installerCard" aria-label="Kurulum dosyası bilgileri">
-          <div class="cardTopline"><span>WINDOWS INSTALLER</span><span>v${INSTALLER_VERSION}</span></div>
-          <div class="appIdentity">
-            <div class="appIcon">
-              <img src="/brand/legal-app-icon-dark.png" alt="AL METHER Legal uygulama ikonu" width="76" height="76" />
+        <div class="installerRail">
+          <aside class="installerCard" aria-label="Kurulum dosyası bilgileri">
+            <div class="cardTopline"><span>WINDOWS INSTALLER</span><span>v${INSTALLER_VERSION}</span></div>
+            <div class="appIdentity">
+              <div class="appIcon">
+                <img src="/brand/legal-app-icon-dark.png" alt="AL METHER Legal uygulama ikonu" width="76" height="76" />
+              </div>
+              <div><p>AL METHER Legal</p><span>Windows 10/11</span></div>
             </div>
-            <div><p>AL METHER Legal</p><span>Windows 10/11</span></div>
-          </div>
-          <div class="fileRow">
-            <b class="fileGlyph" aria-hidden="true">▣</b>
-            <div><span>Kurulum dosyası</span><strong>${INSTALLER_NAME}</strong></div>
-            <small>${INSTALLER_SIZE}</small>
-          </div>
-          <div class="checksum">
-            <div><b aria-hidden="true">✓</b><span>SHA-256 doğrulama değeri</span></div>
-            <code>${INSTALLER_SHA256}</code>
-          </div>
-          <p class="securityNote">
-            Dosya bütünlüğünü doğrulamak için indirme sonrası SHA-256 değerini karşılaştırabilirsiniz.
-          </p>
-        </aside>
+            <div class="fileRow">
+              <b class="fileGlyph" aria-hidden="true">▣</b>
+              <div><span>Kurulum dosyası</span><strong>${INSTALLER_NAME}</strong></div>
+              <small>${INSTALLER_SIZE}</small>
+            </div>
+            <div class="checksum">
+              <div><b aria-hidden="true">✓</b><span>SHA-256 doğrulama değeri</span></div>
+              <code>${INSTALLER_SHA256}</code>
+            </div>
+            <p class="securityNote">
+              Dosya bütünlüğünü doğrulamak için indirme sonrası SHA-256 değerini karşılaştırabilirsiniz.
+            </p>
+          </aside>
+          <p class="desktopMobileHint"><strong>Telefonda da kullanın</strong><span>legal.almether.com</span></p>
+        </div>
       </section>
 
       <footer class="footer"><span>© 2026 AL METHER</span><span>Resmî Windows dağıtımı</span></footer>
@@ -118,7 +160,7 @@ export async function GET() {
       "Cache-Control": "public, max-age=0, s-maxage=60",
       "Content-Type": "text/html; charset=utf-8",
       "Content-Security-Policy":
-        "default-src 'none'; img-src 'self'; style-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "default-src 'none'; img-src 'self'; style-src 'self'; script-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
       "Referrer-Policy": "strict-origin-when-cross-origin",
       "X-Content-Type-Options": "nosniff",
     },
