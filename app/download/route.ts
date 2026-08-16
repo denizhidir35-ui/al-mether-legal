@@ -156,14 +156,22 @@ export async function GET() {
             <span class="windowsMark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
             Windows masaüstü uygulaması
           </div>
-          <h1>Hukuk iş akışınız,<span> artık masaüstünde.</span></h1>
+          <h1>Hukuk iş akışınız,<span>artık her yerde.</span></h1>
           <p class="lead">
-            AL METHER Legal'in Windows uygulamasını indirin. Dosyalarınıza,
-            takviminize ve hukuk çalışma alanınıza doğrudan masaüstünüzden erişin.
+            AL METHER Legal’a Windows uygulamasından veya mobil cihazınızdan erişin.<br />
+            Dosyalarınızı, kritik tarihlerinizi ve çalışma alanınızı her yerden yönetin.
           </p>
           <div class="actions">
-            ${renderDownloadButton(downloadAvailable)}
-            <div class="compatibility"><b aria-hidden="true">✓</b> Windows 10 ve Windows 11 ile uyumlu</div>
+            <div class="actionButtons">
+              ${renderDownloadButton(downloadAvailable)}
+              <a class="webOpenButton" href="/inbox">Web’de Aç</a>
+            </div>
+            <div class="compatibility">
+              <b aria-hidden="true">✓</b>
+              <span>Windows 10/11</span><i aria-hidden="true">•</i>
+              <span>Otomatik güncelleme</span><i aria-hidden="true">•</i>
+              <span>SHA-256 doğrulama</span>
+            </div>
           </div>
         </div>
 
@@ -194,18 +202,24 @@ export async function GET() {
               <span class="desktopMobileKicker">MOBİL ERİŞİM</span>
               <h2 id="desktopMobileTitle">Telefonda da kullanın</h2>
               <p class="desktopMobileDescription">
-                Kameradan belge çekin, PDF ve fotoğraf yükleyin;<br />
+                PDF ve fotoğraf yükleyin, kameradan belge çekin;<br />
                 davalarınızı ve kritik tarihlerinizi telefondan yönetin.
               </p>
               <div class="desktopPlatformGuides">
                 <p><strong>iPhone / iPad</strong><span>Safari → Paylaş → Ana Ekrana Ekle</span></p>
                 <p><strong>Android</strong><span>Chrome → Uygulamayı Yükle / Ana ekrana ekle</span></p>
               </div>
+              <ul class="desktopMobileCapabilities" aria-label="Mobil yetenekler">
+                <li><b aria-hidden="true">◉</b>Kamera</li>
+                <li><b aria-hidden="true">▤</b>PDF &amp; Fotoğraf</li>
+                <li><b aria-hidden="true">§</b>Dava</li>
+                <li><b aria-hidden="true">◇</b>Takvim &amp; Alarm</li>
+              </ul>
               <a class="desktopMobileUrl" href="${MOBILE_WEB_URL}">legal.almether.com</a>
             </div>
             <a class="desktopQrLink" href="${MOBILE_WEB_URL}" aria-label="AL METHER Legal'i telefonda aç: legal.almether.com">
               ${renderMobileQrCode()}
-              <span>Telefonunuzla tarayın</span>
+              <span>Kamerayla tarayın</span>
             </a>
           </section>
         </div>

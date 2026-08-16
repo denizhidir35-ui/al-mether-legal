@@ -322,6 +322,7 @@ button.mobilePrimaryButton {
 }
 
 .copy h1 span {
+  display: block;
   color: #c8a45f;
 }
 
@@ -338,6 +339,12 @@ button.mobilePrimaryButton {
   justify-items: start;
   gap: 14px;
   margin-top: 35px;
+}
+
+.actionButtons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .downloadButton {
@@ -363,6 +370,34 @@ a.downloadButton:hover {
 }
 
 a.downloadButton:focus-visible {
+  outline: 2px solid #f3d995;
+  outline-offset: 4px;
+}
+
+.webOpenButton {
+  display: inline-flex;
+  min-height: 64px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 25px;
+  border: 1px solid rgba(200, 164, 95, 0.3);
+  border-radius: 14px;
+  background: rgba(9, 15, 25, 0.68);
+  color: #e5dfd4;
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.webOpenButton:hover {
+  border-color: rgba(224, 199, 127, 0.62);
+  background: rgba(200, 164, 95, 0.09);
+  transform: translateY(-2px);
+}
+
+.webOpenButton:focus-visible {
   outline: 2px solid #f3d995;
   outline-offset: 4px;
 }
@@ -393,10 +428,15 @@ a.downloadButton:focus-visible {
 .compatibility {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   padding-left: 4px;
   color: #7f8794;
   font-size: 10px;
+}
+
+.compatibility i {
+  color: #4f5764;
+  font-style: normal;
 }
 
 .compatibility svg,
@@ -422,13 +462,13 @@ a.downloadButton:focus-visible {
 .desktopMobileCard {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 16px;
+  gap: 18px;
   margin-top: 14px;
-  padding: 16px 17px;
-  border: 1px solid rgba(200, 164, 95, 0.18);
+  padding: 18px 19px;
+  border: 1px solid rgba(200, 164, 95, 0.27);
   border-radius: 18px;
-  background: linear-gradient(145deg, rgba(15, 21, 31, 0.9), rgba(8, 13, 22, 0.86));
-  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28), inset 0 1px rgba(255, 255, 255, 0.035);
+  background: linear-gradient(145deg, rgba(19, 26, 37, 0.95), rgba(9, 15, 24, 0.92));
+  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.34), inset 0 1px rgba(255, 255, 255, 0.045);
   backdrop-filter: blur(20px);
 }
 
@@ -440,7 +480,7 @@ a.downloadButton:focus-visible {
   display: block;
   margin-bottom: 4px;
   color: #c8a45f;
-  font-size: 7px;
+  font-size: 8px;
   font-weight: 850;
   letter-spacing: 0.16em;
 }
@@ -448,30 +488,30 @@ a.downloadButton:focus-visible {
 .desktopMobileCard h2 {
   margin: 0;
   color: #ece8df;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 800;
   letter-spacing: -0.02em;
 }
 
 .desktopMobileDescription {
-  margin: 7px 0 8px;
-  color: #8e96a3;
-  font-size: 8px;
-  line-height: 1.45;
+  margin: 7px 0 9px;
+  color: #9ca3ae;
+  font-size: 9px;
+  line-height: 1.5;
 }
 
 .desktopPlatformGuides {
   display: grid;
-  gap: 4px;
+  gap: 5px;
 }
 
 .desktopPlatformGuides p {
   display: grid;
   margin: 0;
-  grid-template-columns: 65px minmax(0, 1fr);
+  grid-template-columns: 72px minmax(0, 1fr);
   gap: 7px;
   color: #777f8c;
-  font-size: 7px;
+  font-size: 8px;
   line-height: 1.35;
 }
 
@@ -480,11 +520,41 @@ a.downloadButton:focus-visible {
   font-weight: 750;
 }
 
+.desktopMobileCapabilities {
+  display: grid;
+  margin: 10px 0 0;
+  padding: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  list-style: none;
+}
+
+.desktopMobileCapabilities li {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  padding: 5px 3px;
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.025);
+  color: #8d949f;
+  font-size: 6px;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.desktopMobileCapabilities b {
+  color: #c8a45f;
+  font-size: 8px;
+  line-height: 1;
+}
+
 .desktopMobileUrl {
   display: inline-block;
   margin-top: 8px;
   color: #c8a45f;
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.025em;
   text-decoration: none;
@@ -495,7 +565,7 @@ a.downloadButton:focus-visible {
   align-self: center;
   gap: 5px;
   color: #737b88;
-  font-size: 6px;
+  font-size: 7px;
   font-weight: 750;
   text-align: center;
   text-decoration: none;
@@ -503,8 +573,8 @@ a.downloadButton:focus-visible {
 
 .desktopQr {
   display: block;
-  width: 92px;
-  height: 92px;
+  width: 104px;
+  height: 104px;
   padding: 5px;
   border: 1px solid rgba(200, 164, 95, 0.2);
   border-radius: 11px;
@@ -671,6 +741,163 @@ a.downloadButton:focus-visible {
   text-transform: uppercase;
 }
 
+@media (min-width: 901px) {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .page {
+    display: grid;
+    height: 100dvh;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    overflow: hidden;
+  }
+
+  .header {
+    min-height: clamp(72px, 8.5vh, 92px);
+  }
+
+  .hero {
+    height: 100%;
+    min-height: 0;
+    gap: clamp(36px, 6vw, 88px);
+    padding: clamp(16px, 2.8vh, 30px) 0;
+  }
+
+  .eyebrow {
+    margin-bottom: clamp(12px, 1.8vh, 20px);
+  }
+
+  .copy h1 {
+    font-size: clamp(42px, min(5vw, 7.8vh), 72px);
+  }
+
+  .lead {
+    margin-top: clamp(14px, 2vh, 22px);
+    font-size: clamp(14px, 1.25vw, 17px);
+    line-height: 1.6;
+  }
+
+  .actions {
+    gap: clamp(9px, 1.3vh, 13px);
+    margin-top: clamp(18px, 2.8vh, 28px);
+  }
+
+  .downloadButton,
+  .webOpenButton {
+    min-height: clamp(52px, 6.6vh, 62px);
+  }
+
+  .downloadButton {
+    min-width: 260px;
+  }
+
+  .installerCard {
+    padding: clamp(18px, 2.4vh, 28px);
+    border-radius: 20px;
+  }
+
+  .appIdentity {
+    gap: 15px;
+    padding: clamp(16px, 2.5vh, 24px) 0;
+  }
+
+  .appIcon {
+    width: clamp(58px, 7.2vh, 70px);
+    height: clamp(58px, 7.2vh, 70px);
+    border-radius: 17px;
+  }
+
+  .appIdentity p {
+    font-size: clamp(17px, 2.1vh, 19px);
+  }
+
+  .fileRow {
+    padding: clamp(11px, 1.55vh, 15px);
+  }
+
+  .checksum {
+    margin-top: clamp(8px, 1.2vh, 12px);
+    padding: clamp(10px, 1.5vh, 14px);
+  }
+
+  .checksum > div {
+    margin-bottom: clamp(7px, 1vh, 10px);
+  }
+
+  .securityNote {
+    margin-top: clamp(8px, 1.2vh, 12px);
+    font-size: 7.5px;
+  }
+
+  .desktopMobileCard {
+    gap: 14px;
+    margin-top: clamp(8px, 1.5vh, 12px);
+    padding: clamp(11px, 1.55vh, 15px);
+    border-radius: 16px;
+  }
+
+  .desktopMobileKicker {
+    margin-bottom: 3px;
+    font-size: 7px;
+  }
+
+  .desktopMobileCard h2 {
+    font-size: clamp(14px, 1.9vh, 16px);
+  }
+
+  .desktopMobileDescription {
+    margin: 5px 0 6px;
+    font-size: 8px;
+    line-height: 1.4;
+  }
+
+  .desktopPlatformGuides {
+    gap: 3px;
+  }
+
+  .desktopPlatformGuides p {
+    grid-template-columns: 65px minmax(0, 1fr);
+    gap: 6px;
+    font-size: 7px;
+    line-height: 1.25;
+  }
+
+  .desktopMobileCapabilities {
+    gap: 3px;
+    margin-top: 6px;
+  }
+
+  .desktopMobileCapabilities li {
+    gap: 1px;
+    padding: 3px 2px;
+  }
+
+  .desktopMobileUrl {
+    margin-top: 5px;
+    font-size: 8px;
+  }
+
+  .desktopQrLink {
+    gap: 4px;
+    font-size: 6px;
+  }
+
+  .desktopQr {
+    width: clamp(78px, 10.5vh, 96px);
+    height: clamp(78px, 10.5vh, 96px);
+    padding: 4px;
+    border-radius: 10px;
+  }
+
+  .footer {
+    min-height: clamp(32px, 4vh, 44px);
+  }
+}
+
 @media (max-width: 900px) {
   .mobileInstallSection {
     display: block;
@@ -685,6 +912,10 @@ a.downloadButton:focus-visible {
 
   .copy {
     max-width: 720px;
+  }
+
+  .webOpenButton {
+    display: none;
   }
 
   .installerCard {
@@ -752,9 +983,18 @@ a.downloadButton:focus-visible {
     margin-top: 29px;
   }
 
+  .actionButtons {
+    width: 100%;
+  }
+
   .downloadButton {
     width: 100%;
     min-width: 0;
+  }
+
+  .compatibility {
+    flex-wrap: wrap;
+    row-gap: 4px;
   }
 
   .installerCard {
@@ -787,7 +1027,8 @@ a.downloadButton:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .downloadButton {
+  .downloadButton,
+  .webOpenButton {
     transition: none;
   }
 }
