@@ -1,11 +1,11 @@
 const INSTALLER_NAME = "AL-METHER-Legal-Setup.exe";
-const INSTALLER_SIZE = "11.156.026 bayt";
-const INSTALLER_VERSION = "1.0.3.0";
+const INSTALLER_SIZE = "11.157.317 bayt";
+const INSTALLER_VERSION = "1.0.4.0";
 const INSTALLER_SHA256 =
-  "6F64C62F94E3141C0667421DF1F31C63DDFB80B11962F8EF777DCDE2F6DB6621";
+  "8A1C12E501036B970BC5E7B58FB6EFF5A6896D87BCBF714B438336059BE956B9";
 
 const DOWNLOAD_URL =
-  "https://github.com/denizhidir35-ui/al-mether-legal/releases/download/v1.0.3/AL-METHER-Legal-Setup.exe";
+  "https://github.com/denizhidir35-ui/al-mether-legal/releases/download/v1.0.4/AL-METHER-Legal-Setup.exe";
 const MOBILE_WEB_URL = "https://legal.almether.com";
 
 // Sabit hedef için önceden üretilmiş QR matrisi; runtime bağımlılığı veya dış istek yoktur.
