@@ -14,6 +14,10 @@ import {
   MANUAL_REMINDER_EVENT_TYPE,
   MANUAL_REMINDER_SOURCE,
 } from "../lib/legal/manualReminder.ts";
+import {
+  getManualReminderPresentation,
+  sortCalendarEventsForDisplay,
+} from "../lib/calendar/calendarDisplay.ts";
 
 function createFixtureStore() {
   const state = {
@@ -30,6 +34,8 @@ function createFixtureStore() {
       },
     ],
     reminders: [],
+    calendarEvents: [],
+    alarms: [],
     legalDeadlines: [],
   };
 
@@ -50,13 +56,34 @@ function createFixtureStore() {
       ) || null;
     },
     async create(userId, _caseTitle, plan) {
+      const calendarEvent = {
+        id:
+          `event-${state.calendarEvents.length + 1}`,
+        user_id: userId,
+        case_id: plan.caseId,
+        title:
+          "Örnek Dava — Manuel hatırlatma",
+        description:
+          plan.note || null,
+        event_type: plan.eventType,
+        start_date: plan.date,
+        end_date: plan.date,
+        source: plan.source,
+        raw: {
+          manualReminder: true,
+          reminderAt: plan.alarmAt,
+          userEnteredDate: plan.date,
+          userEnteredTime: plan.time,
+          note: plan.note,
+        },
+      };
       const reminder = {
         id:
           `reminder-${state.reminders.length + 1}`,
         user_id: userId,
         case_id: plan.caseId,
         calendar_event_id:
-          `event-${state.reminders.length + 1}`,
+          calendarEvent.id,
         alarm_time: plan.alarmAt,
         alarm_type:
           MANUAL_REMINDER_EVENT_TYPE,
@@ -72,6 +99,10 @@ function createFixtureStore() {
           plan.dedupeKey,
       };
 
+      state.calendarEvents.push(
+        calendarEvent
+      );
+      state.alarms.push(reminder);
       state.reminders.push(
         reminder
       );
@@ -117,6 +148,98 @@ test("own case manual alarm is created without a legal deadline", async () => {
     fixture.state.legalDeadlines,
     []
   );
+  assert.equal(
+    fixture.state.calendarEvents.length,
+    1
+  );
+  assert.equal(
+    fixture.state.alarms.length,
+    1
+  );
+  assert.equal(
+    fixture.state.alarms[0].calendar_event_id,
+    fixture.state.calendarEvents[0].id
+  );
+});
+
+test("manual reminder is returned and presented on its calendar day with exact time and note", async () => {
+  const fixture = createFixtureStore();
+
+  await createOwnedManualReminder(
+    fixture.store,
+    "user-1",
+    {
+      caseId: "case-own",
+      date: "2026-08-23",
+      time: "09:30",
+      note: "Müvekkili ara",
+    }
+  );
+
+  const apiEvents =
+    fixture.state.calendarEvents
+      .filter(
+        (event) =>
+          event.user_id === "user-1" &&
+          event.start_date >= "2026-08-01" &&
+          event.start_date <= "2026-08-31"
+      )
+      .map((event) => ({
+        id: event.id,
+        title: event.title,
+        description:
+          event.description || "",
+        startDate: event.start_date,
+        eventType: event.event_type,
+        source: event.source,
+        raw: event.raw,
+      }));
+
+  assert.equal(apiEvents.length, 1);
+  assert.equal(
+    apiEvents[0].eventType,
+    "manual_reminder"
+  );
+
+  const presentation =
+    getManualReminderPresentation(
+      apiEvents[0]
+    );
+
+  assert.deepEqual(presentation, {
+    caseTitle: "Örnek Dava",
+    date: "2026-08-23",
+    time: "09:30",
+    note: "Müvekkili ara",
+    typeLabel: "Manuel Hatırlatma",
+    sourceLabel: "Kullanıcı hatırlatması",
+  });
+  assert.equal(
+    fixture.state.alarms[0].alarm_time,
+    "2026-08-23T09:30:00+03:00"
+  );
+  assert.equal(
+    new Date(
+      fixture.state.alarms[0].alarm_time
+    ).getUTCDay(),
+    0
+  );
+
+  const sorted =
+    sortCalendarEventsForDisplay([
+      {
+        ...apiEvents[0],
+        id: "later",
+        raw: {
+          ...apiEvents[0].raw,
+          reminderAt:
+            "2026-08-23T10:30:00+03:00",
+        },
+      },
+      apiEvents[0],
+    ]);
+
+  assert.equal(sorted[0].id, apiEvents[0].id);
 });
 
 test("manual reminder ownership guard hides another user's case", async () => {
@@ -269,6 +392,44 @@ test("manual reminder route enforces ownership and does not use legal engines", 
   );
 });
 
+test("calendar API exposes manual reminder type and calendar UI renders its time, note and detail", async () => {
+  const apiSource = await readFile(
+    new URL(
+      "../app/api/calendar-events/route.ts",
+      import.meta.url
+    ),
+    "utf8"
+  );
+  const calendarSource = await readFile(
+    new URL(
+      "../app/calendar/page.tsx",
+      import.meta.url
+    ),
+    "utf8"
+  );
+
+  assert.match(
+    apiSource,
+    /eventType:\s*event\.event_type \|\| ""/
+  );
+  assert.doesNotMatch(
+    apiSource,
+    /\.neq\(\s*"event_type",\s*"manual_reminder"/
+  );
+  assert.match(
+    calendarSource,
+    /getManualReminderPresentation\([\s\S]*?manual\.time[\s\S]*?manual\.note/
+  );
+  assert.match(
+    calendarSource,
+    /<span>Dava<\/span>[\s\S]*?<span>Saat<\/span>[\s\S]*?<span>Not<\/span>/
+  );
+  assert.match(
+    calendarSource,
+    /selectedManualReminder\.sourceLabel/
+  );
+});
+
 test("automatic date-only fallback is scoped without changing UETS default", async () => {
   const casesSource = await readFile(
     new URL(
@@ -352,6 +513,10 @@ test("manual reminder UI has 09:00 default and responsive desktop/mobile layout"
   assert.match(
     source,
     /Manuel hatırlatmalar[\s\S]*?formatReminderDate\([\s\S]*?formatTime\([\s\S]*?reminder\.message/
+  );
+  assert.match(
+    source,
+    /if \(data\.reminder\)[\s\S]*?setManualReminders\([\s\S]*?data\.reminder/
   );
   assert.match(
     source,

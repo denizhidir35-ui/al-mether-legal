@@ -11,7 +11,10 @@ import {
   ALARM_LOAD_ERROR_MESSAGE,
   readAlarmApiResponse,
 } from "@/lib/calendar/alarmApiResponse";
-import { sortCalendarEventsForDisplay } from "@/lib/calendar/calendarDisplay";
+import {
+  getManualReminderPresentation,
+  sortCalendarEventsForDisplay,
+} from "@/lib/calendar/calendarDisplay";
 
 type CalendarEvent = {
   id: string;
@@ -22,6 +25,8 @@ type CalendarEvent = {
   risk?: string;
   source?: string;
   sourceId?: string;
+  caseId?: string;
+  eventType?: string;
   raw?: unknown;
 };
 
@@ -145,6 +150,12 @@ function formatLongDate(value: string): string {
 }
 
 function getEventKind(event: CalendarEvent) {
+  if (
+    getManualReminderPresentation(event)
+  ) {
+    return "manual";
+  }
+
   const text = [
     event.title,
     event.description,
@@ -181,6 +192,10 @@ function getEventKind(event: CalendarEvent) {
 
 function getKindLabel(event: CalendarEvent): string {
   const kind = getEventKind(event);
+
+  if (kind === "manual") {
+    return "Manuel Hatırlatma";
+  }
 
   if (kind === "service") {
     return "Tebliğ tarihi";
@@ -551,6 +566,12 @@ export default function CalendarPage() {
     getCalendarRaw(
       selectedEvent?.raw
     );
+  const selectedManualReminder =
+    selectedEvent
+      ? getManualReminderPresentation(
+          selectedEvent
+        )
+      : null;
 
   useEffect(() => {
     async function loadAttachments() {
@@ -10402,16 +10423,25 @@ export default function CalendarPage() {
                         <span className="event-dots">
                           {dayEvents
                             .slice(0, 2)
-                            .map((event) => (
-                              <span
-                                key={event.id}
-                                className={`event-chip ${getEventKind(
+                            .map((event) => {
+                              const manual =
+                                getManualReminderPresentation(
                                   event
-                                )}`}
-                              >
-                                {event.title}
-                              </span>
-                            ))}
+                                );
+
+                              return (
+                                <span
+                                  key={event.id}
+                                  className={`event-chip ${getEventKind(
+                                    event
+                                  )}`}
+                                >
+                                  {manual
+                                    ? `${manual.time} — ${manual.note}`
+                                    : event.title}
+                                </span>
+                              );
+                            })}
 
                           {dayEvents.length > 2 && (
                             <span className="event-count-chip">
@@ -10557,6 +10587,32 @@ export default function CalendarPage() {
                       )}
 
                       <div className="detail-grid">
+                        {selectedManualReminder && (
+                          <>
+                            <div className="detail-row">
+                              <span>Dava</span>
+                              <strong>
+                                {selectedManualReminder.caseTitle}
+                              </strong>
+                            </div>
+
+                            <div className="detail-row">
+                              <span>Saat</span>
+                              <strong>
+                                {selectedManualReminder.time ||
+                                  "Bilgi yok"}
+                              </strong>
+                            </div>
+
+                            <div className="detail-row">
+                              <span>Not</span>
+                              <strong>
+                                {selectedManualReminder.note}
+                              </strong>
+                            </div>
+                          </>
+                        )}
+
                         <div className="detail-row">
                           <span>Tür</span>
                           <strong>
@@ -10576,8 +10632,10 @@ export default function CalendarPage() {
                         <div className="detail-row">
                           <span>Kaynak</span>
                           <strong>
-                            {selectedEvent.source ||
-                              "METHER LAWYER"}
+                            {selectedManualReminder
+                              ? selectedManualReminder.sourceLabel
+                              : selectedEvent.source ||
+                                "METHER LAWYER"}
                           </strong>
                         </div>
 

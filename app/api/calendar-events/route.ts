@@ -12,6 +12,8 @@ import { isTestOrDevRecord } from "@/lib/testRecordVisibility";
 type CalendarEventRow = {
   id: string;
   legal_event_id: string;
+  case_id: string | null;
+  event_type: string | null;
   title: string;
   description: string | null;
   start_date: string;
@@ -163,6 +165,10 @@ export async function GET(
         id: event.id,
         legalEventId:
           event.legal_event_id,
+        caseId:
+          event.case_id || "",
+        eventType:
+          event.event_type || "",
         title: event.title,
         description:
           event.description || "",
