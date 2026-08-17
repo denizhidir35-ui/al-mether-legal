@@ -159,12 +159,15 @@ test("analysis is editable before either create action", () => {
     "fileNo",
     "decisionNo",
     "parties",
+    "lawyers",
     "subject",
     "hearingDate",
     "explicitDeadline",
     "caseValue",
     "caseValueCurrency",
     "resultAndRequest",
+    "documentDate",
+    "interimMeasureRequested",
     "paymentAmount",
     "paymentDescription",
     "paymentPeriodText",
@@ -185,6 +188,10 @@ test("analysis is editable before either create action", () => {
   assert.match(
     casesSource,
     /Davayı Oluştur ve Takvime Ekle/
+  );
+  assert.match(
+    analysisRoute,
+    /lawyers,[\s\S]*?documentDate,[\s\S]*?interimMeasureRequested,/
   );
 });
 

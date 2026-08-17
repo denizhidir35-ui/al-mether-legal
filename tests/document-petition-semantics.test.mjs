@@ -3,10 +3,61 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  extractUetsAddresseeCourt,
   extractUetsCaseValueFields,
+  extractUetsDocumentDate,
+  extractUetsExplicitDeadlines,
+  extractUetsHearingFields,
+  extractUetsInterimMeasureRequested,
+  extractUetsLawyers,
+  extractUetsPartiesAndSubject,
   extractUetsPaymentFields,
   extractUetsResultAndRequest,
 } from "../lib/legal/uetsPdfFields.ts";
+
+async function readPdfTextLayer(path) {
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const bytes = await readFile(path);
+  const loadingTask = pdfjs.getDocument({
+    data: new Uint8Array(bytes),
+    disableWorker: true,
+  });
+  const pdf = await loadingTask.promise;
+  const pages = [];
+
+  try {
+    for (let pageNo = 1; pageNo <= pdf.numPages; pageNo += 1) {
+      const page = await pdf.getPage(pageNo);
+      const content = await page.getTextContent();
+      const parts = [];
+
+      for (const item of content.items) {
+        if (!("str" in item)) {
+          continue;
+        }
+
+        if (item.str) {
+          parts.push(String(item.str));
+        }
+
+        parts.push(item.hasEOL ? "\n" : " ");
+      }
+
+      pages.push(
+        parts
+          .join("")
+          .replace(/\r/g, "")
+          .replace(/[ \t]+/g, " ")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim()
+      );
+    }
+  } finally {
+    await loadingTask.destroy();
+  }
+
+  return pages.join("\n\n--- SAYFA ---\n\n");
+}
 
 const petition = `
 ANKARA 4. İŞ MAHKEMESİNE
@@ -79,6 +130,55 @@ test("supports every requested result/request heading variant", () => {
   }
 });
 
+test("court addressee variants outrank related case references", () => {
+  assert.equal(
+    extractUetsAddresseeCourt(
+      "İZMİR 4. İŞ MAHKEMESİ'NE\nAnkara 23. Aile Mahkemesi 2024/272 E."
+    ),
+    "İzmir 4. İş Mahkemesi"
+  );
+});
+
+test("real Rahman petition extracts only the five missing fields", async () => {
+  const text = await readPdfTextLayer(
+    new URL("./fixtures/rahman-real-petition.pdf", import.meta.url)
+  );
+  const parties = extractUetsPartiesAndSubject(text);
+  const payment = extractUetsPaymentFields(
+    text,
+    "rahman-real-petition.pdf"
+  );
+  const resultAndRequest = extractUetsResultAndRequest(text);
+
+  assert.equal(
+    extractUetsAddresseeCourt(text),
+    "Ankara Nöbetçi Aile Mahkemesi"
+  );
+  assert.deepEqual(extractUetsLawyers(text), [
+    "Av. Muhammed AVCI",
+    "Av. Rahman AKINCI",
+  ]);
+  assert.equal(extractUetsDocumentDate(text), "2024-05-15");
+  assert.equal(extractUetsInterimMeasureRequested(text), true);
+  assert.match(resultAndRequest, /Yukarıda arz ve izah edilen/iu);
+  assert.match(resultAndRequest, /Yargılama\s+giderleri/iu);
+  assert.doesNotMatch(resultAndRequest, /DAVACI\s+VEKİLİ/iu);
+  assert.doesNotMatch(resultAndRequest, /15\/05\/2024/u);
+
+  assert.match(parties.parties, /Davacı:\s*Sebahat KELEBEK/iu);
+  assert.match(parties.parties, /Davalı:\s*Soner KELEBEK/iu);
+  assert.deepEqual(extractUetsCaseValueFields(text), {
+    caseValue: 30050,
+    caseValueCurrency: "TRY",
+  });
+  assert.equal(payment.paymentAmount, null);
+  assert.equal(payment.paymentDueDate, "");
+  assert.notEqual(resultAndRequest, payment.paymentDescription);
+  assert.equal(extractUetsHearingFields(text).found, false);
+  assert.deepEqual(extractUetsExplicitDeadlines(text), []);
+  assert.match(text, /Ankara 23\. Aile Mahkemesi 2024\/272 E\./iu);
+});
+
 test("existing UETS payment contexts remain intact", () => {
   const fixtures = [
     ["2026/52", "İstinaf avansı 1.500,00 TL'nin iki haftalık süre içerisinde yatırılması gerekir.", 1500],
@@ -117,4 +217,8 @@ test("case value and result/request never participate in calendar conditions", a
 
   assert.ok(calendarCondition);
   assert.doesNotMatch(calendarCondition, /caseValue|resultAndRequest/);
+  assert.doesNotMatch(
+    calendarCondition,
+    /lawyers|documentDate|interimMeasureRequested/
+  );
 });

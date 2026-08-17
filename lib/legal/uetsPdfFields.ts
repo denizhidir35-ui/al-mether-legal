@@ -67,6 +67,64 @@ function normalizeCurrency(value: string) {
   return currency;
 }
 
+function toTurkishTitleCase(value: string) {
+  return value
+    .toLocaleLowerCase("tr-TR")
+    .replace(
+      /(^|[\s(/-])(\p{L})/gu,
+      (_, prefix: string, letter: string) =>
+        `${prefix}${letter.toLocaleUpperCase("tr-TR")}`
+    );
+}
+
+export function extractUetsAddresseeCourt(text: string) {
+  const upperText = text.toLocaleUpperCase("tr-TR");
+  const match = upperText.match(
+    /(?<![A-ZÇĞİÖŞÜ])((?:(?:[A-ZÇĞİÖŞÜ]+|\d{1,3}\.)\s+){1,4}(?:AİLE|İŞ|ASLİYE\s+HUKUK|SULH\s+HUKUK|İCRA\s+HUKUK|AĞIR\s+CEZA|ASLİYE\s+CEZA|TÜKETİCİ|İDARE|VERGİ|TİCARET)\s+MAHKEMESİ)(?:\s+(?:SAYIN\s+)?HAKİMLİĞİ\s*['’]?\s*NE|\s*['’]?\s*NE)\b/u
+  );
+
+  return match?.[1]
+    ? toTurkishTitleCase(cleanSpace(match[1]))
+    : "";
+}
+
+export function extractUetsLawyers(text: string) {
+  const lawyerPattern =
+    /\bAv\.?\s*(\p{Lu}[\p{L}'’-]*(?:[ \t]+\p{Lu}[\p{L}'’-]*){0,2}?[ \t]+\p{Lu}[\p{Lu}'’-]{1,})\b/gu;
+  const lawyers: string[] = [];
+  const seen = new Set<string>();
+
+  for (const match of text.matchAll(lawyerPattern)) {
+    const name = cleanSpace(match[1]);
+    const identity = name.toLocaleLowerCase("tr-TR");
+
+    if (seen.has(identity)) {
+      continue;
+    }
+
+    seen.add(identity);
+    lawyers.push(`Av. ${name}`);
+  }
+
+  return lawyers.slice(0, 12);
+}
+
+export function extractUetsDocumentDate(text: string) {
+  const tail = text.slice(Math.max(0, Math.floor(text.length * 0.6)));
+  const signatureDatePattern =
+    /(\d{1,2}[./-]\d{1,2}[./-]\d{4})(?=[\s\S]{0,180}\b(?:DAVACI\s+VEKİLİ|DAVALI\s+VEKİLİ|VEKİLİ|İMZA|EKLER)\b)/giu;
+  const matches = Array.from(tail.matchAll(signatureDatePattern));
+  const value = matches.at(-1)?.[1] || "";
+
+  return value ? toIsoDate(value) : "";
+}
+
+export function extractUetsInterimMeasureRequested(text: string) {
+  return /\b(?:TEDBİR\s+TALEPLİDİR|İHTİYATİ\s+TEDBİR\s+TALEBİMİZ)\b/iu.test(
+    text
+  );
+}
+
 function contextAround(text: string, index: number, length: number) {
   return cleanSpace(text.slice(Math.max(0, index - 140), index + length + 180)).slice(0, 500);
 }
@@ -132,31 +190,24 @@ export function extractUetsCaseValueFields(
 export function extractUetsResultAndRequest(
   text: string
 ) {
-  const lines = text.replace(/\r/g, "").split("\n");
-  const headingPattern =
-    /^\s*(?:SONUÇ\s+VE\s+(?:İSTEM|TALEP)|NETİCE\s+VE\s+TALEP)\s*:?\s*$/iu;
-  const endingPattern =
-    /^\s*(?:EKLER|DAVACI(?:\s+VEKİLİ)?|DAVALI(?:\s+VEKİLİ)?|VEKİLİ|TARİH|İMZA)\s*:?\s*$/iu;
-  const headingIndex = lines.findIndex((line) => headingPattern.test(line));
+  const normalized = text.replace(/\r/g, "");
+  const heading = normalized.match(
+    /\b(?:SONUÇ\s+VE\s+(?:İSTEM|TALEP)|NETİCE\s+VE\s+TALEP)\s*:?\s*/iu
+  );
 
-  if (headingIndex < 0) {
+  if (!heading || heading.index === undefined) {
     return "";
   }
 
-  const result: string[] = [];
+  const remainder = normalized.slice(heading.index + heading[0].length);
+  const ending = remainder.toLocaleUpperCase("tr-TR").match(
+    /(?:DAVACI\s+VEKİLİ|DAVALI\s+VEKİLİ|VEKİLİ|İMZA)|EKLER\s*:/u
+  );
+  const section = remainder
+    .slice(0, ending?.index ?? remainder.length)
+    .replace(/\s*\b\d{1,2}[./-]\d{1,2}[./-]\d{4}\s*$/u, "");
 
-  for (let index = headingIndex + 1; index < lines.length; index += 1) {
-    const line = lines[index];
-
-    if (endingPattern.test(line) && result.some((item) => item.trim())) {
-      break;
-    }
-
-    result.push(line);
-  }
-
-  return result
-    .join("\n")
+  return section
     .replace(/\n{3,}/g, "\n\n")
     .trim()
     .slice(0, 12_000);

@@ -107,6 +107,7 @@ type DocumentCasePreview = {
   fileNo: string;
   decisionNo: string;
   parties: string;
+  lawyers: string;
   subject: string;
   caseType: string;
   barcodeNo: string;
@@ -116,6 +117,8 @@ type DocumentCasePreview = {
   caseValue: string;
   caseValueCurrency: string;
   resultAndRequest: string;
+  documentDate: string;
+  interimMeasureRequested: boolean;
   paymentAmount: string;
   paymentCurrency: string;
   paymentDescription: string;
@@ -131,6 +134,7 @@ const EMPTY_DOCUMENT_PREVIEW:
     fileNo: "",
     decisionNo: "",
     parties: "",
+    lawyers: "",
     subject: "",
     caseType: "Hukuki Belge",
     barcodeNo: "",
@@ -140,6 +144,8 @@ const EMPTY_DOCUMENT_PREVIEW:
     caseValue: "",
     caseValueCurrency: "",
     resultAndRequest: "",
+    documentDate: "",
+    interimMeasureRequested: false,
     paymentAmount: "",
     paymentCurrency: "",
     paymentDescription: "",
@@ -1213,7 +1219,7 @@ export default function CasesPage() {
 
   function updateDocumentPreview(
     field: keyof DocumentCasePreview,
-    value: string
+    value: string | boolean
   ) {
     setDocumentPreview(
       (current) =>
@@ -1309,6 +1315,10 @@ export default function CasesPage() {
           document.decisionNo || "",
         parties:
           document.parties || "",
+        lawyers:
+          Array.isArray(document.lawyers)
+            ? document.lawyers.join("\n")
+            : "",
         subject:
           document.subject || "",
         caseType:
@@ -1333,6 +1343,11 @@ export default function CasesPage() {
         resultAndRequest:
           document.resultAndRequest ||
           "",
+        documentDate:
+          document.documentDate || "",
+        interimMeasureRequested:
+          document.interimMeasureRequested ===
+          true,
         paymentAmount:
           typeof payment.paymentAmount ===
             "number"
@@ -6488,6 +6503,19 @@ export default function CasesPage() {
                   </label>
 
                   <label>
+                    <span>Avukatlar</span>
+                    <textarea
+                      value={documentPreview.lawyers}
+                      onChange={(event) =>
+                        updateDocumentPreview(
+                          "lawyers",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
                     <span>Dava türü / Konu</span>
                     <textarea
                       value={documentPreview.subject}
@@ -6590,6 +6618,34 @@ export default function CasesPage() {
                         updateDocumentPreview(
                           "resultAndRequest",
                           event.target.value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    <span>Belge tarihi</span>
+                    <input
+                      type="date"
+                      value={documentPreview.documentDate}
+                      onChange={(event) =>
+                        updateDocumentPreview(
+                          "documentDate",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    <span>İhtiyati tedbir talebi</span>
+                    <input
+                      type="checkbox"
+                      checked={documentPreview.interimMeasureRequested}
+                      onChange={(event) =>
+                        updateDocumentPreview(
+                          "interimMeasureRequested",
+                          event.target.checked
                         )
                       }
                     />

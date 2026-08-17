@@ -20,12 +20,16 @@ import {
   resolveLegalImageMimeType,
 } from "@/lib/legal/imageNormalization";
 import {
+  extractUetsAddresseeCourt,
   extractUetsBarcodeNo,
   extractUetsCaseValueFields,
   extractUetsDateInformation,
   extractUetsDecisionNo,
+  extractUetsDocumentDate,
   extractUetsExplicitDeadlines,
   extractUetsHearingFields,
+  extractUetsInterimMeasureRequested,
+  extractUetsLawyers,
   extractUetsPartiesAndSubject,
   extractUetsPaymentFields,
   extractUetsResultAndRequest,
@@ -828,6 +832,7 @@ export async function POST(
       extractUetsNotice(text);
 
     const court =
+      extractUetsAddresseeCourt(text) ||
       extractCourt(text) ||
       extractedUets.court;
 
@@ -876,6 +881,17 @@ export async function POST(
 
     const resultAndRequest =
       extractUetsResultAndRequest(
+        text
+      );
+
+    const lawyers =
+      extractUetsLawyers(text);
+
+    const documentDate =
+      extractUetsDocumentDate(text);
+
+    const interimMeasureRequested =
+      extractUetsInterimMeasureRequested(
         text
       );
 
@@ -983,6 +999,12 @@ export async function POST(
         caseValue.caseValueCurrency,
 
       resultAndRequest,
+
+      lawyers,
+
+      documentDate,
+
+      interimMeasureRequested,
 
       payment,
 
