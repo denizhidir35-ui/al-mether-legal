@@ -223,6 +223,17 @@ export async function POST(
     const recordMode =
       resolveRecordMode(body);
 
+    const requestedNotificationHour =
+      typeof body.notification_hour ===
+        "number" &&
+      Number.isInteger(
+        body.notification_hour
+      ) &&
+      body.notification_hour >= 0 &&
+      body.notification_hour <= 23
+        ? body.notification_hour
+        : 9;
+
     const paymentPlan =
       planUetsPaymentReminder(
         {
@@ -1072,7 +1083,7 @@ export async function POST(
           false,
 
         notificationHour:
-          9,
+          requestedNotificationHour,
 
         notificationMinute:
           0,

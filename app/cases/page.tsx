@@ -17,6 +17,11 @@ import LegalDock from "@/components/LegalDock";
 import LegalSessionControl from "@/components/LegalSessionControl";
 import { readJsonResponse } from "@/lib/apiResponse";
 import { canAddManualCaseToCalendar } from "@/lib/legal/manualCaseCalendar";
+import {
+  DATE_ONLY_LEGAL_ALARM_HOUR,
+  DEFAULT_MANUAL_REMINDER_TIME,
+  resolveDocumentHearingAt,
+} from "@/lib/legal/alarmTimeRules";
 import { optimizeCaseImageForAnalysis } from "@/lib/legal/clientImageOptimization";
 import LegalBackButton from "@/components/LegalBackButton";
 import { markSafeAppNavigation } from "@/lib/navigation/backNavigation";
@@ -77,6 +82,16 @@ type ManualCalendarEvent = {
     hearingAt?: string | null;
     manualDeadline?: string | null;
   } | null;
+};
+
+type ManualReminder = {
+  id: string;
+  case_id: string;
+  calendar_event_id: string;
+  alarm_time: string;
+  alarm_type: "manual_reminder";
+  message?: string | null;
+  status?: string | null;
 };
 
 type LegalCase = {
@@ -279,6 +294,47 @@ export default function CasesPage() {
   const [caseFileError, setCaseFileError] =
     useState("");
 
+  const [deleteCandidate, setDeleteCandidate] =
+    useState<LegalCase | null>(null);
+
+  const [deletingCaseId, setDeletingCaseId] =
+    useState("");
+
+  const [deleteFeedback, setDeleteFeedback] =
+    useState("");
+
+  const [deleteError, setDeleteError] =
+    useState("");
+
+  const [manualReminderCase, setManualReminderCase] =
+    useState<LegalCase | null>(null);
+
+  const [manualReminderDate, setManualReminderDate] =
+    useState("");
+
+  const [manualReminderTime, setManualReminderTime] =
+    useState(
+      DEFAULT_MANUAL_REMINDER_TIME
+    );
+
+  const [manualReminderNote, setManualReminderNote] =
+    useState("");
+
+  const [manualReminders, setManualReminders] =
+    useState<ManualReminder[]>([]);
+
+  const [manualReminderLoading, setManualReminderLoading] =
+    useState(false);
+
+  const [manualReminderSaving, setManualReminderSaving] =
+    useState(false);
+
+  const [manualReminderError, setManualReminderError] =
+    useState("");
+
+  const [manualReminderFeedback, setManualReminderFeedback] =
+    useState("");
+
   async function loadCases() {
     try {
       setLoading(true);
@@ -429,6 +485,64 @@ export default function CasesPage() {
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
+        timeZone:
+          "Europe/Istanbul",
+      }
+    ).format(date);
+  }
+
+  function formatTime(
+    value?: string | null
+  ) {
+    if (!value) {
+      return "—";
+    }
+
+    const date = new Date(value);
+
+    if (
+      Number.isNaN(
+        date.getTime()
+      )
+    ) {
+      return "—";
+    }
+
+    return new Intl.DateTimeFormat(
+      "tr-TR",
+      {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone:
+          "Europe/Istanbul",
+      }
+    ).format(date);
+  }
+
+  function formatReminderDate(
+    value?: string | null
+  ) {
+    if (!value) {
+      return "—";
+    }
+
+    const date = new Date(value);
+
+    if (
+      Number.isNaN(
+        date.getTime()
+      )
+    ) {
+      return "—";
+    }
+
+    return new Intl.DateTimeFormat(
+      "tr-TR",
+      {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
         timeZone:
           "Europe/Istanbul",
       }
@@ -960,6 +1074,257 @@ export default function CasesPage() {
     setOpenCaseId("");
     setOpenCaseTab("");
   }
+
+  function clearDeletedCaseState(
+    caseId: string
+  ) {
+    if (openCaseId === caseId) {
+      setOpenCaseId("");
+      setOpenCaseTab("");
+      setCaseNote("");
+      setCaseNoteError("");
+      setCaseFiles([]);
+      setCaseFileError("");
+      setCaseDocuments([]);
+      setCaseDocumentError("");
+    }
+
+    if (
+      manualSavedCaseId === caseId
+    ) {
+      setManualSavedCaseId("");
+    }
+  }
+
+  function requestCaseDeletion(
+    item: LegalCase
+  ) {
+    setDeleteError("");
+    setDeleteFeedback("");
+    setDeleteCandidate(item);
+  }
+
+  async function confirmCaseDeletion() {
+    if (
+      !deleteCandidate ||
+      deletingCaseId
+    ) {
+      return;
+    }
+
+    const caseId =
+      deleteCandidate.id;
+
+    try {
+      setDeletingCaseId(caseId);
+      setDeleteError("");
+
+      const response = await fetch(
+        `/api/cases/${encodeURIComponent(
+          caseId
+        )}`,
+        {
+          method: "DELETE",
+        }
+      );
+      const data =
+        await readJsonResponse(
+          response
+        );
+
+      if (
+        !response.ok ||
+        !data?.ok
+      ) {
+        throw new Error(
+          "Dava silinemedi."
+        );
+      }
+
+      setCases((current) =>
+        current.filter(
+          (item) =>
+            item.id !== caseId
+        )
+      );
+      clearDeletedCaseState(
+        caseId
+      );
+      setDeleteCandidate(null);
+      setDeleteFeedback(
+        "Dava silindi."
+      );
+    } catch {
+      setDeleteError(
+        "Dava silinemedi. Lütfen tekrar deneyin."
+      );
+    } finally {
+      setDeletingCaseId("");
+    }
+  }
+
+  async function loadManualReminders(
+    caseId: string
+  ) {
+    try {
+      setManualReminderLoading(true);
+      setManualReminderError("");
+
+      const response = await fetch(
+        `/api/cases/manual-reminders?caseId=${encodeURIComponent(
+          caseId
+        )}`,
+        {
+          cache: "no-store",
+        }
+      );
+      const data =
+        await readJsonResponse(
+          response
+        );
+
+      if (
+        !response.ok ||
+        !data?.ok
+      ) {
+        throw new Error(
+          "Hatırlatmalar alınamadı."
+        );
+      }
+
+      setManualReminders(
+        Array.isArray(
+          data.reminders
+        )
+          ? data.reminders
+          : []
+      );
+    } catch {
+      setManualReminders([]);
+      setManualReminderError(
+        "Hatırlatmalar alınamadı."
+      );
+    } finally {
+      setManualReminderLoading(false);
+    }
+  }
+
+  function requestManualReminder(
+    item: LegalCase
+  ) {
+    setManualReminderCase(item);
+    setManualReminderDate("");
+    setManualReminderTime(
+      DEFAULT_MANUAL_REMINDER_TIME
+    );
+    setManualReminderNote("");
+    setManualReminderFeedback("");
+    setManualReminderError("");
+    setManualReminders([]);
+    void loadManualReminders(
+      item.id
+    );
+  }
+
+  async function saveManualReminder() {
+    if (
+      !manualReminderCase ||
+      manualReminderSaving
+    ) {
+      return;
+    }
+
+    try {
+      setManualReminderSaving(true);
+      setManualReminderError("");
+      setManualReminderFeedback("");
+
+      const response = await fetch(
+        "/api/cases/manual-reminders",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            caseId:
+              manualReminderCase.id,
+            date:
+              manualReminderDate,
+            time:
+              manualReminderTime,
+            note:
+              manualReminderNote,
+          }),
+        }
+      );
+      const data =
+        await readJsonResponse(
+          response
+        );
+
+      if (
+        !response.ok ||
+        !data?.ok
+      ) {
+        throw new Error(
+          typeof data?.error ===
+            "string"
+            ? data.error
+            : "Hatırlatma kaydedilemedi."
+        );
+      }
+
+      if (data.reminder) {
+        setManualReminders(
+          (current) =>
+            Array.from(
+              new Map(
+                [
+                  ...current,
+                  data.reminder as
+                    ManualReminder,
+                ].map(
+                  (reminder) => [
+                    reminder.id,
+                    reminder,
+                  ]
+                )
+              ).values()
+            ).sort(
+              (left, right) =>
+                left.alarm_time
+                  .localeCompare(
+                    right.alarm_time
+                  )
+            )
+        );
+      }
+
+      setManualReminderFeedback(
+        data.message ||
+          "Manuel hatırlatma kaydedildi."
+      );
+
+      if (!data.duplicate) {
+        setManualReminderDate("");
+        setManualReminderTime(
+          DEFAULT_MANUAL_REMINDER_TIME
+        );
+        setManualReminderNote("");
+      }
+    } catch (saveError) {
+      setManualReminderError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Hatırlatma kaydedilemedi."
+      );
+    } finally {
+      setManualReminderSaving(false);
+    }
+  }
+
   function toggleCasePanel(
     caseId: string,
     tab:
@@ -1543,10 +1908,12 @@ export default function CasesPage() {
       }
 
       const hearingAt =
-        documentPreview.hearingDate &&
-        documentPreview.hearingTime
-          ? `${documentPreview.hearingDate}T${documentPreview.hearingTime}`
-          : "";
+        resolveDocumentHearingAt(
+          documentPreview
+            .hearingDate,
+          documentPreview
+            .hearingTime
+        );
 
       const manualDeadline =
         documentPreview
@@ -1674,6 +2041,8 @@ export default function CasesPage() {
                 source_document:
                   documentPreview
                     .sourceDocument,
+                notification_hour:
+                  DATE_ONLY_LEGAL_ALARM_HOUR,
               }),
             }
           );
@@ -6055,6 +6424,362 @@ export default function CasesPage() {
           display: none !important;
         }
 
+        .case-delete-button {
+          border-color: rgba(
+            255,
+            110,
+            135,
+            .55
+          ) !important;
+          color: #ff9aac !important;
+        }
+
+        .case-delete-button:hover {
+          border-color: #ff6e87 !important;
+          background: rgba(
+            255,
+            110,
+            135,
+            .12
+          ) !important;
+        }
+
+        .case-delete-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 1200;
+          display: grid;
+          place-items: center;
+          padding: 18px;
+          background: rgba(
+            3,
+            8,
+            16,
+            .76
+          );
+          backdrop-filter: blur(5px);
+        }
+
+        .case-delete-dialog {
+          width: min(420px, 100%);
+          padding: 20px;
+          border: 1px solid
+            var(--legal-border);
+          border-radius: 15px;
+          background:
+            var(--legal-surface);
+          box-shadow:
+            0 24px 70px
+            rgba(0, 0, 0, .42);
+        }
+
+        .case-delete-dialog h2 {
+          margin: 0 0 8px;
+          color: var(--legal-text);
+          font-size: 16px;
+        }
+
+        .case-delete-dialog p {
+          margin: 0;
+          color: var(--legal-muted);
+          font-size: 11px;
+          line-height: 1.55;
+        }
+
+        .case-delete-context {
+          display: grid;
+          gap: 3px;
+          margin-top: 14px;
+          padding: 11px;
+          border: 1px solid
+            var(--legal-border);
+          border-radius: 10px;
+          background:
+            var(--legal-surface-2);
+        }
+
+        .case-delete-context strong {
+          color: var(--legal-text);
+          font-size: 12px;
+        }
+
+        .case-delete-context span {
+          color: var(--legal-muted);
+          font-size: 10px;
+          overflow-wrap: anywhere;
+        }
+
+        .case-delete-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+          margin-top: 18px;
+        }
+
+        .case-delete-actions button {
+          min-height: 36px;
+          padding: 0 14px;
+          border: 1px solid
+            var(--legal-border);
+          border-radius: 9px;
+          background:
+            var(--legal-surface-2);
+          color: var(--legal-text);
+          cursor: pointer;
+          font-size: 10px;
+          font-weight: 850;
+        }
+
+        .case-delete-actions
+        .confirm-delete {
+          border-color: #a53a50;
+          background: rgba(
+            165,
+            58,
+            80,
+            .2
+          );
+          color: #ff9aac;
+        }
+
+        .case-delete-actions
+        button:disabled {
+          cursor: default;
+          opacity: .5;
+        }
+
+        .case-delete-error {
+          margin-top: 10px !important;
+          color: #ff9aac !important;
+        }
+
+        @media (max-width: 520px) {
+          .case-delete-dialog {
+            padding: 16px;
+          }
+
+          .case-delete-actions {
+            display: grid;
+            grid-template-columns:
+              1fr 1fr;
+          }
+
+          .case-delete-actions button {
+            width: 100%;
+            min-width: 0;
+          }
+        }
+
+        .manual-reminder-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 1190;
+          display: grid;
+          place-items: center;
+          padding: 18px;
+          background: rgba(
+            3,
+            8,
+            16,
+            .76
+          );
+          backdrop-filter: blur(5px);
+        }
+
+        .manual-reminder-dialog {
+          width: min(480px, 100%);
+          max-height:
+            min(680px, calc(100vh - 36px));
+          overflow-y: auto;
+          padding: 20px;
+          border: 1px solid
+            var(--legal-border);
+          border-radius: 15px;
+          background:
+            var(--legal-surface);
+          box-shadow:
+            0 24px 70px
+            rgba(0, 0, 0, .42);
+        }
+
+        .manual-reminder-dialog h2,
+        .manual-reminder-dialog h3 {
+          margin: 0;
+          color: var(--legal-text);
+        }
+
+        .manual-reminder-dialog h2 {
+          font-size: 16px;
+        }
+
+        .manual-reminder-dialog h3 {
+          margin-top: 18px;
+          font-size: 12px;
+        }
+
+        .manual-reminder-case {
+          margin-top: 6px;
+          color: var(--legal-muted);
+          font-size: 10px;
+          overflow-wrap: anywhere;
+        }
+
+        .manual-reminder-form {
+          display: grid;
+          grid-template-columns:
+            1fr 1fr;
+          gap: 9px;
+          margin-top: 16px;
+        }
+
+        .manual-reminder-form label {
+          display: grid;
+          gap: 5px;
+          min-width: 0;
+        }
+
+        .manual-reminder-form label > span {
+          color: var(--legal-muted);
+          font-size: 9px;
+          font-weight: 750;
+        }
+
+        .manual-reminder-form input,
+        .manual-reminder-form textarea {
+          width: 100%;
+          min-width: 0;
+          border: 1px solid
+            var(--legal-border);
+          border-radius: 9px;
+          background:
+            var(--legal-surface-2);
+          color: var(--legal-text);
+          font: inherit;
+        }
+
+        .manual-reminder-form input {
+          min-height: 38px;
+          padding: 0 10px;
+        }
+
+        .manual-reminder-form textarea {
+          min-height: 76px;
+          padding: 10px;
+          resize: vertical;
+        }
+
+        .manual-reminder-note {
+          grid-column: 1 / -1;
+        }
+
+        .manual-reminder-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+          margin-top: 14px;
+        }
+
+        .manual-reminder-actions button {
+          min-height: 36px;
+          padding: 0 14px;
+          border: 1px solid
+            var(--legal-border);
+          border-radius: 9px;
+          background:
+            var(--legal-surface-2);
+          color: var(--legal-text);
+          cursor: pointer;
+          font-size: 10px;
+          font-weight: 850;
+        }
+
+        .manual-reminder-actions
+        .save-reminder {
+          border-color: var(--legal-gold);
+          color: var(--legal-gold-light);
+        }
+
+        .manual-reminder-actions
+        button:disabled {
+          cursor: default;
+          opacity: .5;
+        }
+
+        .manual-reminder-message {
+          margin-top: 10px;
+          font-size: 10px;
+        }
+
+        .manual-reminder-message.success {
+          color: var(--legal-success);
+        }
+
+        .manual-reminder-message.error {
+          color: #ff9aac;
+        }
+
+        .manual-reminder-list {
+          display: grid;
+          gap: 7px;
+          margin-top: 9px;
+        }
+
+        .manual-reminder-item {
+          display: grid;
+          grid-template-columns:
+            auto minmax(0, 1fr);
+          gap: 10px;
+          padding: 9px 10px;
+          border: 1px solid
+            var(--legal-border);
+          border-radius: 9px;
+          background:
+            var(--legal-surface-2);
+        }
+
+        .manual-reminder-item strong {
+          color: var(--legal-gold-light);
+          font-size: 10px;
+          white-space: nowrap;
+        }
+
+        .manual-reminder-item span {
+          min-width: 0;
+          color: var(--legal-text);
+          font-size: 10px;
+          overflow-wrap: anywhere;
+        }
+
+        @media (max-width: 520px) {
+          .manual-reminder-dialog {
+            padding: 16px;
+          }
+
+          .manual-reminder-form {
+            grid-template-columns: 1fr;
+          }
+
+          .manual-reminder-note {
+            grid-column: auto;
+          }
+
+          .manual-reminder-actions {
+            display: grid;
+            grid-template-columns:
+              1fr 1fr;
+          }
+
+          .manual-reminder-actions button {
+            width: 100%;
+            min-width: 0;
+          }
+
+          .manual-reminder-item {
+            grid-template-columns: 1fr;
+            gap: 4px;
+          }
+        }
+
         .document-upload-panel {
           display: grid;
           gap: 10px;
@@ -6789,6 +7514,18 @@ export default function CasesPage() {
           </div>
         )}
 
+        {deleteFeedback && (
+          <div className="state-box manual-feedback">
+            {deleteFeedback}
+          </div>
+        )}
+
+        {deleteError && !deleteCandidate && (
+          <div className="state-box">
+            {deleteError}
+          </div>
+        )}
+
         {error && (
           <div className="state-box">
             {error}
@@ -6974,6 +7711,32 @@ export default function CasesPage() {
                           }
                         >
                           Not
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            requestManualReminder(
+                              item
+                            )
+                          }
+                        >
+                          Alarm Ekle
+                        </button>
+
+                        <button
+                          type="button"
+                          className="case-delete-button"
+                          disabled={Boolean(
+                            deletingCaseId
+                          )}
+                          onClick={() =>
+                            requestCaseDeletion(
+                              item
+                            )
+                          }
+                        >
+                          Sil
                         </button>
                       </div>
 
@@ -7377,6 +8140,225 @@ export default function CasesPage() {
             </section>
           )}
       </div>
+
+      {manualReminderCase && (
+        <div
+          className="manual-reminder-backdrop"
+          role="presentation"
+        >
+          <section
+            className="manual-reminder-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="manual-reminder-title"
+          >
+            <h2 id="manual-reminder-title">
+              Manuel Hatırlatma
+            </h2>
+
+            <div className="manual-reminder-case">
+              {manualReminderCase.case_number ||
+                "Numarasız dava"}
+              {" · "}
+              {manualReminderCase.court_name ||
+                "Mahkeme bilgisi yok"}
+            </div>
+
+            <div className="manual-reminder-form">
+              <label>
+                <span>Tarih</span>
+                <input
+                  type="date"
+                  required
+                  value={manualReminderDate}
+                  onChange={(event) =>
+                    setManualReminderDate(
+                      event.target.value
+                    )
+                  }
+                />
+              </label>
+
+              <label>
+                <span>Saat</span>
+                <input
+                  type="time"
+                  required
+                  value={manualReminderTime}
+                  onChange={(event) =>
+                    setManualReminderTime(
+                      event.target.value
+                    )
+                  }
+                />
+              </label>
+
+              <label className="manual-reminder-note">
+                <span>Not / Açıklama</span>
+                <textarea
+                  maxLength={500}
+                  value={manualReminderNote}
+                  onChange={(event) =>
+                    setManualReminderNote(
+                      event.target.value
+                    )
+                  }
+                  placeholder="Hatırlatma notu..."
+                />
+              </label>
+            </div>
+
+            {manualReminderFeedback && (
+              <div className="manual-reminder-message success">
+                {manualReminderFeedback}
+              </div>
+            )}
+
+            {manualReminderError && (
+              <div className="manual-reminder-message error">
+                {manualReminderError}
+              </div>
+            )}
+
+            <div className="manual-reminder-actions">
+              <button
+                type="button"
+                disabled={manualReminderSaving}
+                onClick={() => {
+                  setManualReminderCase(null);
+                  setManualReminderError("");
+                  setManualReminderFeedback("");
+                }}
+              >
+                Vazgeç
+              </button>
+
+              <button
+                type="button"
+                className="save-reminder"
+                disabled={
+                  manualReminderSaving ||
+                  !manualReminderDate ||
+                  !manualReminderTime
+                }
+                onClick={() =>
+                  void saveManualReminder()
+                }
+              >
+                {manualReminderSaving
+                  ? "Kaydediliyor..."
+                  : "Alarmı Kaydet"}
+              </button>
+            </div>
+
+            <h3>Manuel hatırlatmalar</h3>
+
+            {manualReminderLoading ? (
+              <div className="manual-reminder-message">
+                Hatırlatmalar yükleniyor...
+              </div>
+            ) : manualReminders.length === 0 ? (
+              <div className="manual-reminder-message">
+                Kayıtlı manuel hatırlatma yok.
+              </div>
+            ) : (
+              <div className="manual-reminder-list">
+                {manualReminders.map(
+                  (reminder) => (
+                    <div
+                      key={reminder.id}
+                      className="manual-reminder-item"
+                    >
+                      <strong>
+                        {formatReminderDate(
+                          reminder.alarm_time
+                        )}
+                        {" · "}
+                        {formatTime(
+                          reminder.alarm_time
+                        )}
+                      </strong>
+                      <span>
+                        {reminder.message ||
+                          "Manuel hatırlatma"}
+                      </span>
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+
+      {deleteCandidate && (
+        <div
+          className="case-delete-backdrop"
+          role="presentation"
+        >
+          <section
+            className="case-delete-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="case-delete-title"
+          >
+            <h2 id="case-delete-title">
+              Davayı silmek istediğinize emin misiniz?
+            </h2>
+
+            <p>
+              Dava ve AL METHER içindeki bağlı kayıtları silinecektir.
+            </p>
+
+            <div className="case-delete-context">
+              <strong>
+                {deleteCandidate.case_number ||
+                  "Numarasız dava"}
+              </strong>
+              <span>
+                {deleteCandidate.court_name ||
+                  "Mahkeme bilgisi yok"}
+              </span>
+            </div>
+
+            {deleteError && (
+              <p className="case-delete-error">
+                {deleteError}
+              </p>
+            )}
+
+            <div className="case-delete-actions">
+              <button
+                type="button"
+                disabled={Boolean(
+                  deletingCaseId
+                )}
+                onClick={() => {
+                  setDeleteCandidate(null);
+                  setDeleteError("");
+                }}
+              >
+                Vazgeç
+              </button>
+
+              <button
+                type="button"
+                className="confirm-delete"
+                disabled={Boolean(
+                  deletingCaseId
+                )}
+                onClick={() =>
+                  void confirmCaseDeletion()
+                }
+              >
+                {deletingCaseId
+                  ? "Siliniyor..."
+                  : "Davayı Sil"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
       <LegalDock />
     </main>

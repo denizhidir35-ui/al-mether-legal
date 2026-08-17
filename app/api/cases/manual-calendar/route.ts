@@ -22,6 +22,9 @@ import {
   createManualCaseCalendarPlans,
   type ManualCalendarPlan,
 } from "@/lib/legal/manualCaseCalendar";
+import {
+  DATE_ONLY_LEGAL_ALARM_HOUR,
+} from "@/lib/legal/alarmTimeRules";
 
 import {
   getSupabaseAdmin,
@@ -565,7 +568,7 @@ export async function POST(
             includeOverdue:
               false,
             notificationHour:
-              9,
+              DATE_ONLY_LEGAL_ALARM_HOUR,
             notificationMinute:
               0,
             skipPastAdvanceAlarms:
