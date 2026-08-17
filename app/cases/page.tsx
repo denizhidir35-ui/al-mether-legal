@@ -25,6 +25,10 @@ import {
 import { optimizeCaseImageForAnalysis } from "@/lib/legal/clientImageOptimization";
 import LegalBackButton from "@/components/LegalBackButton";
 import { markSafeAppNavigation } from "@/lib/navigation/backNavigation";
+import {
+  LEGAL_DOCUMENT_TYPE_LABELS,
+  type LegalDocumentType,
+} from "@/lib/legal/documentType";
 
 type LegalDeadline = {
   id: string;
@@ -118,6 +122,8 @@ type LegalCase = {
 };
 
 type DocumentCasePreview = {
+  documentType: LegalDocumentType;
+  documentTypeConfidence: number;
   court: string;
   fileNo: string;
   decisionNo: string;
@@ -145,6 +151,8 @@ type DocumentCasePreview = {
 
 const EMPTY_DOCUMENT_PREVIEW:
   DocumentCasePreview = {
+    documentType: "unknown",
+    documentTypeConfidence: 0,
     court: "",
     fileNo: "",
     decisionNo: "",
@@ -1672,6 +1680,14 @@ export default function CasesPage() {
 
       setDocumentPreview({
         ...EMPTY_DOCUMENT_PREVIEW,
+        documentType:
+          document.documentType ||
+          "unknown",
+        documentTypeConfidence:
+          typeof document.documentTypeConfidence ===
+          "number"
+            ? document.documentTypeConfidence
+            : 0,
         court:
           document.court || "",
         fileNo:
@@ -1687,7 +1703,12 @@ export default function CasesPage() {
         subject:
           document.subject || "",
         caseType:
-          document.documentType ||
+          document.caseType ||
+          document.subject ||
+          document.documentTypeLabel ||
+          LEGAL_DOCUMENT_TYPE_LABELS[
+            document.documentType as LegalDocumentType
+          ] ||
           "Hukuki Belge",
         barcodeNo:
           document.uets
@@ -6301,8 +6322,54 @@ export default function CasesPage() {
 
         .case-panel-back-row {
           display: flex;
-          justify-content: flex-start;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          flex-wrap: wrap;
           margin-bottom: 8px;
+        }
+
+        /* CASE MANAGEMENT ACTION VISIBILITY */
+        .case-actions {
+          min-width: 0;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+
+        .case-panel-actions {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 6px;
+          margin-left: auto;
+        }
+
+        .case-panel-actions button {
+          min-height: 30px;
+          padding: 0 10px;
+          border: 1px solid var(--legal-border);
+          border-radius: 7px;
+          background: var(--legal-surface);
+          color: var(--legal-text-soft);
+          cursor: pointer;
+          font-size: 8px;
+          font-weight: 850;
+        }
+
+        .case-panel-actions button:hover {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-light);
+        }
+
+        .case-panel-actions .case-delete-button {
+          border-color: #762d42;
+          color: #ff6e87;
+        }
+
+        .case-panel-actions button:disabled {
+          cursor: default;
+          opacity: .5;
         }
 
         @media (max-width: 760px) {
@@ -6322,6 +6389,18 @@ export default function CasesPage() {
           }
 
           .manual-form-actions button {
+            width: 100%;
+            min-width: 0;
+          }
+
+          .case-panel-actions {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            margin-left: 0;
+          }
+
+          .case-panel-actions button {
             width: 100%;
             min-width: 0;
           }
@@ -6797,6 +6876,28 @@ export default function CasesPage() {
           gap: 7px;
         }
 
+        .document-type-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          width: fit-content;
+          padding: 6px 9px;
+          border: 1px solid var(--legal-border);
+          border-radius: 999px;
+          background: var(--legal-gold-soft);
+          color: var(--legal-text-soft);
+          font-size: 9px;
+        }
+
+        .document-type-badge span {
+          color: var(--legal-muted);
+        }
+
+        .document-type-badge strong {
+          color: var(--legal-gold-light);
+          font-weight: 850;
+        }
+
         .document-upload-options button,
         .document-preview-actions button {
           min-height: 36px;
@@ -6822,6 +6923,33 @@ export default function CasesPage() {
           grid-template-columns:
             repeat(3, minmax(0, 1fr));
           gap: 8px;
+        }
+
+        .document-preview-group-title {
+          grid-column: 1 / -1;
+          margin: 3px 0 0;
+          padding-bottom: 6px;
+          border-bottom: 1px solid var(--legal-border);
+          color: var(--legal-gold-light);
+          font-size: 9px;
+          letter-spacing: .08em;
+        }
+
+        .document-info-title {
+          order: 1;
+        }
+
+        .document-info-field {
+          order: 2;
+        }
+
+        .document-critical-title {
+          order: 3;
+          margin-top: 7px;
+        }
+
+        .document-critical-field {
+          order: 4;
         }
 
         .document-preview-grid label {
@@ -7174,8 +7302,21 @@ export default function CasesPage() {
 
             {documentPreview && (
               <>
+                <div className="document-type-badge">
+                  <span>Belge Türü:</span>
+                  <strong>
+                    {LEGAL_DOCUMENT_TYPE_LABELS[
+                      documentPreview.documentType
+                    ]}
+                  </strong>
+                </div>
+
                 <div className="document-preview-grid">
-                  <label>
+                  <h3 className="document-preview-group-title document-info-title">
+                    DAVA / BELGE BİLGİLERİ
+                  </h3>
+
+                  <label className="document-info-field">
                     <span>Mahkeme</span>
                     <input
                       value={documentPreview.court}
@@ -7188,7 +7329,7 @@ export default function CasesPage() {
                     />
                   </label>
 
-                  <label>
+                  <label className="document-info-field">
                     <span>Dosya / Esas No</span>
                     <input
                       value={documentPreview.fileNo}
@@ -7201,7 +7342,7 @@ export default function CasesPage() {
                     />
                   </label>
 
-                  <label>
+                  <label className="document-info-field">
                     <span>Karar No</span>
                     <input
                       value={documentPreview.decisionNo}
@@ -7214,7 +7355,7 @@ export default function CasesPage() {
                     />
                   </label>
 
-                  <label>
+                  <label className="document-info-field">
                     <span>Taraflar</span>
                     <textarea
                       value={documentPreview.parties}
@@ -7227,7 +7368,7 @@ export default function CasesPage() {
                     />
                   </label>
 
-                  <label>
+                  <label className="document-info-field">
                     <span>Avukatlar</span>
                     <textarea
                       value={documentPreview.lawyers}
@@ -7240,7 +7381,7 @@ export default function CasesPage() {
                     />
                   </label>
 
-                  <label>
+                  <label className="document-info-field">
                     <span>Dava türü / Konu</span>
                     <textarea
                       value={documentPreview.subject}
@@ -7253,7 +7394,7 @@ export default function CasesPage() {
                     />
                   </label>
 
-                  <label>
+                  <label className="document-info-field">
                     <span>Barkod / Tebligat No</span>
                     <input
                       value={documentPreview.barcodeNo}
@@ -7266,7 +7407,11 @@ export default function CasesPage() {
                     />
                   </label>
 
-                  <label>
+                  <h3 className="document-preview-group-title document-critical-title">
+                    TAKVİM / KRİTİK İŞLEMLER
+                  </h3>
+
+                  <label className="document-critical-field">
                     <span>Duruşma tarihi</span>
                     <input
                       type="date"
@@ -7280,7 +7425,7 @@ export default function CasesPage() {
                     />
                   </label>
 
-                  <label>
+                  <label className="document-critical-field">
                     <span>Duruşma saati</span>
                     <input
                       type="time"
@@ -7294,7 +7439,7 @@ export default function CasesPage() {
                     />
                   </label>
 
-                  <label>
+                  <label className="document-critical-field">
                     <span>Açık son tarih</span>
                     <input
                       type="date"
@@ -7308,7 +7453,7 @@ export default function CasesPage() {
                     />
                   </label>
 
-                  <label>
+                  <label className="document-info-field">
                     <span>Dava Değeri</span>
                     <input
                       inputMode="decimal"
@@ -7322,7 +7467,7 @@ export default function CasesPage() {
                     />
                   </label>
 
-                  <label>
+                  <label className="document-info-field">
                     <span>Dava Değeri Para Birimi</span>
                     <input
                       value={documentPreview.caseValueCurrency}
@@ -7335,7 +7480,7 @@ export default function CasesPage() {
                     />
                   </label>
 
-                  <label>
+                  <label className="document-info-field">
                     <span>Sonuç ve İstem</span>
                     <textarea
                       value={documentPreview.resultAndRequest}
@@ -7348,7 +7493,7 @@ export default function CasesPage() {
                     />
                   </label>
 
-                  <label>
+                  <label className="document-info-field">
                     <span>Belge tarihi</span>
                     <input
                       type="date"
@@ -7362,7 +7507,7 @@ export default function CasesPage() {
                     />
                   </label>
 
-                  <label>
+                  <label className="document-info-field">
                     <span>İhtiyati tedbir talebi</span>
                     <input
                       type="checkbox"
@@ -7376,7 +7521,7 @@ export default function CasesPage() {
                     />
                   </label>
 
-                  <label>
+                  <label className="document-critical-field">
                     <span>Ödeme tutarı</span>
                     <input
                       inputMode="decimal"
@@ -7390,7 +7535,7 @@ export default function CasesPage() {
                     />
                   </label>
 
-                  <label>
+                  <label className="document-critical-field">
                     <span>Ödeme para birimi</span>
                     <input
                       value={documentPreview.paymentCurrency}
@@ -7403,7 +7548,7 @@ export default function CasesPage() {
                     />
                   </label>
 
-                  <label>
+                  <label className="document-critical-field">
                     <span>Ödeme son tarihi</span>
                     <input
                       type="date"
@@ -7417,7 +7562,7 @@ export default function CasesPage() {
                     />
                   </label>
 
-                  <label>
+                  <label className="document-critical-field">
                     <span>Ödeme açıklaması</span>
                     <textarea
                       value={documentPreview.paymentDescription}
@@ -7430,7 +7575,7 @@ export default function CasesPage() {
                     />
                   </label>
 
-                  <label>
+                  <label className="document-critical-field">
                     <span>Süre metni</span>
                     <textarea
                       value={documentPreview.paymentPeriodText}
@@ -7443,7 +7588,7 @@ export default function CasesPage() {
                     />
                   </label>
 
-                  <label>
+                  <label className="document-info-field">
                     <span>Kaynak belge</span>
                     <input
                       value={documentPreview.sourceDocument}
@@ -7761,6 +7906,34 @@ export default function CasesPage() {
                               fallback="/cases"
                               onBack={closeCasePanel}
                             />
+
+                            <div className="case-panel-actions">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  requestManualReminder(
+                                    item
+                                  )
+                                }
+                              >
+                                Alarm Ekle
+                              </button>
+
+                              <button
+                                type="button"
+                                className="case-delete-button"
+                                disabled={Boolean(
+                                  deletingCaseId
+                                )}
+                                onClick={() =>
+                                  requestCaseDeletion(
+                                    item
+                                  )
+                                }
+                              >
+                                Sil
+                              </button>
+                            </div>
                           </div>
 
                           {openCaseTab === "note" && (

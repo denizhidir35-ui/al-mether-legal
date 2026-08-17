@@ -327,6 +327,18 @@ test("manual reminder UI has 09:00 default and responsive desktop/mobile layout"
   );
   assert.match(
     source,
+    /className="case-actions"[\s\S]*?Mail[\s\S]*?Dosya[\s\S]*?Evrak[\s\S]*?Süre[\s\S]*?Not[\s\S]*?requestManualReminder\([\s\S]*?Alarm Ekle[\s\S]*?requestCaseDeletion\([\s\S]*?>\s*Sil\s*</
+  );
+  assert.match(
+    source,
+    /className="case-panel-back-row"[\s\S]*?className="case-panel-actions"[\s\S]*?requestManualReminder\([\s\S]*?Alarm Ekle[\s\S]*?requestCaseDeletion\([\s\S]*?>\s*Sil\s*</
+  );
+  assert.match(
+    source,
+    /function requestManualReminder\([\s\S]*?setManualReminderCase\(item\)[\s\S]*?\{manualReminderCase && \([\s\S]*?role="dialog"/
+  );
+  assert.match(
+    source,
     /Manuel Hatırlatma[\s\S]*?type="date"[\s\S]*?type="time"[\s\S]*?Not \/ Açıklama/
   );
   assert.match(
@@ -348,5 +360,13 @@ test("manual reminder UI has 09:00 default and responsive desktop/mobile layout"
   assert.match(
     source,
     /@media \(max-width: 520px\)[\s\S]*?\.manual-reminder-form[\s\S]*?grid-template-columns: 1fr/
+  );
+  assert.match(
+    source,
+    /CASE MANAGEMENT ACTION VISIBILITY[\s\S]*?\.case-actions[\s\S]*?flex-wrap: wrap[\s\S]*?\.case-panel-actions/
+  );
+  assert.match(
+    source,
+    /@media \(max-width: 760px\)[\s\S]*?\.case-panel-actions[\s\S]*?grid-template-columns: 1fr 1fr/
   );
 });

@@ -374,6 +374,14 @@ test("desktop and mobile UI require an explicit confirmation", async () => {
   );
   assert.match(
     source,
+    /className="case-panel-actions"[\s\S]*?requestCaseDeletion\([\s\S]*?>\s*Sil\s*</
+  );
+  assert.match(
+    source,
+    /function requestCaseDeletion\([\s\S]*?setDeleteCandidate\(item\)[\s\S]*?\{deleteCandidate && \([\s\S]*?role="dialog"/
+  );
+  assert.match(
+    source,
     /Davayı silmek istediğinize emin misiniz\?/
   );
   assert.match(

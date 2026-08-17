@@ -39,6 +39,11 @@ import {
   decodeUetsPdf,
   validateUetsPdfBytes,
 } from "@/lib/legal/uetsPdfValidation";
+import {
+  classifyLegalDocument,
+  LEGAL_DOCUMENT_TYPE_LABELS,
+  resolveDocumentExtractionProfile,
+} from "@/lib/legal/documentType";
 
 export const runtime = "nodejs";
 
@@ -177,15 +182,19 @@ function extractCourt(
   return "";
 }
 function extractFileNo(
-  text: string
+  text: string,
+  allowBareReference = true
 ) {
   const patterns = [
     /(?:Dosya\s*(?:No|Numarası)|Esas\s*(?:No|Numarası))\s*[:\-]?\s*(\d{4}\s*\/\s*\d+)/iu,
-
-    /\b(\d{4}\/\d+)\s*(?:Esas|E\.)\b/iu,
-
-    /\[(\d{4}\/\d+)\]/u,
   ];
+
+  if (allowBareReference) {
+    patterns.push(
+      /\b(\d{4}\/\d+)\s*(?:Esas|E\.)\b/iu,
+      /\[(\d{4}\/\d+)\]/u
+    );
+  }
 
   const result =
     findEvidence(
@@ -819,10 +828,23 @@ export async function POST(
       }
     }
 
+    const pdfSectionLabel =
+      sourceType ===
+        "case_document_upload"
+        ? "YÜKLENEN PDF"
+        : "UETS PDF";
+
     const text =
       pdfText
-        ? `${htmlText}\n\n--- UETS PDF: ${sourceDocument || "Ek Belge"} ---\n${pdfText}`
+        ? `${htmlText}\n\n--- ${pdfSectionLabel}: ${sourceDocument || "Ek Belge"} ---\n${pdfText}`
         : htmlText;
+
+    const documentClassification =
+      classifyLegalDocument(text);
+    const extractionProfile =
+      resolveDocumentExtractionProfile(
+        documentClassification.documentType
+      );
 
     const isTestDocument =
       /METHER UETS BRIDGE TEST|GERÇEK TEBLİGAT DEĞİLDİR|HUKUKİ DEĞERİ YOKTUR/i
@@ -837,7 +859,10 @@ export async function POST(
       extractedUets.court;
 
     const fileNo =
-      extractFileNo(text) ||
+      extractFileNo(
+        text,
+        extractionProfile !== "petition"
+      ) ||
       extractedUets.fileNo;
 
     const decisionNo =
@@ -936,6 +961,13 @@ export async function POST(
             .isExplicitFinalDate
       );
 
+    const explicitDeadline =
+      deadlines.find(
+        (item) =>
+          item.isExplicitFinalDate &&
+          item.explicitDate
+      )?.explicitDate || "";
+
     const needsHumanReview =
       !isTestDocument &&
       (
@@ -950,14 +982,27 @@ export async function POST(
 
     const document = {
       documentType:
-        /elektronik\s+tebligat|uets/iu
-          .test(text)
-          ? "Elektronik Tebligat"
-          : "Hukuki Belge",
+        documentClassification.documentType,
+
+      documentTypeConfidence:
+        documentClassification.documentTypeConfidence,
+
+      documentTypeLabel:
+        LEGAL_DOCUMENT_TYPE_LABELS[
+          documentClassification.documentType
+        ],
 
       court,
       fileNo,
+      caseNumber:
+        fileNo || null,
       decisionNo,
+
+      barcode:
+        uets.barcodeNo || null,
+
+      notificationNo:
+        uets.noticeNo || null,
 
       summary:
         [
@@ -989,8 +1034,17 @@ export async function POST(
       parties:
         partyAndSubject.parties,
 
+      plaintiff:
+        partyAndSubject.plaintiff || null,
+
+      defendant:
+        partyAndSubject.defendant || null,
+
       subject:
         partyAndSubject.subject,
+
+      caseType:
+        partyAndSubject.caseType || null,
 
       caseValue:
         caseValue.caseValue,
@@ -1006,7 +1060,40 @@ export async function POST(
 
       interimMeasureRequested,
 
+      hearingDate:
+        hearing.date || null,
+
+      hearingTime:
+        hearing.time || null,
+
+      explicitDeadline:
+        explicitDeadline || null,
+
       payment,
+
+      paymentAmount:
+        payment.paymentAmount,
+
+      paymentCurrency:
+        payment.paymentCurrency || null,
+
+      paymentDescription:
+        payment.paymentDescription || null,
+
+      paymentDueDate:
+        payment.paymentDueDate || null,
+
+      periodText:
+        payment.paymentPeriodText || null,
+
+      deliveryDate:
+        uets.arrivalDate || null,
+
+      deemedServiceDate:
+        uets.deemedServiceDate || null,
+
+      sourceDocument:
+        sourceDocument || null,
 
       dateInformation,
 

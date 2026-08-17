@@ -35,8 +35,50 @@ export type LegalOcrResult = {
 
   engine:
     | "pdf-text"
+    | "pdf-hybrid"
     | "tesseract";
 };
+
+const MIN_USEFUL_PDF_PAGE_CHARS =
+  30;
+
+function hasUsefulPdfPageText(
+  pageText: string
+) {
+  return pageText
+    .replace(/\s+/g, "")
+    .length >=
+    MIN_USEFUL_PDF_PAGE_CHARS;
+}
+
+export function createLegalPdfPagePlan(
+  pages: string[]
+) {
+  return pages.map(
+    (text, index) => ({
+      pageNumber: index + 1,
+      text,
+      requiresOcr:
+        !hasUsefulPdfPageText(
+          text
+        ),
+    })
+  );
+}
+
+function formatPdfPages(
+  pages: string[]
+) {
+  return pages
+    .map((pageText, index) =>
+      pageText
+        ? `--- SAYFA ${index + 1} ---\n${pageText}`
+        : ""
+    )
+    .filter(Boolean)
+    .join("\n\n")
+    .trim();
+}
 
 export class PdfTextLayerRuntimeError extends Error {
   constructor(options?: ErrorOptions) {
@@ -230,12 +272,9 @@ async function extractEmbeddedPdfText(
         );
 
       if (
-        pageText
-          .replace(
-            /\s+/g,
-            ""
-          )
-          .length >= 30
+        hasUsefulPdfPageText(
+          pageText
+        )
       ) {
         pagesWithText +=
           1;
@@ -252,17 +291,16 @@ async function extractEmbeddedPdfText(
 
     return {
       text:
-        pages
-          .filter(Boolean)
-          .join(
-            "\n\n--- SAYFA ---\n\n"
-          )
-          .trim(),
+        formatPdfPages(
+          pages
+        ),
 
       pageCount:
         pdf.numPages,
 
       pagesWithText,
+
+      pages,
     };
   } finally {
     await loadingTask
@@ -1028,7 +1066,8 @@ async function renderPdfPageToPng(
 }
 
 async function ocrPdfPages(
-  bytes: Buffer
+  bytes: Buffer,
+  embeddedPages: string[] = []
 ) {
   const {
     getDocument,
@@ -1046,12 +1085,29 @@ async function ocrPdfPages(
   const pdf =
     await loadingTask.promise;
 
+  const pagePlan =
+    createLegalPdfPagePlan(
+      Array.from(
+        { length: pdf.numPages },
+        (_, index) =>
+          embeddedPages[index] || ""
+      )
+    );
+  const needsOcr =
+    pagePlan.some(
+      (item) =>
+        item.requiresOcr
+    );
   const worker =
-    await createLegalOcrWorker();
+    needsOcr
+      ? await createLegalOcrWorker()
+      : null;
 
   try {
     const pages:
-      string[] = [];
+      string[] = pagePlan.map(
+        (item) => item.text
+      );
 
     for (
       let pageNo = 1;
@@ -1065,6 +1121,13 @@ async function ocrPdfPages(
         );
 
       try {
+        if (
+          !pagePlan[pageNo - 1]
+            .requiresOcr
+        ) {
+          continue;
+        }
+
         const png =
           await renderPdfPageToPng(
             page
@@ -1077,9 +1140,8 @@ async function ocrPdfPages(
             50000
           );
 
-        pages.push(
-          pageText
-        );
+        pages[pageNo - 1] =
+          pageText;
       } finally {
         try {
           page.cleanup();
@@ -1087,28 +1149,25 @@ async function ocrPdfPages(
       }
     }
 
-    return cleanOcrText(
-      pages
-        .map(
-          (
-            pageText,
-            index
-          ) =>
-            pageText
-              ? `--- SAYFA ${index + 1} ---\n${pageText}`
-              : ""
-        )
-        .filter(Boolean)
-        .join(
-          "\n\n"
-        )
-    );
+    return {
+      text:
+        formatPdfPages(
+          pages
+        ),
+      ocrPageCount:
+        pagePlan.filter(
+          (item) =>
+            item.requiresOcr
+        ).length,
+    };
   } finally {
-    await worker
-      .terminate()
-      .catch(
-        () => {}
-      );
+    if (worker) {
+      await worker
+        .terminate()
+        .catch(
+          () => {}
+        );
+    }
 
     await loadingTask
       .destroy()
@@ -1206,20 +1265,10 @@ export async function extractLegalPdfText(
       )
       .length;
 
-  const requiredPages =
-    Math.max(
-      1,
-
-      Math.ceil(
-        embedded.pageCount *
-        0.8
-      )
-    );
-
   if (
     compactLength >= 80 &&
-    embedded.pagesWithText >=
-      requiredPages
+    embedded.pagesWithText ===
+      embedded.pageCount
   ) {
     return {
       text:
@@ -1231,28 +1280,30 @@ export async function extractLegalPdfText(
   }
 
   /*
-   * 2) TARANMIŞ PDF
+   * 2) TARANMIŞ / MIXED PDF
    *
-   * PDF sayfalarını PNG'ye render et.
-   * Aynı Tesseract worker ile sırayla OCR yap.
-   *
-   * Ücretli API YOK.
+   * Yalnız text-layer bulunmayan sayfaları PNG'ye render edip OCR yap.
+   * Text bulunan sayfalar sırası ve sayfa numarası korunarak doğrudan kullanılır.
    */
-  const text =
+  const hybridResult =
     await ocrPdfPages(
-      bytes
+      bytes,
+      embedded.pages
     );
 
-  if (!text) {
+  if (!hybridResult.text) {
     throw new Error(
       "PDF içerisinden okunabilir metin çıkarılamadı."
     );
   }
 
   return {
-    text,
+    text:
+      hybridResult.text,
 
     engine:
-      "tesseract",
+      embedded.pagesWithText > 0
+        ? "pdf-hybrid"
+        : "tesseract",
   };
 }

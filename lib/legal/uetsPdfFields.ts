@@ -337,7 +337,7 @@ export function extractUetsPaymentFields(
   sourceDocument: string
 ): UetsPaymentFields {
   const paymentDescriptionPattern =
-    /((?:[İi]stinaf|temyiz|başvuru|gider|posta|tebligat)\s+avans[ıi]|(?:harç|masraf|bakiye|ödeme)\s+(?:tutar[ıi]|bedeli))/iu;
+    /((?:[İi]stinaf|temyiz|başvuru|gider|posta|tebligat|bilirkişi)\s+avans[ıi]|(?:harç|masraf|bakiye|ödeme)\s+(?:tutar[ıi]|bedeli))/iu;
   const amountPattern =
     /(\d{1,3}(?:[.\u00a0 \t]\d{3})*(?:,\d{1,2})?|\d+(?:,\d{1,2})?)\s*(TRY|TL|₺|EUR|€|USD|\$)(?=\s|[.,;)'’]|$)/giu;
 
@@ -354,7 +354,16 @@ export function extractUetsPaymentFields(
 
     amount = parseTurkishAmount(match[1]);
     currency = normalizeCurrency(match[2]);
-    description = context.match(paymentDescriptionPattern)?.[1] || context;
+    const matchedDescription =
+      context.match(
+        paymentDescriptionPattern
+      )?.[1];
+    description = matchedDescription
+      ? matchedDescription
+          .charAt(0)
+          .toLocaleUpperCase("tr-TR") +
+        matchedDescription.slice(1)
+      : context;
     break;
   }
 
@@ -415,21 +424,45 @@ export function extractUetsPartiesAndSubject(text: string) {
   const defendant = text.match(
     /(?:^|\n)\s*DAVALI\s*[:\-]?\s*(?:\r?\n\s*)?([^\r\n]{3,300})/imu
   );
-  const subject =
+  const caseType =
     text.match(
       /(?:^|\n)\s*DAVA\s*TÜRÜ\s*(?:\/\s*KONU)?\s*[:\-]?\s*(?:\r?\n\s*)?([^\r\n]{3,500})/imu
+    );
+  const subject =
+    text.match(
+      /(?:^|\n)\s*(?:KONU|TEBLİGAT\s+KONUSU)\s*[:\-]\s*(?:\r?\n\s*)?([^\r\n]{3,500})/imu
     ) ||
-    text.match(/(?:Konu|Tebligat\s+Konusu)\s*[:\-]\s*([^\r\n]{3,500})/iu);
+    caseType;
+
+  const cleanPartyName = (
+    value: string
+  ) =>
+    cleanSpace(value)
+      .replace(
+        /\s*\(\s*T\.?\s*C\.?\s*[:\-]?\s*\d{11}\s*\)\s*$/iu,
+        ""
+      )
+      .trim();
+
+  const plaintiff = claimant?.[1]
+    ? cleanPartyName(claimant[1])
+    : "";
+  const defendantName = defendant?.[1]
+    ? cleanPartyName(defendant[1])
+    : "";
 
   const labelledParties = [
-    claimant?.[1] ? `Davacı: ${cleanSpace(claimant[1])}` : "",
-    defendant?.[1] ? `Davalı: ${cleanSpace(defendant[1])}` : "",
+    plaintiff ? `Davacı: ${plaintiff}` : "",
+    defendantName ? `Davalı: ${defendantName}` : "",
   ]
     .filter(Boolean)
     .join("\n");
 
   return {
     parties: labelledParties || (parties ? cleanSpace(parties[1]) : ""),
+    plaintiff,
+    defendant: defendantName,
+    caseType: caseType ? cleanSpace(caseType[1]) : "",
     subject: subject ? cleanSpace(subject[1]) : "",
   };
 }
