@@ -113,6 +113,9 @@ type DocumentCasePreview = {
   hearingDate: string;
   hearingTime: string;
   explicitDeadline: string;
+  caseValue: string;
+  caseValueCurrency: string;
+  resultAndRequest: string;
   paymentAmount: string;
   paymentCurrency: string;
   paymentDescription: string;
@@ -134,6 +137,9 @@ const EMPTY_DOCUMENT_PREVIEW:
     hearingDate: "",
     hearingTime: "",
     explicitDeadline: "",
+    caseValue: "",
+    caseValueCurrency: "",
+    resultAndRequest: "",
     paymentAmount: "",
     paymentCurrency: "",
     paymentDescription: "",
@@ -1316,6 +1322,17 @@ export default function CasesPage() {
         hearingTime:
           hearing.time || "",
         explicitDeadline,
+        caseValue:
+          typeof document.caseValue ===
+            "number"
+            ? String(document.caseValue)
+            : "",
+        caseValueCurrency:
+          document.caseValueCurrency ||
+          "",
+        resultAndRequest:
+          document.resultAndRequest ||
+          "",
         paymentAmount:
           typeof payment.paymentAmount ===
             "number"
@@ -1430,6 +1447,16 @@ export default function CasesPage() {
           : "",
         documentPreview.barcodeNo
           ? `Barkod/Tebligat No: ${documentPreview.barcodeNo}`
+          : "",
+        documentPreview.caseValue
+          ? `Dava Değeri: ${documentPreview.caseValue}${
+              documentPreview.caseValueCurrency
+                ? ` ${documentPreview.caseValueCurrency}`
+                : ""
+            }`
+          : "",
+        documentPreview.resultAndRequest
+          ? `Sonuç ve İstem: ${documentPreview.resultAndRequest}`
           : "",
         documentPreview.paymentPeriodText
           ? `Süre metni: ${documentPreview.paymentPeriodText}`
@@ -6522,6 +6549,46 @@ export default function CasesPage() {
                       onChange={(event) =>
                         updateDocumentPreview(
                           "explicitDeadline",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    <span>Dava Değeri</span>
+                    <input
+                      inputMode="decimal"
+                      value={documentPreview.caseValue}
+                      onChange={(event) =>
+                        updateDocumentPreview(
+                          "caseValue",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    <span>Dava Değeri Para Birimi</span>
+                    <input
+                      value={documentPreview.caseValueCurrency}
+                      onChange={(event) =>
+                        updateDocumentPreview(
+                          "caseValueCurrency",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    <span>Sonuç ve İstem</span>
+                    <textarea
+                      value={documentPreview.resultAndRequest}
+                      onChange={(event) =>
+                        updateDocumentPreview(
+                          "resultAndRequest",
                           event.target.value
                         )
                       }

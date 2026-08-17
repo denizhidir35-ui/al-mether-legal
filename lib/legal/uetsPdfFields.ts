@@ -7,6 +7,11 @@ export type UetsPaymentFields = {
   sourceDocument: string;
 };
 
+export type UetsCaseValueFields = {
+  caseValue: number | null;
+  caseValueCurrency: string;
+};
+
 export type UetsHearingFields = {
   found: boolean;
   date: string;
@@ -66,8 +71,96 @@ function contextAround(text: string, index: number, length: number) {
   return cleanSpace(text.slice(Math.max(0, index - 140), index + length + 180)).slice(0, 500);
 }
 
-const paymentContextPattern =
-  /(?:öde(?:me|nmesi|yiniz)|yatır(?:ma|ılması|ınız)|harç|avans[ıi]?|masraf|bakiye|tutar)/iu;
+function paymentContextAround(text: string, index: number, length: number) {
+  const lineStart = text.lastIndexOf("\n", index - 1) + 1;
+  const nextLineBreak = text.indexOf("\n", index + length);
+  const lineEnd = nextLineBreak < 0 ? text.length : nextLineBreak;
+  const currentLine = text.slice(lineStart, lineEnd);
+
+  if (hasPaymentObligation(currentLine)) {
+    return cleanSpace(currentLine).slice(0, 500);
+  }
+
+  const previousLineBreak = lineStart > 0
+    ? text.lastIndexOf("\n", lineStart - 2)
+    : -1;
+  const previousLine = text.slice(previousLineBreak + 1, Math.max(0, lineStart - 1));
+  const followingLineEnd = nextLineBreak < 0
+    ? text.length
+    : text.indexOf("\n", nextLineBreak + 1);
+  const nextLine = nextLineBreak < 0
+    ? ""
+    : text.slice(
+        nextLineBreak + 1,
+        followingLineEnd < 0 ? text.length : followingLineEnd
+      );
+
+  if (
+    /(?:avans|harç|masraf|ödeme)(?:\s+tutar[ıi]|\s+bedeli)?\s*[:\-]?\s*$/iu.test(previousLine) ||
+    /^(?:\s*(?:mahkeme\s+veznesine\s+)?(?:yatır|öden))/iu.test(nextLine)
+  ) {
+    return cleanSpace([previousLine, currentLine, nextLine].join(" ")).slice(0, 500);
+  }
+
+  return cleanSpace(currentLine).slice(0, 500);
+}
+
+const paymentObligationPattern =
+  /(?:gider|bilirkişi|istinaf|temyiz|başvuru|posta|tebligat)\s+avans[ıi]?|(?:mahkeme\s+veznesine\s+)?yatır(?:ma|ılması|ılacak|manız|ınız|ılması\s+gerekmektedir)|ödenmesi|ödeme\s+(?:yapılması|yapılacak|tutar[ıi]|bedeli)|(?:harç|avans|masraf)\s*(?:tutar[ıi]|bedeli)?\s*[:\-]/iu;
+
+function hasPaymentObligation(value: string) {
+  return paymentObligationPattern.test(value);
+}
+
+export function extractUetsCaseValueFields(
+  text: string
+): UetsCaseValueFields {
+  const labelledValuePattern =
+    /(?:^|\n)\s*(?:Dava\s+Değer[İIıi]|Harca\s+Esas\s+(?:Dava\s+)?Değer|Harca\s+Esas\s+Miktar)\s*[:\-]\s*(\d{1,3}(?:[.\u00a0 \t]\d{3})*(?:,\d{1,2})?|\d+(?:,\d{1,2})?)\s*(TRY|TL|₺|EUR|€|USD|\$)(?=\s|[.,;)'’]|$)/imu;
+  const match = text.match(labelledValuePattern);
+
+  return {
+    caseValue: match?.[1]
+      ? parseTurkishAmount(match[1])
+      : null,
+    caseValueCurrency: match?.[2]
+      ? normalizeCurrency(match[2])
+      : "",
+  };
+}
+
+export function extractUetsResultAndRequest(
+  text: string
+) {
+  const lines = text.replace(/\r/g, "").split("\n");
+  const headingPattern =
+    /^\s*(?:SONUÇ\s+VE\s+(?:İSTEM|TALEP)|NETİCE\s+VE\s+TALEP)\s*:?\s*$/iu;
+  const endingPattern =
+    /^\s*(?:EKLER|DAVACI(?:\s+VEKİLİ)?|DAVALI(?:\s+VEKİLİ)?|VEKİLİ|TARİH|İMZA)\s*:?\s*$/iu;
+  const headingIndex = lines.findIndex((line) => headingPattern.test(line));
+
+  if (headingIndex < 0) {
+    return "";
+  }
+
+  const result: string[] = [];
+
+  for (let index = headingIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+
+    if (endingPattern.test(line) && result.some((item) => item.trim())) {
+      break;
+    }
+
+    result.push(line);
+  }
+
+  return result
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .slice(0, 12_000);
+}
 
 export function extractUetsHearingFields(text: string): UetsHearingFields {
   const patterns = [
@@ -135,7 +228,7 @@ export function extractUetsExplicitDeadlines(text: string): UetsDeadlineField[] 
   for (const pattern of patterns) {
     for (const match of text.matchAll(pattern)) {
       const date = toIsoDate(match[1] || match[0]);
-      if (!date || paymentContextPattern.test(match[0])) {
+      if (!date || hasPaymentObligation(match[0])) {
         continue;
       }
 
@@ -195,16 +288,16 @@ export function extractUetsPaymentFields(
   const paymentDescriptionPattern =
     /((?:[İi]stinaf|temyiz|başvuru|gider|posta|tebligat)\s+avans[ıi]|(?:harç|masraf|bakiye|ödeme)\s+(?:tutar[ıi]|bedeli))/iu;
   const amountPattern =
-    /(\d{1,3}(?:[.\s]\d{3})*(?:,\d{1,2})?|\d+(?:,\d{1,2})?)\s*(TRY|TL|₺|EUR|€|USD|\$)(?=\s|[.,;)'’]|$)/giu;
+    /(\d{1,3}(?:[.\u00a0 \t]\d{3})*(?:,\d{1,2})?|\d+(?:,\d{1,2})?)\s*(TRY|TL|₺|EUR|€|USD|\$)(?=\s|[.,;)'’]|$)/giu;
 
   let amount: number | null = null;
   let currency = "";
   let description = "";
 
   for (const match of text.matchAll(amountPattern)) {
-    const context = contextAround(text, match.index ?? 0, match[0].length);
+    const context = paymentContextAround(text, match.index ?? 0, match[0].length);
 
-    if (!paymentContextPattern.test(context)) {
+    if (!hasPaymentObligation(context)) {
       continue;
     }
 
@@ -238,9 +331,9 @@ export function extractUetsPaymentFields(
     /\b((?:tebliğ\s+edilmiş\s+sayılma\s+tarihinden\s+itibaren\s+)?(?:\d+\s*(?:gün|hafta|ay)|(?:bir|iki|üç|dört|beş|altı|yedi|sekiz|dokuz|on)\s+(?:günlük|haftalık|aylık))\s*(?:süre\s+)?(?:içinde|içerisinde))\b/giu;
 
   for (const match of text.matchAll(periodPattern)) {
-    const context = contextAround(text, match.index ?? 0, match[0].length);
+    const context = paymentContextAround(text, match.index ?? 0, match[0].length);
 
-    if (!paymentContextPattern.test(context)) {
+    if (!hasPaymentObligation(context)) {
       continue;
     }
 

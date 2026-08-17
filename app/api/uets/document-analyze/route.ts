@@ -21,12 +21,14 @@ import {
 } from "@/lib/legal/imageNormalization";
 import {
   extractUetsBarcodeNo,
+  extractUetsCaseValueFields,
   extractUetsDateInformation,
   extractUetsDecisionNo,
   extractUetsExplicitDeadlines,
   extractUetsHearingFields,
   extractUetsPartiesAndSubject,
   extractUetsPaymentFields,
+  extractUetsResultAndRequest,
 } from "@/lib/legal/uetsPdfFields";
 import { extractUetsNotice } from "@/lib/legal/uetsExtractor";
 import {
@@ -867,6 +869,16 @@ export async function POST(
         sourceDocument
       );
 
+    const caseValue =
+      extractUetsCaseValueFields(
+        text
+      );
+
+    const resultAndRequest =
+      extractUetsResultAndRequest(
+        text
+      );
+
     const dateInformation =
       extractUetsDateInformation(
         text
@@ -963,6 +975,14 @@ export async function POST(
 
       subject:
         partyAndSubject.subject,
+
+      caseValue:
+        caseValue.caseValue,
+
+      caseValueCurrency:
+        caseValue.caseValueCurrency,
+
+      resultAndRequest,
 
       payment,
 
