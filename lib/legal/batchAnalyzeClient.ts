@@ -17,6 +17,12 @@ export type BatchAnalyzeFailure = {
 export type BatchAnalyzeResult = {
   candidates: BatchDocumentCandidate[];
   failures: BatchAnalyzeFailure[];
+
+  filesById: Map<
+    string,
+    File
+  >;
+
   grouped: ReturnType<
     typeof groupBatchDocuments
   >;
@@ -370,6 +376,12 @@ export async function analyzeLegalBatchFiles(
     BatchAnalyzeFailure[] =
     [];
 
+  const filesById =
+    new Map<
+      string,
+      File
+    >();
+
   let completed = 0;
 
   /*
@@ -399,10 +411,24 @@ export async function analyzeLegalBatchFiles(
         files[index];
 
       try {
+        const candidateId =
+          index +
+          "-" +
+          file.name +
+          "-" +
+          file.size +
+          "-" +
+          file.lastModified;
+
+        filesById.set(
+          candidateId,
+          file
+        );
+
         const candidate =
           await analyzeBatchDocumentFile(
             file,
-            `${index}-${file.name}-${file.size}-${file.lastModified}`
+            candidateId
           );
 
         candidates.push(
@@ -453,6 +479,8 @@ export async function analyzeLegalBatchFiles(
     candidates,
 
     failures,
+
+    filesById,
 
     grouped:
       groupBatchDocuments(
