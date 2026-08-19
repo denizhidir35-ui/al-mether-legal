@@ -15,6 +15,9 @@ import {
   extractLegalPdfText,
 } from "@/lib/legal/ocr";
 import {
+  extractLegalUdfText,
+} from "@/lib/legal/udf";
+import {
   LegalImageNormalizationError,
   normalizeLegalImageForOcr,
   resolveLegalImageMimeType,
@@ -671,6 +674,26 @@ export async function POST(
           .digest("hex");
 
       if (
+        sourceDocument
+          .toLocaleLowerCase("tr-TR")
+          .endsWith(".udf")
+      ) {
+        const udfResult =
+          await extractLegalUdfText(
+            bytes
+          );
+
+        htmlText =
+          safeText(
+            udfResult.text
+          );
+
+        uploadEngine =
+          udfResult.engine;
+
+        sourceType =
+          "case_udf_upload";
+      } else if (
         file.type ===
           "application/pdf" ||
         sourceDocument
@@ -681,6 +704,7 @@ export async function POST(
           validateUetsPdfBytes(
             bytes
           );
+
         htmlText =
           "Kullanıcı tarafından yüklenen hukuki PDF belgesi analizidir.";
       } else {

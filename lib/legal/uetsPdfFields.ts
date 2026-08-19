@@ -83,8 +83,23 @@ export function extractUetsAddresseeCourt(text: string) {
     /(?<![A-ZÇĞİÖŞÜ])((?:(?:[A-ZÇĞİÖŞÜ]+|\d{1,3}\.)\s+){1,4}(?:AİLE|İŞ|ASLİYE\s+HUKUK|SULH\s+HUKUK|İCRA\s+HUKUK|AĞIR\s+CEZA|ASLİYE\s+CEZA|TÜKETİCİ|İDARE|VERGİ|TİCARET)\s+MAHKEMESİ)(?:\s+(?:SAYIN\s+)?HAKİMLİĞİ\s*['’]?\s*NE|\s*['’]?\s*NE)\b/u
   );
 
-  return match?.[1]
-    ? toTurkishTitleCase(cleanSpace(match[1]))
+  if (match?.[1]) {
+    return toTurkishTitleCase(
+      cleanSpace(match[1])
+    );
+  }
+
+  const bareCourt =
+    upperText.match(
+      /(?:^|\n)\s*((?:(?:[A-ZÇĞİÖŞÜ]+|\d{1,3}\.)\s+){1,4}(?:AİLE|İŞ|ASLİYE\s+HUKUK|SULH\s+HUKUK|İCRA\s+HUKUK|AĞIR\s+CEZA|ASLİYE\s+CEZA|TÜKETİCİ|İDARE|VERGİ|TİCARET)\s+MAHKEMESİ)\s*(?:\n|$)/mu
+    );
+
+  return bareCourt?.[1]
+    ? toTurkishTitleCase(
+        cleanSpace(
+          bareCourt[1]
+        )
+      )
     : "";
 }
 
@@ -110,6 +125,17 @@ export function extractUetsLawyers(text: string) {
 }
 
 export function extractUetsDocumentDate(text: string) {
+  const labelledDate =
+    text.match(
+      /(?:^|\n)\s*BELGE\s+TAR[İIıi]H[İIıi]?\s*[:\-]?\s*(\d{1,2}[./-]\d{1,2}[./-]\d{4})/imu
+    );
+
+  if (labelledDate?.[1]) {
+    return toIsoDate(
+      labelledDate[1]
+    );
+  }
+
   const tail = text.slice(Math.max(0, Math.floor(text.length * 0.6)));
   const signatureDatePattern =
     /(\d{1,2}[./-]\d{1,2}[./-]\d{4})(?=[\s\S]{0,180}\b(?:DAVACI\s+VEKİLİ|DAVALI\s+VEKİLİ|VEKİLİ|İMZA|EKLER)\b)/giu;
@@ -299,16 +325,37 @@ export function extractUetsExplicitDeadlines(text: string): UetsDeadlineField[] 
   }
 
   const relativePattern =
-    /(?:kesin\s+süre|süre)\s*(?:olarak)?\s*[:\-]?\s*(\d+\s*(?:gün|hafta|ay))[^\n]*/giu;
+    /\b((?:tebliğ(?:den|\s+tarihinden|\s+edilmiş\s+sayılma\s+tarihinden)?\s+itibaren\s+)?(?:\d+|bir|iki|üç|dört|beş|altı|yedi|sekiz|dokuz|on)\s+(?:günlük|gün|haftalık|hafta|aylık|ay)(?:\s+süre(?:si)?)?(?:\s+(?:içinde|içerisinde))?)/giu;
 
   for (const match of text.matchAll(relativePattern)) {
+    const durationText =
+      cleanSpace(
+        match[1] || ""
+      );
+
+    if (!durationText) {
+      continue;
+    }
+
     results.push({
-      label: "Göreli hukuki süre",
+      label:
+        "Göreli hukuki süre",
       explicitDate: "",
-      durationText: cleanSpace(match[1] || ""),
-      startBasis: /tebliğ/iu.test(match[0]) ? "Tebliğ" : "",
-      evidence: cleanSpace(match[0]).slice(0, 1500),
-      isExplicitFinalDate: false,
+      durationText,
+      startBasis:
+        /tebliğ/iu.test(
+          durationText
+        )
+          ? "Tebliğ"
+          : "",
+      evidence:
+        contextAround(
+          text,
+          match.index ?? 0,
+          match[0].length
+        ),
+      isExplicitFinalDate:
+        false,
     });
   }
 
@@ -419,10 +466,11 @@ export function extractUetsPartiesAndSubject(text: string) {
     /(?:Taraf(?:lar)?|Davacı\s*\/\s*Davalı|Muhatap)\s*[:\-]\s*([^\r\n]{3,300})/iu
   );
   const claimant = text.match(
-    /(?:^|\n)\s*DAVACI\s*[:\-]?\s*(?:\r?\n\s*)?([^\r\n]{3,300})/imu
+    /(?:^|\n)\s*DAVAC[Iİıi]\s*[:\-]?\s*(?:\r?\n\s*)?([^\r\n]{2,300})/imu
   );
+
   const defendant = text.match(
-    /(?:^|\n)\s*DAVALI\s*[:\-]?\s*(?:\r?\n\s*)?([^\r\n]{3,300})/imu
+    /(?:^|\n)\s*DAVAL[Iİıi]\s*[:\-]?\s*(?:\r?\n\s*)?([^\r\n]{2,300})/imu
   );
   const caseType =
     text.match(

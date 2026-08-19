@@ -1920,6 +1920,24 @@ export default function CasesPage() {
             )?.explicitDate || ""
           : "";
 
+      const relativePeriodText =
+        Array.isArray(
+          document.deadlines
+        )
+          ? document.deadlines.find(
+              (item: {
+                isExplicitFinalDate?: boolean;
+                durationText?: string;
+              }) =>
+                !item
+                  ?.isExplicitFinalDate &&
+                Boolean(
+                  item
+                    ?.durationText
+                )
+            )?.durationText || ""
+          : "";
+
       setDocumentPreview({
         ...EMPTY_DOCUMENT_PREVIEW,
         documentType:
@@ -1994,6 +2012,7 @@ export default function CasesPage() {
           "",
         paymentPeriodText:
           payment.paymentPeriodText ||
+          relativePeriodText ||
           "",
         sourceDocument:
           data.source
@@ -2034,7 +2053,15 @@ export default function CasesPage() {
       "image/webp",
     ]);
 
-    if (!supported.has(file.type)) {
+    const isUdf =
+      file.name
+        .toLocaleLowerCase("tr-TR")
+        .endsWith(".udf");
+
+    if (
+      !supported.has(file.type) &&
+      !isUdf
+    ) {
       return false;
     }
 
@@ -7463,7 +7490,7 @@ export default function CasesPage() {
             <input
               ref={pdfInputRef}
               type="file"
-              accept="application/pdf,.pdf"
+              accept="application/pdf,.pdf,.udf,application/octet-stream"
               hidden
               onChange={(event) => {
                 const file =
@@ -7524,7 +7551,7 @@ export default function CasesPage() {
                     ?.click()
                 }
               >
-                PDF Seç
+                PDF / UDF Seç
               </button>
               <button
                 type="button"

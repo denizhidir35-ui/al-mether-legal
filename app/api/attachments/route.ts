@@ -288,7 +288,15 @@ const attachmentSource =
         "image/webp",
       ]);
 
-    if (!allowedTypes.has(uploadedFile.type)) {
+    const isUdf =
+      uploadedFile.name
+        .toLocaleLowerCase("tr-TR")
+        .endsWith(".udf");
+
+    if (
+      !allowedTypes.has(uploadedFile.type) &&
+      !isUdf
+    ) {
       return NextResponse.json(
         {
           ok: false,
@@ -632,7 +640,3 @@ export async function PATCH(
     );
   }
 }
-
-
-
-
