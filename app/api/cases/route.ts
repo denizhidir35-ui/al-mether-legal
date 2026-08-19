@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { getOrCreateAppUser } from "@/lib/alUser";
 import { isTestOrDevRecord } from "@/lib/testRecordVisibility";
@@ -313,12 +313,145 @@ export async function POST(request: Request) {
     }
 
     if (existingDocument.data) {
+      const existing =
+        existingDocument.data;
+
+      const existingTitle =
+        existing.case_title
+          ?.toString()
+          .trim() || "";
+
+      const existingType =
+        existing.case_type
+          ?.toString()
+          .trim() || "";
+
+      const incomingTitle =
+        caseTitle.trim();
+
+      const incomingType =
+        body.case_type
+          ?.toString()
+          .trim() || "";
+
+      const normalizedExistingTitle =
+        existingTitle
+          .toLocaleLowerCase(
+            "tr-TR"
+          );
+
+      const weakExistingTitle =
+        !existingTitle ||
+        existingTitle ===
+          caseNumber ||
+        [
+          "hukuki dava",
+          "tebligat",
+          "elektronik tebligat",
+        ].includes(
+          normalizedExistingTitle
+        );
+
+      const bestIncomingTitle =
+        incomingTitle &&
+        incomingTitle !==
+          caseNumber
+          ? incomingTitle
+          : incomingType;
+
+      const updates:
+        Record<
+          string,
+          string
+        > = {};
+
+      if (
+        weakExistingTitle &&
+        bestIncomingTitle &&
+        bestIncomingTitle !==
+          caseNumber
+      ) {
+        updates.case_title =
+          bestIncomingTitle;
+      }
+
+      const normalizedExistingType =
+        existingType
+          .toLocaleLowerCase(
+            "tr-TR"
+          );
+
+      if (
+        incomingType &&
+        (
+          !existingType ||
+          normalizedExistingType ===
+            "tebligat" ||
+          normalizedExistingType ===
+            "hukuki dava"
+        )
+      ) {
+        updates.case_type =
+          incomingType;
+      }
+
+      let resolvedCase =
+        existing;
+
+      if (
+        Object.keys(
+          updates
+        ).length > 0
+      ) {
+        const enrichedDocumentCase =
+          await supabase
+            .from(
+              "legal_cases"
+            )
+            .update(
+              updates
+            )
+            .eq(
+              "id",
+              existing.id
+            )
+            .eq(
+              "user_id",
+              appUser.id
+            )
+            .select("*")
+            .single();
+
+        if (
+          enrichedDocumentCase.error
+        ) {
+          return NextResponse.json(
+            {
+              error:
+                enrichedDocumentCase
+                  .error
+                  .message,
+            },
+            {
+              status: 500,
+            }
+          );
+        }
+
+        resolvedCase =
+          enrichedDocumentCase.data;
+      }
+
       return NextResponse.json({
         case:
-          existingDocument.data,
+          resolvedCase,
         duplicate: true,
         duplicateReason:
           "document_identity",
+        enriched:
+          Object.keys(
+            updates
+          ).length > 0,
       });
     }
   }
@@ -369,12 +502,152 @@ export async function POST(request: Request) {
     }
 
     if (existingCase.data) {
+      const existing =
+        existingCase.data;
+
+      const existingTitle =
+        existing.case_title
+          ?.toString()
+          .trim() || "";
+
+      const existingType =
+        existing.case_type
+          ?.toString()
+          .trim() || "";
+
+      const incomingTitle =
+        caseTitle.trim();
+
+      const incomingType =
+        body.case_type
+          ?.toString()
+          .trim() || "";
+
+      const normalizedExistingTitle =
+        existingTitle
+          .toLocaleLowerCase(
+            "tr-TR"
+          );
+
+      /*
+       * Mevcut davayı yalnızca zayıf /
+       * otomatik alanlar için zenginleştir.
+       *
+       * Kullanıcının elle yazdığı güçlü
+       * başlıkların üzerine yazılmaz.
+       */
+      const weakExistingTitle =
+        !existingTitle ||
+        existingTitle ===
+          caseNumber ||
+        [
+          "hukuki dava",
+          "tebligat",
+          "elektronik tebligat",
+        ].includes(
+          normalizedExistingTitle
+        );
+
+      const bestIncomingTitle =
+        incomingTitle &&
+        incomingTitle !==
+          caseNumber
+          ? incomingTitle
+          : incomingType;
+
+      const updates:
+        Record<
+          string,
+          string
+        > = {};
+
+      if (
+        weakExistingTitle &&
+        bestIncomingTitle &&
+        bestIncomingTitle !==
+          caseNumber
+      ) {
+        updates.case_title =
+          bestIncomingTitle;
+      }
+
+      const normalizedExistingType =
+        existingType
+          .toLocaleLowerCase(
+            "tr-TR"
+          );
+
+      if (
+        incomingType &&
+        (
+          !existingType ||
+          normalizedExistingType ===
+            "tebligat" ||
+          normalizedExistingType ===
+            "hukuki dava"
+        )
+      ) {
+        updates.case_type =
+          incomingType;
+      }
+
+      let resolvedCase =
+        existing;
+
+      if (
+        Object.keys(
+          updates
+        ).length > 0
+      ) {
+        const enrichedCase =
+          await supabase
+            .from(
+              "legal_cases"
+            )
+            .update(
+              updates
+            )
+            .eq(
+              "id",
+              existing.id
+            )
+            .eq(
+              "user_id",
+              appUser.id
+            )
+            .select("*")
+            .single();
+
+        if (
+          enrichedCase.error
+        ) {
+          return NextResponse.json(
+            {
+              error:
+                enrichedCase
+                  .error
+                  .message,
+            },
+            {
+              status: 500,
+            }
+          );
+        }
+
+        resolvedCase =
+          enrichedCase.data;
+      }
+
       return NextResponse.json({
         case:
-          existingCase.data,
+          resolvedCase,
         duplicate: true,
         duplicateReason:
           "case_identity",
+        enriched:
+          Object.keys(
+            updates
+          ).length > 0,
       });
     }
   }

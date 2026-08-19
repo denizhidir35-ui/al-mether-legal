@@ -302,6 +302,11 @@ const attachmentSource =
         .toLocaleLowerCase("tr-TR")
         .endsWith(".udf");
 
+    const storageContentType =
+      isUdf
+        ? "application/zip"
+        : uploadedFile.type;
+
     if (
       !allowedTypes.has(uploadedFile.type) &&
       !isUdf
@@ -495,10 +500,10 @@ const attachmentSource =
         .from(BUCKET_NAME)
         .upload(
           storagePath,
-          uploadedFile,
+          await uploadedFile.arrayBuffer(),
           {
             contentType:
-              uploadedFile.type,
+              storageContentType,
             upsert: false,
           }
         );
@@ -533,7 +538,7 @@ const attachmentSource =
             uploadedFile.name,
 
           file_type:
-            uploadedFile.type,
+            storageContentType,
 
           file_size:
             uploadedFile.size,

@@ -40,6 +40,12 @@ import {
   type BatchAnalyzeResult,
 } from "@/lib/legal/batchAnalyzeClient";
 
+import {
+  saveLegalBatch,
+  type BatchSaveProgress,
+  type BatchSaveResult,
+} from "@/lib/legal/batchSaveClient";
+
 type LegalDeadline = {
   id: string;
   title?: string | null;
@@ -265,6 +271,18 @@ export default function CasesPage() {
 
   const [batchResult, setBatchResult] =
     useState<BatchAnalyzeResult | null>(null);
+
+  const [batchSaving, setBatchSaving] =
+    useState(false);
+
+  const [batchSaveProgress, setBatchSaveProgress] =
+    useState<BatchSaveProgress | null>(null);
+
+  const [batchSaveResult, setBatchSaveResult] =
+    useState<BatchSaveResult | null>(null);
+
+  const [batchSaveError, setBatchSaveError] =
+    useState("");
 
   const pdfInputRef =
     useRef<HTMLInputElement>(null);
@@ -1878,6 +1896,9 @@ export default function CasesPage() {
     try {
       setBatchAnalyzing(true);
       setBatchResult(null);
+      setBatchSaveProgress(null);
+      setBatchSaveResult(null);
+      setBatchSaveError("");
       setBatchProgress({
         completed: 0,
         total: files.length,
@@ -1925,6 +1946,171 @@ export default function CasesPage() {
     }
   }
 
+  async function saveAnalyzedBatch() {
+    if (
+      !batchResult ||
+      batchSaving ||
+      batchSaveResult
+    ) {
+      return;
+    }
+
+    try {
+      setBatchSaving(true);
+      setBatchSaveError("");
+      setBatchSaveResult(null);
+      setBatchSaveProgress(null);
+
+      const result =
+        await saveLegalBatch(
+          batchResult,
+          (progress) => {
+            setBatchSaveProgress(
+              progress
+            );
+          }
+        );
+
+      setBatchSaveResult(
+        result
+      );
+
+      await loadCases();
+
+      const batchCompletedCleanly =
+        result.failures.length === 0 &&
+        result.skippedReviewCases === 0;
+
+      if (batchCompletedCleanly) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, 900)
+        );
+
+        setBatchResult(null);
+        setBatchProgress(null);
+        setBatchSaveProgress(null);
+        setBatchSaveResult(null);
+        setBatchSaveError("");
+      }
+    } catch (saveError) {
+      setBatchSaveError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Toplu kayıt başarısız."
+      );
+    } finally {
+      setBatchSaving(false);
+    }
+  }
+
+  async function retryFailedBatch() {
+    if (
+      !batchResult ||
+      batchSaving ||
+      !batchSaveResult ||
+      batchSaveResult.failures.length ===
+        0
+    ) {
+      return;
+    }
+
+    const retryGroupKeys =
+      new Set<string>();
+
+    const retryDocumentIds =
+      new Set<string>();
+
+    for (
+      const failure
+      of batchSaveResult.failures
+    ) {
+      if (
+        failure.scope ===
+        "case"
+      ) {
+        retryGroupKeys.add(
+          failure.groupKey
+        );
+
+        continue;
+      }
+
+      if (
+        failure.candidateId
+      ) {
+        retryDocumentIds.add(
+          failure.candidateId
+        );
+      }
+    }
+
+    if (
+      retryGroupKeys.size === 0 &&
+      retryDocumentIds.size === 0
+    ) {
+      setBatchSaveError(
+        "Başarısız kayıtlar güvenli belge kimliğiyle eşleştirilemedi."
+      );
+
+      return;
+    }
+
+    try {
+      setBatchSaving(true);
+      setBatchSaveError("");
+      setBatchSaveProgress(null);
+
+      const result =
+        await saveLegalBatch(
+          batchResult,
+          (progress) => {
+            setBatchSaveProgress(
+              progress
+            );
+          },
+          {
+            retryGroupKeys,
+            retryDocumentIds,
+          }
+        );
+
+      setBatchSaveResult(
+        result
+      );
+
+      await loadCases();
+
+      const batchCompletedCleanly =
+        result.failures.length ===
+          0 &&
+        result.skippedReviewCases ===
+          0;
+
+      if (batchCompletedCleanly) {
+        await new Promise(
+          (resolve) =>
+            setTimeout(
+              resolve,
+              900
+            )
+        );
+
+        setBatchResult(null);
+        setBatchProgress(null);
+        setBatchSaveProgress(null);
+        setBatchSaveResult(null);
+        setBatchSaveError("");
+      }
+    } catch (saveError) {
+      setBatchSaveError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Başarısız kayıtlar yeniden kaydedilemedi."
+      );
+    } finally {
+      setBatchSaving(false);
+    }
+  }
   async function analyzeCaseDocument(
     file: File
   ) {
@@ -7723,6 +7909,213 @@ export default function CasesPage() {
                       .length
                   }{" "}
                   başarısız
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gap: 8,
+                  }}
+                >
+                  {!batchSaveResult ? (
+                    <button
+                      type="button"
+                      disabled={
+                        batchSaving ||
+                        batchResult.grouped.groups.every(
+                          (group) =>
+                            group.needsReview
+                        )
+                      }
+                      onClick={() =>
+                        void saveAnalyzedBatch()
+                      }
+                      style={{
+                        minHeight: 38,
+                        border:
+                          "1px solid var(--legal-gold)",
+                        borderRadius: 9,
+                        background:
+                          "var(--legal-gold-soft)",
+                        color:
+                          "var(--legal-gold-light)",
+                        cursor:
+                          batchSaving
+                            ? "wait"
+                            : "pointer",
+                        fontWeight: 850,
+                      }}
+                    >
+                      {batchSaving
+                        ? "Toplu kaydediliyor..."
+                        : "Toplu Kaydet"}
+                    </button>
+                  ) : batchSaveResult.failures.length >
+                    0 ? (
+                    <button
+                      type="button"
+                      disabled={batchSaving}
+                      onClick={() =>
+                        void retryFailedBatch()
+                      }
+                      style={{
+                        minHeight: 38,
+                        border:
+                          "1px solid var(--legal-gold)",
+                        borderRadius: 9,
+                        background:
+                          "var(--legal-gold-soft)",
+                        color:
+                          "var(--legal-gold-light)",
+                        cursor:
+                          batchSaving
+                            ? "wait"
+                            : "pointer",
+                        fontWeight: 850,
+                      }}
+                    >
+                      {batchSaving
+                        ? "Başarısızlar yeniden deneniyor..."
+                        : `Başarısızları Tekrar Dene (${batchSaveResult.failures.length})`}
+                    </button>
+                  ) : (
+                    <div
+                      style={{
+                        minHeight: 38,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border:
+                          "1px solid rgba(67, 211, 151, .5)",
+                        borderRadius: 9,
+                        background:
+                          "rgba(67, 211, 151, .08)",
+                        color:
+                          "#43d397",
+                        fontWeight: 850,
+                      }}
+                    >
+                      {batchSaveResult.skippedReviewCases >
+                      0
+                        ? "✓ Uygun kayıtlar kaydedildi"
+                        : "✓ Kaydedildi"}
+                    </div>
+                  )}
+
+                  {batchResult.grouped.reviewRequired >
+                    0 && (
+                    <div>
+                      ⚠ Kontrol gereken davalar
+                      otomatik kaydedilmeyecek.
+                    </div>
+                  )}
+
+                  {batchSaving &&
+                    batchSaveProgress && (
+                    <div>
+                      Dava:{" "}
+                      {
+                        batchSaveProgress.completedCases
+                      }
+                      /
+                      {
+                        batchSaveProgress.totalCases
+                      }
+                      {" · "}
+                      Evrak:{" "}
+                      {
+                        batchSaveProgress.completedDocuments
+                      }
+                      /
+                      {
+                        batchSaveProgress.totalDocuments
+                      }
+                      {batchSaveProgress.currentFile
+                        ? " · " +
+                          batchSaveProgress.currentFile
+                        : ""}
+                    </div>
+                  )}
+
+                  {batchSaveResult && (
+                    <div
+                      style={{
+                        display: "grid",
+                        gap: 5,
+                      }}
+                    >
+                      <strong>
+                        {batchSaveResult.failures.length >
+                        0
+                          ? "Toplu kayıt kısmen tamamlandı"
+                          : "Toplu kayıt tamamlandı"}
+                      </strong>
+
+                      <div>
+                        {
+                          batchSaveResult.createdCases
+                        }{" "}
+                        dava oluşturuldu ·{" "}
+                        {
+                          batchSaveResult.matchedCases
+                        }{" "}
+                        dava eşleşti ·{" "}
+                        {
+                          batchSaveResult.savedDocuments
+                        }{" "}
+                        belge kaydedildi ·{" "}
+                        {
+                          batchSaveResult.duplicateDocuments +
+                          batchSaveResult.inputDuplicateDocuments
+                        }{" "}
+                        tekrar belge ·{" "}
+                        {
+                          batchSaveResult.skippedReviewCases
+                        }{" "}
+                        kontrol gerekli ·{" "}
+                        {
+                          batchSaveResult.failures.length
+                        }{" "}
+                        başarısız
+                      </div>
+
+                      {batchSaveResult.failures.length >
+                        0 && (
+                        <div>
+                          {batchSaveResult.failures.map(
+                            (
+                              failure,
+                              index
+                            ) => (
+                              <div
+                                key={
+                                  failure.groupKey +
+                                  "-" +
+                                  index
+                                }
+                              >
+                                {failure.fileName ||
+                                  failure.groupKey}
+                                {" — "}
+                                {failure.error}
+                              </div>
+                            )
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {batchSaveError && (
+                    <div
+                      style={{
+                        color:
+                          "var(--legal-danger)",
+                      }}
+                    >
+                      {batchSaveError}
+                    </div>
+                  )}
                 </div>
 
                 {batchResult.grouped.groups.map(
