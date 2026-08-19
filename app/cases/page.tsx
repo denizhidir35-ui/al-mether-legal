@@ -307,6 +307,32 @@ export default function CasesPage() {
   const [caseFileError, setCaseFileError] =
     useState("");
 
+  const [editCase, setEditCase] =
+    useState<LegalCase | null>(null);
+
+  const [editCaseNumber, setEditCaseNumber] =
+    useState("");
+
+  const [editCourtName, setEditCourtName] =
+    useState("");
+
+  const [editCaseTitle, setEditCaseTitle] =
+    useState("");
+
+  const [editCaseType, setEditCaseType] =
+    useState("");
+
+  const [editStatus, setEditStatus] =
+    useState("");
+
+  const [editRiskLevel, setEditRiskLevel] =
+    useState("");
+
+  const [editSaving, setEditSaving] =
+    useState(false);
+
+  const [editError, setEditError] =
+    useState("");
   const [deleteCandidate, setDeleteCandidate] =
     useState<LegalCase | null>(null);
 
@@ -1115,6 +1141,124 @@ export default function CasesPage() {
     }
   }
 
+  function requestCaseEdit(
+    item: LegalCase
+  ) {
+    setEditCase(item);
+    setEditCaseNumber(
+      item.case_number || ""
+    );
+    setEditCourtName(
+      item.court_name || ""
+    );
+    setEditCaseTitle(
+      item.case_title || ""
+    );
+    setEditCaseType(
+      item.case_type || ""
+    );
+    setEditStatus(
+      item.status || "active"
+    );
+    setEditRiskLevel(
+      item.risk_level || "normal"
+    );
+    setEditError("");
+  }
+
+  function closeCaseEdit() {
+    if (editSaving) {
+      return;
+    }
+
+    setEditCase(null);
+    setEditError("");
+  }
+
+  async function saveCaseEdit() {
+    if (
+      !editCase ||
+      editSaving
+    ) {
+      return;
+    }
+
+    if (!editCaseTitle.trim()) {
+      setEditError(
+        "Dava başlığı zorunludur."
+      );
+      return;
+    }
+
+    try {
+      setEditSaving(true);
+      setEditError("");
+
+      const response = await fetch(
+        `/api/cases/${encodeURIComponent(
+          editCase.id
+        )}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            case_number:
+              editCaseNumber,
+            court_name:
+              editCourtName,
+            case_title:
+              editCaseTitle,
+            case_type:
+              editCaseType,
+            status:
+              editStatus,
+            risk_level:
+              editRiskLevel,
+          }),
+        }
+      );
+
+      const data =
+        await readJsonResponse(
+          response
+        );
+
+      if (
+        !response.ok ||
+        !data?.ok ||
+        !data?.case
+      ) {
+        throw new Error(
+          data?.error ||
+            "Dava güncellenemedi."
+        );
+      }
+
+      setCases((current) =>
+        current.map((item) =>
+          item.id === editCase.id
+            ? {
+                ...item,
+                ...data.case,
+              }
+            : item
+        )
+      );
+
+      setEditCase(null);
+    } catch (error) {
+      setEditError(
+        error instanceof Error
+          ? error.message
+          : "Dava güncellenemedi."
+      );
+    } finally {
+      setEditSaving(false);
+    }
+  }
   function requestCaseDeletion(
     item: LegalCase
   ) {
@@ -7908,6 +8052,14 @@ export default function CasesPage() {
                         <button
                           type="button"
                           onClick={() =>
+                            requestCaseEdit(item)
+                          }
+                        >
+                          Düzenle
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
                             toggleCasePanel(
                               item.id,
                               "mail"
@@ -8033,6 +8185,16 @@ export default function CasesPage() {
                             />
 
                             <div className="case-panel-actions">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  requestCaseEdit(
+                                    item
+                                  )
+                                }
+                              >
+                                Düzenle
+                              </button>
                               <button
                                 type="button"
                                 onClick={() =>
@@ -8439,6 +8601,136 @@ export default function CasesPage() {
           )}
       </div>
 
+      {editCase && (
+        <div
+          className="manual-reminder-backdrop"
+          role="presentation"
+        >
+          <section
+            className="manual-reminder-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="case-edit-title"
+          >
+            <div className="document-preview-toolbar">
+              <LegalBackButton
+                fallback="/cases"
+                onBack={closeCaseEdit}
+              />
+            </div>
+
+            <h2 id="case-edit-title">
+              Davayı Düzenle
+            </h2>
+
+            <div className="manual-reminder-form">
+              <label>
+                <span>Mahkeme</span>
+                <input
+                  value={editCourtName}
+                  onChange={(event) =>
+                    setEditCourtName(
+                      event.target.value
+                    )
+                  }
+                />
+              </label>
+
+              <label>
+                <span>Dosya / Esas No</span>
+                <input
+                  value={editCaseNumber}
+                  onChange={(event) =>
+                    setEditCaseNumber(
+                      event.target.value
+                    )
+                  }
+                />
+              </label>
+
+              <label className="manual-reminder-note">
+                <span>Dava Başlığı / Konu</span>
+                <textarea
+                  value={editCaseTitle}
+                  onChange={(event) =>
+                    setEditCaseTitle(
+                      event.target.value
+                    )
+                  }
+                />
+              </label>
+
+              <label>
+                <span>Dosya Türü</span>
+                <input
+                  value={editCaseType}
+                  onChange={(event) =>
+                    setEditCaseType(
+                      event.target.value
+                    )
+                  }
+                />
+              </label>
+
+              <label>
+                <span>Durum</span>
+                <input
+                  value={editStatus}
+                  onChange={(event) =>
+                    setEditStatus(
+                      event.target.value
+                    )
+                  }
+                />
+              </label>
+
+              <label>
+                <span>Risk</span>
+                <input
+                  value={editRiskLevel}
+                  onChange={(event) =>
+                    setEditRiskLevel(
+                      event.target.value
+                    )
+                  }
+                />
+              </label>
+            </div>
+
+            {editError && (
+              <div className="manual-reminder-message error">
+                {editError}
+              </div>
+            )}
+
+            <div className="manual-reminder-actions">
+              <button
+                type="button"
+                disabled={editSaving}
+                onClick={closeCaseEdit}
+              >
+                Vazgeç
+              </button>
+
+              <button
+                type="button"
+                className="save-reminder"
+                disabled={
+                  editSaving ||
+                  !editCaseTitle.trim()
+                }
+                onClick={() =>
+                  void saveCaseEdit()
+                }
+              >
+                {editSaving
+                  ? "Kaydediliyor..."
+                  : "Kaydet"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
       {manualReminderCase && (
         <div
           className="manual-reminder-backdrop"
@@ -8666,23 +8958,4 @@ export default function CasesPage() {
     </main>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
