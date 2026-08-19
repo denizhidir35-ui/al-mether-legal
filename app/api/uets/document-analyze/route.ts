@@ -15,7 +15,7 @@ import {
   extractLegalPdfText,
 } from "@/lib/legal/ocr";
 import {
-  extractLegalUdfText,
+  extractLegalOpenDocumentText,
 } from "@/lib/legal/udf";
 import {
   LegalImageNormalizationError,
@@ -673,26 +673,36 @@ export async function POST(
           .update(bytes)
           .digest("hex");
 
-      if (
+      const lowerSourceDocument =
         sourceDocument
-          .toLocaleLowerCase("tr-TR")
-          .endsWith(".udf")
-      ) {
-        const udfResult =
-          await extractLegalUdfText(
-            bytes
+          .toLocaleLowerCase("tr-TR");
+
+      const openDocumentFormat =
+        lowerSourceDocument.endsWith(".udf")
+          ? "udf"
+          : lowerSourceDocument.endsWith(".odt")
+            ? "odt"
+            : lowerSourceDocument.endsWith(".odf")
+              ? "odf"
+              : null;
+
+      if (openDocumentFormat) {
+        const openDocumentResult =
+          await extractLegalOpenDocumentText(
+            bytes,
+            openDocumentFormat
           );
 
         htmlText =
           safeText(
-            udfResult.text
+            openDocumentResult.text
           );
 
         uploadEngine =
-          udfResult.engine;
+          openDocumentResult.engine;
 
         sourceType =
-          "case_udf_upload";
+          `case_${openDocumentFormat}_upload`;
       } else if (
         file.type ===
           "application/pdf" ||
@@ -719,7 +729,7 @@ export async function POST(
             {
               ok: false,
               error:
-                "PDF, JPG, PNG, WEBP, HEIC veya HEIF destekleniyor.",
+                "PDF, UDF, ODT, ODF, JPG, PNG, WEBP, HEIC veya HEIF destekleniyor.",
             },
             { status: 400 }
           );

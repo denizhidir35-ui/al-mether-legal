@@ -1,10 +1,25 @@
 import JSZip from "jszip";
 
-const MAX_UDF_SIZE =
+const MAX_ARCHIVE_SIZE =
   20 * 1024 * 1024;
 
 const MAX_CONTENT_XML_LENGTH =
   5_000_000;
+
+export type LegalOpenDocumentFormat =
+  | "udf"
+  | "odt"
+  | "odf";
+
+const FORMAT_LABELS:
+  Record<
+    LegalOpenDocumentFormat,
+    string
+  > = {
+    udf: "UDF",
+    odt: "ODT",
+    odf: "ODF",
+  };
 
 function decodeXmlEntities(
   value: string
@@ -58,6 +73,14 @@ export function normalizeUdfContentXml(
         "\n"
       )
       .replace(
+        /<text:tab\b[^>]*\/?>/gi,
+        " "
+      )
+      .replace(
+        /<text:line-break\b[^>]*\/?>/gi,
+        "\n"
+      )
+      .replace(
         /<[^>]+>/g,
         ""
       )
@@ -75,21 +98,25 @@ export function normalizeUdfContentXml(
     .trim();
 }
 
-export async function extractLegalUdfText(
-  bytes: Buffer
+export async function extractLegalOpenDocumentText(
+  bytes: Buffer,
+  format: LegalOpenDocumentFormat
 ) {
+  const label =
+    FORMAT_LABELS[format];
+
   if (!bytes.length) {
     throw new Error(
-      "UDF dosyası boş."
+      `${label} dosyası boş.`
     );
   }
 
   if (
     bytes.length >
-    MAX_UDF_SIZE
+    MAX_ARCHIVE_SIZE
   ) {
     throw new Error(
-      "UDF dosyası 20 MB sınırını aşıyor."
+      `${label} dosyası 20 MB sınırını aşıyor.`
     );
   }
 
@@ -102,7 +129,7 @@ export async function extractLegalUdfText(
       );
   } catch {
     throw new Error(
-      "UDF arşivi açılamadı."
+      `${label} arşivi açılamadı.`
     );
   }
 
@@ -132,7 +159,7 @@ export async function extractLegalUdfText(
 
   if (!contentEntry) {
     throw new Error(
-      "UDF içinde content.xml bulunamadı."
+      `${label} içinde content.xml bulunamadı.`
     );
   }
 
@@ -146,7 +173,7 @@ export async function extractLegalUdfText(
     MAX_CONTENT_XML_LENGTH
   ) {
     throw new Error(
-      "UDF belge içeriği güvenli sınırı aşıyor."
+      `${label} belge içeriği güvenli sınırı aşıyor.`
     );
   }
 
@@ -157,13 +184,22 @@ export async function extractLegalUdfText(
 
   if (text.length < 30) {
     throw new Error(
-      "UDF belge metni okunamadı."
+      `${label} belge metni okunamadı.`
     );
   }
 
   return {
     text,
     engine:
-      "udf_content_xml",
+      `${format}_content_xml`,
   };
+}
+
+export async function extractLegalUdfText(
+  bytes: Buffer
+) {
+  return extractLegalOpenDocumentText(
+    bytes,
+    "udf"
+  );
 }

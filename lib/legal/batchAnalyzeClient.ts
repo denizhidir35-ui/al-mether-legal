@@ -100,7 +100,9 @@ function supportedBatchFile(
 
   return (
     name.endsWith(".pdf") ||
-    name.endsWith(".udf")
+    name.endsWith(".udf") ||
+    name.endsWith(".odt") ||
+    name.endsWith(".odf")
   );
 }
 
@@ -137,7 +139,7 @@ export async function analyzeBatchDocumentFile(
     )
   ) {
     throw new Error(
-      "Bu toplu aktarım sürümünde yalnız PDF ve UDF destekleniyor."
+      "Bu toplu aktarım sürümünde PDF, UDF, ODT ve ODF destekleniyor."
     );
   }
 

@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { getOrCreateAppUser } from "@/lib/alUser";
@@ -292,24 +292,55 @@ const attachmentSource =
         "application/pdf",
         "application/msword",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.oasis.opendocument.text",
+        "application/vnd.oasis.opendocument.formula",
         "image/jpeg",
         "image/png",
         "image/webp",
       ]);
 
-    const isUdf =
+    const lowerFileName =
       uploadedFile.name
-        .toLocaleLowerCase("tr-TR")
-        .endsWith(".udf");
+        .toLocaleLowerCase("tr-TR");
 
+    const isUdf =
+      lowerFileName.endsWith(".udf");
+
+    const isOdt =
+      lowerFileName.endsWith(".odt");
+
+    const isOdf =
+      lowerFileName.endsWith(".odf");
+
+    const isArchiveDocument =
+      isUdf ||
+      isOdt ||
+      isOdf;
+
+    /*
+     * Supabase bucket tarafında
+     * ZIP tabanlı belgeler application/zip
+     * olarak saklanır.
+     *
+     * Veritabanındaki file_type ise
+     * ODT/ODF için gerçek MIME değerini
+     * korur.
+     */
     const storageContentType =
-      isUdf
+      isArchiveDocument
         ? "application/zip"
         : uploadedFile.type;
 
+    const recordContentType =
+      isOdt
+        ? "application/vnd.oasis.opendocument.text"
+        : isOdf
+          ? "application/vnd.oasis.opendocument.formula"
+          : storageContentType;
+
     if (
       !allowedTypes.has(uploadedFile.type) &&
-      !isUdf
+      !isArchiveDocument
     ) {
       return NextResponse.json(
         {
@@ -538,7 +569,7 @@ const attachmentSource =
             uploadedFile.name,
 
           file_type:
-            storageContentType,
+            recordContentType,
 
           file_size:
             uploadedFile.size,

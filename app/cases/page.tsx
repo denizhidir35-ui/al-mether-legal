@@ -1955,6 +1955,94 @@ export default function CasesPage() {
       return;
     }
 
+    const reviewGroups =
+      batchResult.grouped.groups.filter(
+        (group) =>
+          group.needsReview
+      );
+
+    const approvableReviewGroups =
+      reviewGroups.filter(
+        (group) =>
+          Boolean(
+            group.court.trim() &&
+            group.fileNo.trim()
+          )
+      );
+
+    const unapprovableReviewGroups =
+      reviewGroups.filter(
+        (group) =>
+          !group.court.trim() ||
+          !group.fileNo.trim()
+      );
+
+    const normalSaveableGroups =
+      batchResult.grouped.groups.filter(
+        (group) =>
+          !group.needsReview
+      );
+
+    if (
+      normalSaveableGroups.length === 0 &&
+      approvableReviewGroups.length === 0
+    ) {
+      setBatchSaveError(
+        "Kaydedilebilir dava bulunamadı. Mahkeme ve esas numarası eksik olan kayıtları kontrol edin."
+      );
+
+      return;
+    }
+
+    let batchForSave =
+      batchResult;
+
+    if (
+      approvableReviewGroups.length > 0
+    ) {
+      const approved =
+        window.confirm(
+          `${approvableReviewGroups.length} dava kontrol gerektiriyor.\n\nMahkeme ve esas numarası tespit edildi.\n\nBu davaları kontrol ettiğinizi ve kaydetmek istediğinizi onaylıyor musunuz?`
+        );
+
+      if (!approved) {
+        return;
+      }
+
+      const approvedKeys =
+        new Set(
+          approvableReviewGroups.map(
+            (group) =>
+              group.key
+          )
+        );
+
+      batchForSave = {
+        ...batchResult,
+
+        grouped: {
+          ...batchResult.grouped,
+
+          groups:
+            batchResult.grouped.groups.map(
+              (group) =>
+                approvedKeys.has(
+                  group.key
+                )
+                  ? {
+                      ...group,
+                      needsReview:
+                        false,
+                    }
+                  : group
+            ),
+
+          reviewRequired:
+            unapprovableReviewGroups.length,
+        },
+      };
+    }
+
     try {
       setBatchSaving(true);
       setBatchSaveError("");
@@ -1963,7 +2051,7 @@ export default function CasesPage() {
 
       const result =
         await saveLegalBatch(
-          batchResult,
+          batchForSave,
           (progress) => {
             setBatchSaveProgress(
               progress
@@ -2314,19 +2402,25 @@ export default function CasesPage() {
 
     const supported = new Set([
       "application/pdf",
+      "application/vnd.oasis.opendocument.text",
+      "application/vnd.oasis.opendocument.formula",
       "image/jpeg",
       "image/png",
       "image/webp",
     ]);
 
-    const isUdf =
+    const lowerFileName =
       file.name
-        .toLocaleLowerCase("tr-TR")
-        .endsWith(".udf");
+        .toLocaleLowerCase("tr-TR");
+
+    const isArchiveDocument =
+      lowerFileName.endsWith(".udf") ||
+      lowerFileName.endsWith(".odt") ||
+      lowerFileName.endsWith(".odf");
 
     if (
       !supported.has(file.type) &&
-      !isUdf
+      !isArchiveDocument
     ) {
       return false;
     }
@@ -7608,7 +7702,7 @@ export default function CasesPage() {
                 setError("");
               }}
             >
-              PDF / Fotoğraf ile Dava Ekle
+              + Belgeden Dava Ekle (Toplu)
             </button>
           </div>
 
@@ -7756,7 +7850,7 @@ export default function CasesPage() {
             <input
               ref={pdfInputRef}
               type="file"
-              accept="application/pdf,.pdf,.udf,application/octet-stream"
+              accept="application/pdf,.pdf,.udf,.odt,.odf,application/octet-stream,application/vnd.oasis.opendocument.text,application/vnd.oasis.opendocument.formula"
               multiple
               hidden
               onChange={(event) => {
@@ -7827,7 +7921,7 @@ export default function CasesPage() {
                     ?.click()
                 }
               >
-                PDF / UDF Seç (Toplu)
+                PDF / UDF / ODT Seç
               </button>
               <button
                 type="button"
@@ -7924,7 +8018,11 @@ export default function CasesPage() {
                         batchSaving ||
                         batchResult.grouped.groups.every(
                           (group) =>
-                            group.needsReview
+                            group.needsReview &&
+                            (
+                              !group.court.trim() ||
+                              !group.fileNo.trim()
+                            )
                         )
                       }
                       onClick={() =>
@@ -8180,7 +8278,7 @@ export default function CasesPage() {
 
                       {group.needsReview && (
                         <div>
-                          ⚠ Kontrol gerekli
+                          ⚠ Kontrol gerekli · Kaydederken onay sorulacak
                         </div>
                       )}
                     </div>
