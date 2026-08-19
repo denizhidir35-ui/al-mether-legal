@@ -4,6 +4,42 @@ import { getOrCreateAppUser } from "@/lib/alUser";
 import { isTestOrDevRecord } from "@/lib/testRecordVisibility";
 import { isValidManualDate } from "@/lib/legal/manualCaseCalendar";
 
+function normalizeCaseIdentityCourt(
+  value: string
+) {
+  return value
+    .toLocaleLowerCase("tr-TR")
+    .replace(/ç/g, "c")
+    .replace(/ğ/g, "g")
+    .replace(/ı/g, "i")
+    .replace(/ö/g, "o")
+    .replace(/ş/g, "s")
+    .replace(/ü/g, "u")
+    .normalize("NFKD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .replace(
+      /[^a-z0-9]+/g,
+      ""
+    )
+    .trim();
+}
+
+function normalizeCaseIdentityNumber(
+  value: string
+) {
+  const match =
+    value
+      .replace(/\s+/g, "")
+      .match(
+        /(\d{4}\/\d+)/
+      );
+
+  return match?.[1] || "";
+}
+
 export async function GET() {
   const supabase = getSupabaseAdmin();
   const { appUser, error } = await getOrCreateAppUser();
@@ -36,7 +72,13 @@ export async function GET() {
     .order("created_at", { ascending: false });
 
   if (dbError) {
-    return NextResponse.json({ error: dbError.message }, { status: 500 });
+    return NextResponse.json(
+      {
+        error:
+          dbError.message,
+      },
+      { status: 500 }
+    );
   }
 
   const { data: caseCalendarEvents, error: caseCalendarError } =
@@ -250,6 +292,15 @@ export async function POST(request: Request) {
     body.court_name
       ?.toString()
       .trim() || "";
+  const normalizedCaseIdentityNumber =
+    normalizeCaseIdentityNumber(
+      caseNumber
+    );
+
+  const normalizedCaseIdentityCourt =
+    normalizeCaseIdentityCourt(
+      courtName
+    );
 
   const documentIdentity =
     body.document_identity
@@ -480,12 +531,12 @@ export async function POST(request: Request) {
           appUser.id
         )
         .eq(
-          "case_number",
-          caseNumber
+          "normalized_case_number",
+          normalizedCaseIdentityNumber
         )
-        .ilike(
-          "court_name",
-          courtName
+        .eq(
+          "normalized_court",
+          normalizedCaseIdentityCourt
         )
         .limit(1)
         .maybeSingle();
@@ -680,7 +731,67 @@ export async function POST(request: Request) {
     .single();
 
   if (dbError) {
-    return NextResponse.json({ error: dbError.message }, { status: 500 });
+    /*
+     * PostgreSQL 23505:
+     *
+     * İki istek aynı davayı aynı anda oluşturmaya çalışmış olabilir.
+     * DB unique index ikinci insert'i reddeder.
+     *
+     * Bu durumda hata üretmek yerine DB'de kazanan kaydı döndür.
+     */
+    if (
+      dbError.code === "23505" &&
+      normalizedCaseIdentityNumber &&
+      normalizedCaseIdentityCourt
+    ) {
+      const racedCase =
+        await supabase
+          .from("legal_cases")
+          .select("*")
+          .eq(
+            "user_id",
+            appUser.id
+          )
+          .eq(
+            "normalized_case_number",
+            normalizedCaseIdentityNumber
+          )
+          .eq(
+            "normalized_court",
+            normalizedCaseIdentityCourt
+          )
+          .limit(1)
+          .maybeSingle();
+
+      if (racedCase.error) {
+        return NextResponse.json(
+          {
+            error:
+              racedCase.error.message,
+          },
+          { status: 500 }
+        );
+      }
+
+      if (racedCase.data) {
+        return NextResponse.json({
+          case:
+            racedCase.data,
+          duplicate: true,
+          duplicateReason:
+            "case_identity_race",
+          enriched: false,
+        });
+      }
+    }
+
+    return NextResponse.json(
+      {
+        error:
+          dbError.message,
+      },
+      { status: 500 }
+    );
   }
 
   if (note) {
