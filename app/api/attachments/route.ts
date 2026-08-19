@@ -229,6 +229,15 @@ export async function POST(
         formData.get("caseId") || ""
       ).trim();
 
+    const documentIdentity =
+      String(
+        formData.get("documentIdentity") || ""
+      )
+        .trim()
+        .toLocaleLowerCase(
+          "tr-TR"
+        );
+
 const requestedSource =
   String(
     formData.get("source") || "manual"
@@ -307,6 +316,68 @@ const attachmentSource =
       );
     }
 
+    if (documentIdentity) {
+      if (!caseId) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Belge kimliği yalnız dava evraklarında kullanılabilir.",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (
+        !/^[a-f0-9]{64}$/.test(
+          documentIdentity
+        )
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Belge kimliği geçersiz.",
+          },
+          { status: 400 }
+        );
+      }
+
+      const hashBuffer =
+        await crypto.subtle.digest(
+          "SHA-256",
+          await uploadedFile
+            .arrayBuffer()
+        );
+
+      const actualIdentity =
+        Array.from(
+          new Uint8Array(
+            hashBuffer
+          )
+        )
+          .map((value) =>
+            value
+              .toString(16)
+              .padStart(2, "0")
+          )
+          .join("");
+
+      if (
+        actualIdentity !==
+        documentIdentity
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Belge kimliği dosya içeriğiyle eşleşmiyor.",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     const safeName =
       sanitizeFileName(
         uploadedFile.name
@@ -318,10 +389,106 @@ const attachmentSource =
         : `calendar/${calendarEventId}`;
 
     const storagePath =
-      `${appUser.id}/${ownerPath}/${crypto.randomUUID()}-${safeName}`;
+      documentIdentity
+        ? `${appUser.id}/${ownerPath}/sha256-${documentIdentity}`
+        : `${appUser.id}/${ownerPath}/${crypto.randomUUID()}-${safeName}`;
 
     const supabase =
       getSupabaseAdmin();
+
+    if (
+      documentIdentity &&
+      caseId
+    ) {
+      const documentRecord =
+        await supabase
+          .from(
+            "case_document_records"
+          )
+          .select("case_id")
+          .eq(
+            "user_id",
+            appUser.id
+          )
+          .eq(
+            "document_identity",
+            documentIdentity
+          )
+          .maybeSingle();
+
+      if (documentRecord.error) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              documentRecord
+                .error.message,
+          },
+          { status: 500 }
+        );
+      }
+
+      if (
+        documentRecord.data &&
+        documentRecord
+          .data.case_id !==
+          caseId
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Bu belge başka bir dava kaydıyla eşleşiyor.",
+          },
+          { status: 409 }
+        );
+      }
+
+      const existingAttachment =
+        await supabase
+          .from(
+            "calendar_attachments"
+          )
+          .select("*")
+          .eq(
+            "user_id",
+            appUser.id
+          )
+          .eq(
+            "case_id",
+            caseId
+          )
+          .eq(
+            "storage_path",
+            storagePath
+          )
+          .maybeSingle();
+
+      if (
+        existingAttachment.error
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              existingAttachment
+                .error.message,
+          },
+          { status: 500 }
+        );
+      }
+
+      if (
+        existingAttachment.data
+      ) {
+        return NextResponse.json({
+          ok: true,
+          duplicate: true,
+          attachment:
+            existingAttachment.data,
+        });
+      }
+    }
 
     const storageResult =
       await supabase.storage
