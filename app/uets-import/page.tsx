@@ -6,6 +6,8 @@ import {
   useState,
 } from "react";
 
+import LegalBackButton from "@/components/LegalBackButton";
+
 type BridgeCapture = {
   title?: string;
   url?: string;
@@ -254,7 +256,7 @@ export default function UetsImportPage() {
                     "",
                   case_title:
                     payload.title ||
-                    "UETS Tebligatı",
+                    "UETS TebligatÄ±",
                   institution:
                     "PTT UETS",
                   arrival_date:
@@ -271,7 +273,7 @@ export default function UetsImportPage() {
                     "",
                   subject:
                     payload.title ||
-                    "UETS Tebligatı",
+                    "UETS TebligatÄ±",
                   sender:
                     "PTT UETS",
                   mail_body:
@@ -324,7 +326,7 @@ export default function UetsImportPage() {
         ) {
           throw new Error(
             data.error ||
-              "UETS tebliğ kaydı oluşturulamadı."
+              "UETS tebliÄŸ kaydÄ± oluÅŸturulamadÄ±."
           );
         }
 
@@ -336,8 +338,8 @@ export default function UetsImportPage() {
           message:
             data.message ||
             (data.duplicate
-              ? "Bu UETS kaydı daha önce aktarılmış."
-              : "Tebliğ edilmiş sayılma tarihi takvime kaydedildi; hukuki son gün veya alarm oluşturulmadı."),
+              ? "Bu UETS kaydÄ± daha Ã¶nce aktarÄ±lmÄ±ÅŸ."
+              : "TebliÄŸ edilmiÅŸ sayÄ±lma tarihi takvime kaydedildi; hukuki son gÃ¼n veya alarm oluÅŸturulmadÄ±."),
         });
       },
       []
@@ -386,7 +388,7 @@ export default function UetsImportPage() {
           setCalendarStatus({
             kind: "warning",
             message:
-              "Test belgesi algılandı — ödeme takvimi veya alarm kaydı oluşturulmadı.",
+              "Test belgesi algÄ±landÄ± â€” Ã¶deme takvimi veya alarm kaydÄ± oluÅŸturulmadÄ±.",
           });
           return;
         }
@@ -396,7 +398,7 @@ export default function UetsImportPage() {
             setCalendarStatus({
               kind: "warning",
               message:
-                "Süre metni bulundu; başlangıç tarihi doğrulanamadığı için son tarih oluşturulmadı.",
+                "SÃ¼re metni bulundu; baÅŸlangÄ±Ã§ tarihi doÄŸrulanamadÄ±ÄŸÄ± iÃ§in son tarih oluÅŸturulmadÄ±.",
             });
           }
           return;
@@ -422,7 +424,7 @@ export default function UetsImportPage() {
                   "",
                 case_title:
                   payload.title ||
-                  "UETS Tebligatı",
+                  "UETS TebligatÄ±",
                 institution:
                   "PTT UETS",
                 arrival_date:
@@ -482,7 +484,7 @@ export default function UetsImportPage() {
         ) {
           throw new Error(
             data.error ||
-              "Ödeme takvim kaydı oluşturulamadı."
+              "Ã–deme takvim kaydÄ± oluÅŸturulamadÄ±."
           );
         }
 
@@ -494,8 +496,8 @@ export default function UetsImportPage() {
           message:
             data.message ||
             (data.duplicate
-              ? "Bu PDF ödeme kaydı daha önce oluşturulmuş; yeni takvim veya alarm eklenmedi."
-              : "PDF ödeme son tarihi takvime ve alarm planına kaydedildi."),
+              ? "Bu PDF Ã¶deme kaydÄ± daha Ã¶nce oluÅŸturulmuÅŸ; yeni takvim veya alarm eklenmedi."
+              : "PDF Ã¶deme son tarihi takvime ve alarm planÄ±na kaydedildi."),
         });
       },
       []
@@ -528,8 +530,8 @@ export default function UetsImportPage() {
           true;
 
         /*
-         * TEST BELGESİ:
-         * API'YE BİLE TAKVİM YAZDIRMIYORUZ.
+         * TEST BELGESÄ°:
+         * API'YE BÄ°LE TAKVÄ°M YAZDIRMIYORUZ.
          */
         if (isTest) {
           setCalendarStatus({
@@ -537,7 +539,7 @@ export default function UetsImportPage() {
               "warning",
 
             message:
-              "Test belgesi algılandı — hiçbir takvim veya alarm kaydı oluşturulmadı.",
+              "Test belgesi algÄ±landÄ± â€” hiÃ§bir takvim veya alarm kaydÄ± oluÅŸturulmadÄ±.",
           });
 
           return;
@@ -551,14 +553,14 @@ export default function UetsImportPage() {
               "info",
 
             message:
-              "Belgede açık bir duruşma tarihi bulunmadı. Otomatik takvim kaydı oluşturulmadı.",
+              "Belgede aÃ§Ä±k bir duruÅŸma tarihi bulunmadÄ±. Otomatik takvim kaydÄ± oluÅŸturulmadÄ±.",
           });
 
           return;
         }
 
         /*
-         * Tarih var ama saat yoksa otomatik kayıt yapma.
+         * Tarih var ama saat yoksa otomatik kayÄ±t yapma.
          * Avukat inceleyecek.
          */
         if (
@@ -574,7 +576,7 @@ export default function UetsImportPage() {
               "warning",
 
             message:
-              "Duruşma bulundu ancak tarih/saat bilgisi eksik. İnsan kontrolü olmadan takvime yazılmadı.",
+              "DuruÅŸma bulundu ancak tarih/saat bilgisi eksik. Ä°nsan kontrolÃ¼ olmadan takvime yazÄ±lmadÄ±.",
           });
 
           return;
@@ -590,7 +592,7 @@ export default function UetsImportPage() {
               "warning",
 
             message:
-              "Belge insan kontrolü gerektiriyor. Duruşma otomatik takvime yazılmadı.",
+              "Belge insan kontrolÃ¼ gerektiriyor. DuruÅŸma otomatik takvime yazÄ±lmadÄ±.",
           });
 
           return;
@@ -606,7 +608,7 @@ export default function UetsImportPage() {
               "warning",
 
             message:
-              "Belge otomatik takvim kaydı için güvenli bulunmadı.",
+              "Belge otomatik takvim kaydÄ± iÃ§in gÃ¼venli bulunmadÄ±.",
           });
 
           return;
@@ -672,13 +674,13 @@ export default function UetsImportPage() {
           ) {
             throw new Error(
               data.error ||
-              "Takvim kaydı oluşturulamadı."
+              "Takvim kaydÄ± oluÅŸturulamadÄ±."
             );
           }
 
           const message =
             data.message ||
-            "Duruşma takvime kaydedildi.";
+            "DuruÅŸma takvime kaydedildi.";
 
           setCalendarStatus({
             kind:
@@ -690,8 +692,8 @@ export default function UetsImportPage() {
           });
 
           /*
-           * Sonraki turda Posta ekranı
-           * bu bilgiyi küçük bildirim olarak gösterecek.
+           * Sonraki turda Posta ekranÄ±
+           * bu bilgiyi kÃ¼Ã§Ã¼k bildirim olarak gÃ¶sterecek.
            */
           if (
             typeof window !==
@@ -754,7 +756,7 @@ export default function UetsImportPage() {
               commitError instanceof
               Error
                 ? commitError.message
-                : "Takvim kaydı oluşturulamadı.",
+                : "Takvim kaydÄ± oluÅŸturulamadÄ±.",
           });
         }
       },
@@ -773,7 +775,7 @@ export default function UetsImportPage() {
 
         if (!capturedText) {
           setError(
-            "UETS belge metni boş geldi."
+            "UETS belge metni boÅŸ geldi."
           );
 
           return;
@@ -812,7 +814,7 @@ export default function UetsImportPage() {
                   JSON.stringify({
                     title:
                       payload.title ||
-                      "UETS Tebligatı",
+                      "UETS TebligatÄ±",
 
                     url:
                       payload.url ||
@@ -928,8 +930,8 @@ export default function UetsImportPage() {
         );
 
         /*
-         * Extension'a veriyi aldığımızı bildir.
-         * Geçici chrome.storage kaydı temizlenebilir.
+         * Extension'a veriyi aldÄ±ÄŸÄ±mÄ±zÄ± bildir.
+         * GeÃ§ici chrome.storage kaydÄ± temizlenebilir.
          */
         window.postMessage(
           {
@@ -1026,6 +1028,14 @@ export default function UetsImportPage() {
             "0 auto",
         }}
       >
+        <div
+          style={{
+            marginBottom: 16,
+          }}
+        >
+          <LegalBackButton fallback="/dashboard" />
+        </div>
+
         <header
           style={{
             display:
@@ -1092,7 +1102,7 @@ export default function UetsImportPage() {
                     500,
                 }}
               >
-                UETS Çalışma Alanı
+                UETS Ã‡alÄ±ÅŸma AlanÄ±
               </h1>
             </div>
 
@@ -1108,7 +1118,7 @@ export default function UetsImportPage() {
                   12,
               }}
             >
-              Açık tebligatı güvenli browser köprüsünden alın.
+              AÃ§Ä±k tebligatÄ± gÃ¼venli browser kÃ¶prÃ¼sÃ¼nden alÄ±n.
             </p>
           </div>
         </header>
@@ -1132,7 +1142,7 @@ export default function UetsImportPage() {
                 "#8997aa",
             }}
           >
-            UETS Bridge aktarımı bekleniyor…
+            UETS Bridge aktarÄ±mÄ± bekleniyorâ€¦
           </section>
         )}
 
@@ -1162,7 +1172,7 @@ export default function UetsImportPage() {
               }}
             >
               {capture.title ||
-                "UETS Tebligatı"}
+                "UETS TebligatÄ±"}
             </h2>
 
             <div
@@ -1224,7 +1234,7 @@ export default function UetsImportPage() {
                     "#d2b765",
                 }}
               >
-                METHER Belge Analizi çalışıyor…
+                METHER Belge Analizi Ã§alÄ±ÅŸÄ±yorâ€¦
               </div>
             )}
 
@@ -1323,7 +1333,7 @@ export default function UetsImportPage() {
                         lineHeight: 1.7,
                       }}
                     >
-                      <strong>Ödeme Bilgisi</strong>
+                      <strong>Ã–deme Bilgisi</strong>
                       <div>
                         {formatPaymentAmount(
                           result.document.payment.paymentAmount,
@@ -1332,13 +1342,13 @@ export default function UetsImportPage() {
                       </div>
                       <div>
                         {result.document.payment.paymentDescription ||
-                          "Ödeme açıklaması bulunamadı"}
+                          "Ã–deme aÃ§Ä±klamasÄ± bulunamadÄ±"}
                       </div>
                       <div>
                         {result.document.payment.paymentDueDate
                           ? `Son tarih: ${result.document.payment.paymentDueDate}`
                           : result.document.payment.paymentPeriodText ||
-                            "Son tarih bulunamadı"}
+                            "Son tarih bulunamadÄ±"}
                       </div>
                       <div>
                         {result.document.payment.sourceDocument ||
@@ -1347,7 +1357,7 @@ export default function UetsImportPage() {
                       {!result.document.payment.paymentDueDate &&
                         result.document.payment.paymentPeriodText && (
                           <div style={{ color: "#e6c879", marginTop: 5 }}>
-                            Süre metni bulundu; başlangıç tarihi doğrulanamadığı için son tarih oluşturulmadı.
+                            SÃ¼re metni bulundu; baÅŸlangÄ±Ã§ tarihi doÄŸrulanamadÄ±ÄŸÄ± iÃ§in son tarih oluÅŸturulmadÄ±.
                           </div>
                         )}
                     </div>

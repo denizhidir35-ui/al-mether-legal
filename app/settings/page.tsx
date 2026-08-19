@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import LegalBackButton from "@/components/LegalBackButton";
 
 import LegalBrand from "@/components/LegalBrand";
 
@@ -368,6 +370,10 @@ export default function SettingsPage() {
 
   return (
     <main className="legal-app settings-page">
+      <div style={{ marginBottom: 16 }}>
+        <LegalBackButton fallback="/dashboard" />
+      </div>
+
       <header className="settings-header">
         <div className="settings-brand">
           <LegalBrand compact />
@@ -1164,5 +1170,3 @@ export default function SettingsPage() {
     </main>
   );
 }
-
-
