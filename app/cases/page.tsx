@@ -7426,6 +7426,16 @@ export default function CasesPage() {
                   </strong>
                 </div>
 
+                <div className="document-preview-actions">
+                  <button
+                    type="button"
+                    disabled={documentSaving}
+                    onClick={() => void createDocumentCase(false)}
+                  >
+                    {documentSaving ? "Kaydediliyor..." : "Davayı Kaydet"}
+                  </button>
+                </div>
+
                 <div className="document-preview-grid">
                   <h3 className="document-preview-group-title document-info-title">
                     DAVA / BELGE BİLGİLERİ
@@ -8656,6 +8666,7 @@ export default function CasesPage() {
     </main>
   );
 }
+
 
 
 
