@@ -242,3 +242,28 @@ test("document preview collapses to one column on mobile", () => {
     /@media \(max-width: 760px\)[\s\S]*?\.document-preview-grid\s*\{[\s\S]*?grid-template-columns:\s*1fr/
   );
 });
+
+test("document preview Back closes to the case list without navigation or writes", () => {
+  assert.match(
+    casesSource,
+    /documentPreview && \([\s\S]*?<LegalBackButton[\s\S]*?onBack=\{closeDocumentPreview\}/
+  );
+  assert.match(
+    casesSource,
+    /function closeDocumentPreview\(\)[\s\S]*?setDocumentOpen\(false\)[\s\S]*?setDocumentPreview\(null\)[\s\S]*?setDocumentFile\(null\)[\s\S]*?setDocumentAnalyzing\(false\)[\s\S]*?setDocumentFeedback\(""\)[\s\S]*?setError\(""\)/
+  );
+
+  const closeFunction =
+    casesSource.match(
+      /function closeDocumentPreview\(\) \{([\s\S]*?)\n  \}/
+    )?.[1] || "";
+
+  assert.doesNotMatch(
+    closeFunction,
+    /fetch\(|router\.|createDocumentCase|calendar|alarm/
+  );
+  assert.match(
+    casesSource,
+    /@media \(max-width: 760px\)[\s\S]*?\.document-preview-toolbar[\s\S]*?\.legal-back-button[\s\S]*?width: 100%/
+  );
+});

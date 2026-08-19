@@ -18,6 +18,9 @@ import {
   getManualReminderPresentation,
   sortCalendarEventsForDisplay,
 } from "../lib/calendar/calendarDisplay.ts";
+import {
+  buildManualReminderNote,
+} from "../lib/legal/manualReminderNote.ts";
 
 function createFixtureStore() {
   const state = {
@@ -240,6 +243,36 @@ test("manual reminder is returned and presented on its calendar day with exact t
     ]);
 
   assert.equal(sorted[0].id, apiEvents[0].id);
+});
+
+test("manual reminder note uses case number, court and a compact subject", () => {
+  const note = buildManualReminderNote({
+    caseNumber: "2026/318",
+    court: "Ankara 4. Aile Mahkemesi",
+    subject:
+      "Mal rejiminin tasfiyesine ilişkin çok uzun ve ayrıntılı açıklamalar içeren dava konusu metni",
+  });
+
+  assert.match(
+    note,
+    /^2026\/318 — Ankara 4\. Aile Mahkemesi — /
+  );
+  assert.match(note, /hatırlatması$/);
+  assert.ok(note.length < 150);
+});
+
+test("manual reminder note uses petition parties when case number is absent", () => {
+  assert.equal(
+    buildManualReminderNote({
+      court:
+        "Ankara Nöbetçi Aile Mahkemesi",
+      subject:
+        "Mal rejiminin tasfiyesi davası",
+      caseNote:
+        "Taraflar: Davacı: Sebahat KELEBEK\nDavalı: Soner KELEBEK\nKaynak belge: petition.pdf",
+    }),
+    "Sebahat KELEBEK / Soner KELEBEK — Ankara Nöbetçi Aile Mahkemesi — Mal rejiminin tasfiyesi davası hatırlatması"
+  );
 });
 
 test("manual reminder ownership guard hides another user's case", async () => {
@@ -505,6 +538,14 @@ test("manual reminder UI has 09:00 default and responsive desktop/mobile layout"
   assert.match(
     source,
     /value=\{manualReminderTime\}/
+  );
+  assert.match(
+    source,
+    /setManualReminderDate\(""\)[\s\S]*?DEFAULT_MANUAL_REMINDER_TIME[\s\S]*?buildManualReminderNote/
+  );
+  assert.match(
+    source,
+    /manualReminderNoteEditedRef\.current =\s*true[\s\S]*?setManualReminderNote/
   );
   assert.match(
     source,

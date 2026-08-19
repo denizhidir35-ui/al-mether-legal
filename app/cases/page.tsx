@@ -29,6 +29,9 @@ import {
   LEGAL_DOCUMENT_TYPE_LABELS,
   type LegalDocumentType,
 } from "@/lib/legal/documentType";
+import {
+  buildManualReminderNote,
+} from "@/lib/legal/manualReminderNote";
 
 type LegalDeadline = {
   id: string;
@@ -104,6 +107,8 @@ type LegalCase = {
   court_name?: string | null;
   case_title?: string | null;
   case_type?: string | null;
+  plaintiff?: string | null;
+  defendant?: string | null;
   status?: string | null;
   risk_level?: string | null;
   created_at?: string | null;
@@ -342,6 +347,12 @@ export default function CasesPage() {
 
   const [manualReminderFeedback, setManualReminderFeedback] =
     useState("");
+
+  const manualReminderNoteEditedRef =
+    useRef(false);
+
+  const manualReminderContextRequestRef =
+    useRef("");
 
   async function loadCases() {
     try {
@@ -1220,18 +1231,90 @@ export default function CasesPage() {
   function requestManualReminder(
     item: LegalCase
   ) {
+    manualReminderContextRequestRef.current =
+      item.id;
+    manualReminderNoteEditedRef.current =
+      false;
     setManualReminderCase(item);
     setManualReminderDate("");
     setManualReminderTime(
       DEFAULT_MANUAL_REMINDER_TIME
     );
-    setManualReminderNote("");
+    setManualReminderNote(
+      buildManualReminderNote({
+        caseNumber:
+          item.case_number,
+        court:
+          item.court_name,
+        subject:
+          item.case_title,
+        fallbackSubject:
+          item.case_type,
+        plaintiff:
+          item.plaintiff,
+        defendant:
+          item.defendant,
+      })
+    );
     setManualReminderFeedback("");
     setManualReminderError("");
     setManualReminders([]);
     void loadManualReminders(
       item.id
     );
+    void loadManualReminderNoteContext(
+      item
+    );
+  }
+
+  async function loadManualReminderNoteContext(
+    item: LegalCase
+  ) {
+    try {
+      const response = await fetch(
+        `/api/case-notes?caseId=${encodeURIComponent(
+          item.id
+        )}`,
+        {
+          cache: "no-store",
+        }
+      );
+      const data =
+        await readJsonResponse(
+          response
+        );
+
+      if (
+        !response.ok ||
+        data?.ok !== true ||
+        manualReminderContextRequestRef.current !==
+          item.id ||
+        manualReminderNoteEditedRef.current
+      ) {
+        return;
+      }
+
+      setManualReminderNote(
+        buildManualReminderNote({
+          caseNumber:
+            item.case_number,
+          court:
+            item.court_name,
+          subject:
+            item.case_title,
+          fallbackSubject:
+            item.case_type,
+          plaintiff:
+            item.plaintiff,
+          defendant:
+            item.defendant,
+          caseNote:
+            data?.note?.note_text,
+        })
+      );
+    } catch {
+      // Mevcut dava bilgileriyle üretilen öneri korunur.
+    }
   }
 
   async function saveManualReminder() {
@@ -1603,6 +1686,19 @@ export default function CasesPage() {
             }
           : current
     );
+  }
+
+  function closeDocumentPreview() {
+    if (documentSaving) {
+      return;
+    }
+
+    setDocumentOpen(false);
+    setDocumentPreview(null);
+    setDocumentFile(null);
+    setDocumentAnalyzing(false);
+    setDocumentFeedback("");
+    setError("");
   }
 
   async function analyzeCaseDocument(
@@ -6876,6 +6972,12 @@ export default function CasesPage() {
           gap: 7px;
         }
 
+        .document-preview-toolbar {
+          display: flex;
+          align-items: center;
+          justify-content: flex-start;
+        }
+
         .document-type-badge {
           display: inline-flex;
           align-items: center;
@@ -6998,9 +7100,15 @@ export default function CasesPage() {
           }
 
           .document-upload-options,
-          .document-preview-actions {
+          .document-preview-actions,
+          .document-preview-toolbar {
             display: grid;
             grid-template-columns: 1fr;
+          }
+
+          .document-preview-toolbar
+          .legal-back-button {
+            width: 100%;
           }
 
           .document-upload-options button,
@@ -7302,6 +7410,13 @@ export default function CasesPage() {
 
             {documentPreview && (
               <>
+                <div className="document-preview-toolbar">
+                  <LegalBackButton
+                    fallback="/cases"
+                    onBack={closeDocumentPreview}
+                  />
+                </div>
+
                 <div className="document-type-badge">
                   <span>Belge Türü:</span>
                   <strong>
@@ -7619,7 +7734,7 @@ export default function CasesPage() {
                       )
                     }
                   >
-                    Davayı Oluştur
+                    Davayı Kaydet
                   </button>
 
                   <button
@@ -7639,7 +7754,7 @@ export default function CasesPage() {
                       )
                     }
                   >
-                    Davayı Oluştur ve Takvime Ekle
+                    Davayı Kaydet ve Takvime Ekle
                   </button>
                 </div>
               </>
@@ -8371,11 +8486,13 @@ export default function CasesPage() {
                 <textarea
                   maxLength={500}
                   value={manualReminderNote}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    manualReminderNoteEditedRef.current =
+                      true;
                     setManualReminderNote(
                       event.target.value
-                    )
-                  }
+                    );
+                  }}
                   placeholder="Hatırlatma notu..."
                 />
               </label>
@@ -8398,6 +8515,8 @@ export default function CasesPage() {
                 type="button"
                 disabled={manualReminderSaving}
                 onClick={() => {
+                  manualReminderContextRequestRef.current =
+                    "";
                   setManualReminderCase(null);
                   setManualReminderError("");
                   setManualReminderFeedback("");
@@ -8537,6 +8656,7 @@ export default function CasesPage() {
     </main>
   );
 }
+
 
 
 
