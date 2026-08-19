@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import CasePartiesEditor from "@/components/cases/CasePartiesEditor";
 
 import LegalBrand from "@/components/LegalBrand";
 
@@ -8697,6 +8699,10 @@ export default function CasesPage() {
               </label>
             </div>
 
+            <CasePartiesEditor
+              caseId={editCase.id}
+            />
+
             {editError && (
               <div className="manual-reminder-message error">
                 {editError}
@@ -8958,4 +8964,3 @@ export default function CasesPage() {
     </main>
   );
 }
-
