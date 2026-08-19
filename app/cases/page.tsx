@@ -34,6 +34,11 @@ import {
 import {
   buildManualReminderNote,
 } from "@/lib/legal/manualReminderNote";
+import {
+  analyzeLegalBatchFiles,
+  type BatchAnalyzeProgress,
+  type BatchAnalyzeResult,
+} from "@/lib/legal/batchAnalyzeClient";
 
 type LegalDeadline = {
   id: string;
@@ -251,6 +256,15 @@ export default function CasesPage() {
 
   const [documentFeedback, setDocumentFeedback] =
     useState("");
+
+  const [batchAnalyzing, setBatchAnalyzing] =
+    useState(false);
+
+  const [batchProgress, setBatchProgress] =
+    useState<BatchAnalyzeProgress | null>(null);
+
+  const [batchResult, setBatchResult] =
+    useState<BatchAnalyzeResult | null>(null);
 
   const pdfInputRef =
     useRef<HTMLInputElement>(null);
@@ -1847,11 +1861,77 @@ export default function CasesPage() {
     setError("");
   }
 
+  async function analyzeCaseBatch(
+    files: File[]
+  ) {
+    if (files.length === 0) {
+      return;
+    }
+
+    if (files.length === 1) {
+      void analyzeCaseDocument(
+        files[0]
+      );
+      return;
+    }
+
+    try {
+      setBatchAnalyzing(true);
+      setBatchResult(null);
+      setBatchProgress({
+        completed: 0,
+        total: files.length,
+        currentFile: "",
+      });
+
+      setDocumentPreview(null);
+      setDocumentFile(null);
+      setDocumentFeedback("");
+      setError("");
+
+      const result =
+        await analyzeLegalBatchFiles(
+          files,
+          (progress) => {
+            setBatchProgress(
+              progress
+            );
+          }
+        );
+
+      setBatchResult(
+        result
+      );
+
+      if (
+        result.candidates.length ===
+          0 &&
+        result.failures.length > 0
+      ) {
+        setError(
+          "Seçilen belgelerin hiçbiri analiz edilemedi."
+        );
+      }
+    } catch (batchError) {
+      setBatchResult(null);
+
+      setError(
+        batchError instanceof Error
+          ? batchError.message
+          : "Toplu belge analizi başarısız."
+      );
+    } finally {
+      setBatchAnalyzing(false);
+    }
+  }
+
   async function analyzeCaseDocument(
     file: File
   ) {
     try {
       setDocumentAnalyzing(true);
+      setBatchResult(null);
+      setBatchProgress(null);
       setError("");
       setDocumentFeedback("");
       setDocumentFile(file);
@@ -7491,15 +7571,22 @@ export default function CasesPage() {
               ref={pdfInputRef}
               type="file"
               accept="application/pdf,.pdf,.udf,application/octet-stream"
+              multiple
               hidden
               onChange={(event) => {
-                const file =
-                  event.currentTarget
-                    .files?.[0];
+                const files =
+                  Array.from(
+                    event.currentTarget
+                      .files || []
+                  );
+
                 event.currentTarget.value = "";
-                if (file) {
-                  void analyzeCaseDocument(
-                    file
+
+                if (
+                  files.length > 0
+                ) {
+                  void analyzeCaseBatch(
+                    files
                   );
                 }
               }}
@@ -7545,13 +7632,16 @@ export default function CasesPage() {
             <div className="document-upload-options">
               <button
                 type="button"
-                disabled={documentAnalyzing}
+                disabled={
+                  documentAnalyzing ||
+                  batchAnalyzing
+                }
                 onClick={() =>
                   pdfInputRef.current
                     ?.click()
                 }
               >
-                PDF / UDF Seç
+                PDF / UDF Seç (Toplu)
               </button>
               <button
                 type="button"
@@ -7578,6 +7668,156 @@ export default function CasesPage() {
             {documentAnalyzing && (
               <div className="state-box">
                 Belge analiz ediliyor...
+              </div>
+            )}
+
+            {batchAnalyzing && (
+              <div className="state-box">
+                Toplu analiz:{" "}
+                {batchProgress?.completed || 0}
+                /
+                {batchProgress?.total || 0}
+                {batchProgress?.currentFile
+                  ? ` — ${batchProgress.currentFile}`
+                  : ""}
+              </div>
+            )}
+
+            {batchResult && (
+              <div
+                className="state-box"
+                style={{
+                  display: "grid",
+                  gap: 12,
+                  maxHeight: 460,
+                  overflowY: "auto",
+                }}
+              >
+                <strong>
+                  Toplu analiz tamamlandı
+                </strong>
+
+                <div>
+                  {
+                    batchResult.grouped
+                      .totalDocuments
+                  }{" "}
+                  belge ·{" "}
+                  {
+                    batchResult.grouped
+                      .totalCases
+                  }{" "}
+                  dava ·{" "}
+                  {
+                    batchResult.grouped
+                      .reviewRequired
+                  }{" "}
+                  kontrol gerekli ·{" "}
+                  {
+                    batchResult.grouped
+                      .duplicateDocuments
+                  }{" "}
+                  tekrar belge ·{" "}
+                  {
+                    batchResult.failures
+                      .length
+                  }{" "}
+                  başarısız
+                </div>
+
+                {batchResult.grouped.groups.map(
+                  (group, index) => (
+                    <div
+                      key={group.key}
+                      style={{
+                        border:
+                          "1px solid rgba(170,130,55,.28)",
+                        borderRadius: 10,
+                        padding: 12,
+                        display: "grid",
+                        gap: 5,
+                      }}
+                    >
+                      <strong>
+                        {group.summary
+                          .fileNo ||
+                          `Kontrol ${index + 1}`}
+                      </strong>
+
+                      <div>
+                        {group.summary
+                          .court ||
+                          "Mahkeme bulunamadı"}
+                      </div>
+
+                      <div>
+                        {
+                          group.documents
+                            .length
+                        }{" "}
+                        evrak ·{" "}
+                        {group.summary
+                          .caseType ||
+                          group.summary
+                            .subject ||
+                          "Dava türü belirlenemedi"}
+                      </div>
+
+                      {(group.summary
+                        .plaintiff ||
+                        group.summary
+                          .defendant) && (
+                        <div>
+                          {group.summary
+                            .plaintiff
+                            ? `Davacı: ${group.summary.plaintiff}`
+                            : ""}
+                          {group.summary
+                            .plaintiff &&
+                          group.summary
+                            .defendant
+                            ? " · "
+                            : ""}
+                          {group.summary
+                            .defendant
+                            ? `Davalı: ${group.summary.defendant}`
+                            : ""}
+                        </div>
+                      )}
+
+                      {group.needsReview && (
+                        <div>
+                          ⚠ Kontrol gerekli
+                        </div>
+                      )}
+                    </div>
+                  )
+                )}
+
+                {batchResult.failures.length >
+                  0 && (
+                  <div>
+                    <strong>
+                      Analiz edilemeyenler:
+                    </strong>
+
+                    {batchResult.failures.map(
+                      (failure) => (
+                        <div
+                          key={
+                            failure.fileName
+                          }
+                        >
+                          {
+                            failure.fileName
+                          }{" "}
+                          —{" "}
+                          {failure.error}
+                        </div>
+                      )
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

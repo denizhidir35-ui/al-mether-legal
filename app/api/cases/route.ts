@@ -246,6 +246,11 @@ export async function POST(request: Request) {
       ?.toString()
       .trim() || "";
 
+  const courtName =
+    body.court_name
+      ?.toString()
+      .trim() || "";
+
   const documentIdentity =
     body.document_identity
       ?.toString()
@@ -273,50 +278,103 @@ export async function POST(request: Request) {
     );
   }
 
+  /*
+   * 1) Aynı fiziksel belge daha önce
+   * işlendi mi?
+   */
   if (
     isDocumentUpload &&
-    (caseNumber ||
-      documentIdentity)
+    documentIdentity
   ) {
-    let existingQuery =
-      supabase
+    const existingDocument =
+      await supabase
         .from("legal_cases")
         .select("*")
         .eq(
           "user_id",
           appUser.id
-        );
-
-    existingQuery =
-      documentIdentity
-        ? existingQuery.eq(
-            "source",
-            `document_upload:${documentIdentity}`
-          )
-        : existingQuery.eq(
-            "case_number",
-            caseNumber
-          );
-
-    const existing =
-      await existingQuery
+        )
+        .eq(
+          "source",
+          `document_upload:${documentIdentity}`
+        )
         .limit(1)
         .maybeSingle();
 
-    if (existing.error) {
+    if (existingDocument.error) {
       return NextResponse.json(
         {
           error:
-            existing.error.message,
+            existingDocument
+              .error.message,
         },
         { status: 500 }
       );
     }
 
-    if (existing.data) {
+    if (existingDocument.data) {
       return NextResponse.json({
-        case: existing.data,
+        case:
+          existingDocument.data,
         duplicate: true,
+        duplicateReason:
+          "document_identity",
+      });
+    }
+  }
+
+  /*
+   * 2) Aynı dava zaten mevcut mu?
+   *
+   * Esas no tek başına yeterli değil.
+   * Farklı mahkemelerde aynı esas no
+   * bulunabilir.
+   *
+   * Bu nedenle otomatik eşleşme için
+   * Mahkeme + Esas No birlikte şart.
+   */
+  if (
+    isDocumentUpload &&
+    caseNumber &&
+    courtName
+  ) {
+    const existingCase =
+      await supabase
+        .from("legal_cases")
+        .select("*")
+        .eq(
+          "user_id",
+          appUser.id
+        )
+        .eq(
+          "case_number",
+          caseNumber
+        )
+        .ilike(
+          "court_name",
+          courtName
+        )
+        .limit(1)
+        .maybeSingle();
+
+    if (existingCase.error) {
+      return NextResponse.json(
+        {
+          error:
+            existingCase
+              .error.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    if (existingCase.data) {
+      return NextResponse.json({
+        case:
+          existingCase.data,
+        duplicate: true,
+        duplicateReason:
+          "case_identity",
       });
     }
   }
@@ -390,4 +448,3 @@ export async function POST(request: Request) {
     duplicate: false,
   });
 }
-
