@@ -134,6 +134,42 @@ function createFallbackDedupeKey(
   return `request-${crypto.randomUUID()}`;
 }
 
+function normalizeLegacyCourtForMatch(
+  value: string
+) {
+  return value
+    .toLocaleLowerCase("tr-TR")
+    .normalize("NFKD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .replace(
+      /[^\p{L}\p{N}]+/gu,
+      " "
+    )
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeLegacyCaseNumber(
+  value: string
+) {
+  const normalized =
+    value
+      .replace(/\s+/g, "")
+      .toLocaleUpperCase(
+        "tr-TR"
+      );
+
+  const match =
+    normalized.match(
+      /(\d{4}\/\d+)/
+    );
+
+  return match?.[1] || "";
+}
+
 export async function POST(
   request: Request
 ) {
@@ -545,8 +581,32 @@ export async function POST(
 
       legalCase =
         foundCase.data;
-    } else if (caseNumber) {
-      const foundCase =
+    } else if (
+      caseNumber &&
+      courtName
+    ) {
+      /*
+       * Güvenli dava eşleştirme:
+       *
+       * Aynı Esas No tek başına yeterli değildir.
+       * Mahkeme + Esas No birlikte aynı olmalıdır.
+       */
+      const normalizedCaseNumber =
+        normalizeLegacyCaseNumber(
+          caseNumber
+        );
+
+      const caseNumberCandidates =
+        Array.from(
+          new Set(
+            [
+              caseNumber.trim(),
+              normalizedCaseNumber,
+            ].filter(Boolean)
+          )
+        );
+
+      const foundCases =
         await supabase
           .from("legal_cases")
           .select("*")
@@ -554,27 +614,58 @@ export async function POST(
             "user_id",
             appUser.id
           )
-          .eq(
+          .in(
             "case_number",
-            caseNumber
-          )
-          .maybeSingle();
+            caseNumberCandidates
+          );
 
-      if (foundCase.error) {
+      if (foundCases.error) {
         return NextResponse.json(
           {
             ok: false,
             error:
-              foundCase.error.message,
+              foundCases.error.message,
           },
           { status: 500 }
         );
       }
 
-      legalCase =
-        foundCase.data;
-    }
+      const normalizedCourt =
+        normalizeLegacyCourtForMatch(
+          courtName
+        );
 
+      const matchingCases =
+        (foundCases.data || []).filter(
+          (caseRow) =>
+            normalizeLegacyCourtForMatch(
+              safeText(
+                caseRow.court_name
+              )
+            ) === normalizedCourt &&
+            normalizeLegacyCaseNumber(
+              safeText(
+                caseRow.case_number
+              )
+            ) === normalizedCaseNumber
+        );
+
+      if (
+        matchingCases.length > 1
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Aynı mahkeme ve esas numarası için birden fazla dava kaydı bulundu. Kayıtların kontrol edilmesi gerekiyor.",
+          },
+          { status: 409 }
+        );
+      }
+
+      legalCase =
+        matchingCases[0] || null;
+    }
     if (!legalCase) {
       const createdCase =
         await supabase
