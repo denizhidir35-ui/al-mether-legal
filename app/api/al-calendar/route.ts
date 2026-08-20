@@ -1,9 +1,9 @@
 ﻿import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabaseServer";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { getOrCreateAppUser } from "@/lib/alUser";
 
 export async function GET() {
-  const supabase = await createServerSupabaseClient();
+  const supabase = getSupabaseAdmin();
   const { appUser, error } = await getOrCreateAppUser();
 
   if (error || !appUser) {
@@ -24,7 +24,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const supabase = await createServerSupabaseClient();
+  const supabase = getSupabaseAdmin();
   const { appUser, error } = await getOrCreateAppUser();
 
   if (error || !appUser) {

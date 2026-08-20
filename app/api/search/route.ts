@@ -1,5 +1,5 @@
 ﻿import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabaseServer";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { getOrCreateAppUser } from "@/lib/alUser";
 
 function clean(value: unknown) {
@@ -7,7 +7,7 @@ function clean(value: unknown) {
 }
 
 export async function GET(request: Request) {
-  const supabase = await createServerSupabaseClient();
+  const supabase = getSupabaseAdmin();
   const { appUser, error } = await getOrCreateAppUser();
 
   if (error || !appUser) {
