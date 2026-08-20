@@ -1,6 +1,16 @@
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Bu eski rapor endpoint'i production ortamında devre dışıdır.",
+      },
+      { status: 410 }
+    );
+  }
+
   try {
     const body = await req.json();
 

@@ -48,6 +48,16 @@ function toDateOnly(date: Date) {
 }
 
 export async function POST(req: Request) {
+  if (process.env.NODE_ENV === "production") {
+    return Response.json(
+      {
+        success: false,
+        error: "Bu eski takvim entegrasyonu production ortamında devre dışıdır.",
+      },
+      { status: 410 }
+    );
+  }
+
   try {
     const body = (await req.json()) as CalendarBody;
     const supabase = getSupabaseAdmin();

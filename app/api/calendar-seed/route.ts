@@ -1,9 +1,19 @@
 ﻿import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabaseServer";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { getOrCreateAppUser } from "@/lib/alUser";
 
 export async function POST() {
-  const supabase = await createServerSupabaseClient();
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Demo takvim verisi production ortamında devre dışıdır.",
+      },
+      { status: 410 }
+    );
+  }
+
+  const supabase = getSupabaseAdmin();
   const { appUser, error } = await getOrCreateAppUser();
 
   if (error || !appUser) {
