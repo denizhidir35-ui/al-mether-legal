@@ -16,6 +16,7 @@ type MobileNotification = {
   category?: string;
   eventType?: string;
   caseId?: string;
+  readAt?: string;
 };
 
 type MobileDashboardData = {
@@ -63,17 +64,6 @@ export default function LegalDock() {
       };
     }
 
-    try {
-      const saved = JSON.parse(
-        window.localStorage.getItem("legal-notification-read") || "[]"
-      );
-      setReadNotificationIds(
-        new Set(Array.isArray(saved) ? saved.filter((id) => typeof id === "string") : [])
-      );
-    } catch {
-      setReadNotificationIds(new Set());
-    }
-
     async function loadMobileShellData() {
       const [dashboardResponse, adminResponse] = await Promise.allSettled([
         fetch("/api/dashboard-v2", { cache: "no-store" }),
@@ -92,7 +82,17 @@ export default function LegalDock() {
         ]) {
           if (item?.id && !unique.has(item.id)) unique.set(item.id, item);
         }
-        if (active) setMobileNotifications(Array.from(unique.values()).slice(0, 12));
+        if (active) {
+          const notifications = Array.from(unique.values()).slice(0, 12);
+          setMobileNotifications(notifications);
+          setReadNotificationIds(
+            new Set(
+              notifications
+                .filter((item) => Boolean(item.readAt))
+                .map((item) => item.id)
+            )
+          );
+        }
       }
 
       setIsAdmin(
@@ -102,8 +102,19 @@ export default function LegalDock() {
 
     void loadMobileShellData();
 
+    const refreshOnFocus = () => {
+      if (document.visibilityState === "visible") {
+        void loadMobileShellData();
+      }
+    };
+
+    window.addEventListener("focus", refreshOnFocus);
+    document.addEventListener("visibilitychange", refreshOnFocus);
+
     return () => {
       active = false;
+      window.removeEventListener("focus", refreshOnFocus);
+      document.removeEventListener("visibilitychange", refreshOnFocus);
     };
   }, []);
 
@@ -210,14 +221,31 @@ export default function LegalDock() {
     return `/calendar?event=${encodeURIComponent(item.id)}`;
   }
 
-  function markNotificationRead(id: string) {
+  async function markNotificationRead(id: string) {
     setReadNotificationIds((current) => {
       const next = new Set(current);
       next.add(id);
-      window.localStorage.setItem("legal-notification-read", JSON.stringify([...next]));
       return next;
     });
     setMobileNotificationsOpen(false);
+
+    try {
+      const response = await fetch("/api/dashboard-v2", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notificationId: id }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Bildirim okundu olarak kaydedilemedi.");
+      }
+    } catch {
+      setReadNotificationIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+    }
   }
 
   function queueMobileFiles(
@@ -491,7 +519,12 @@ export default function LegalDock() {
                 key={`mobile-notification-${item.id}`}
                 href={notificationHref(item)}
                 className={`mobile-notification-row ${tone} ${unread ? "unread" : ""}`}
-                onClick={() => markNotificationRead(item.id)}
+                onClick={async (event) => {
+                  event.preventDefault();
+                  const href = notificationHref(item);
+                  await markNotificationRead(item.id);
+                  router.push(href);
+                }}
               >
                 <span className="mobile-notification-mark" />
                 <span><strong>{item.title}</strong><small>{timeLabel}{item.time ? ` · ${item.time}` : ""}</small></span>
@@ -1062,13 +1095,21 @@ export default function LegalDock() {
           }
 
           .legal-dock-zone {
-            top: 58px;
-            right: 7px;
-            bottom: 7px;
+            top: 0;
+            right: 0;
+            bottom: 0;
             left: auto;
 
             width: 172px;
-            height: auto;
+            height: 100dvh;
+            min-height: 100dvh;
+            max-height: 100dvh;
+            padding:
+              max(4px, env(safe-area-inset-top))
+              max(2px, env(safe-area-inset-right))
+              max(4px, env(safe-area-inset-bottom))
+              0;
+            box-sizing: border-box;
 
             align-items: stretch;
             justify-content: flex-start;
@@ -1090,6 +1131,8 @@ export default function LegalDock() {
 
           .legal-dock {
             width: 100%;
+            height: 100%;
+            min-height: 0;
 
             flex-direction: column;
             align-items: stretch;

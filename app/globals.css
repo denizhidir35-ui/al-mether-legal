@@ -729,7 +729,9 @@ html[data-legal-theme="light"] .legal-brand picture img {
   html,
   body {
     width: 100%;
-    height: 100%;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
     max-width: 100%;
     overflow: hidden;
     overscroll-behavior: none;
@@ -740,16 +742,22 @@ html[data-legal-theme="light"] .legal-brand picture img {
   }
 
   .legal-app:has(.mobile-legal-header) {
+    box-sizing: border-box;
     width: 100%;
-    height: 100dvh;
-    min-height: 100dvh;
-    max-height: 100dvh;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
     padding:
       calc(max(6px, env(safe-area-inset-top)) + 60px)
       max(8px, env(safe-area-inset-right))
-      calc(max(8px, env(safe-area-inset-bottom)) + 62px)
+      max(8px, env(safe-area-inset-bottom))
       max(8px, env(safe-area-inset-left)) !important;
     overflow: hidden !important;
+    overscroll-behavior: none;
+  }
+
+  .legal-app:has(.mobile-legal-header) .legal-dock-zone {
+    padding-bottom: 0;
   }
 
   .dashboard-page .dashboard-shell,
@@ -798,6 +806,7 @@ html[data-legal-theme="light"] .legal-brand picture img {
     overflow-y: auto;
     overflow-x: hidden;
     scrollbar-width: thin;
+    scroll-padding-bottom: calc(58px + env(safe-area-inset-bottom));
   }
 
   .lawyer-calendar .main-grid {
@@ -906,6 +915,7 @@ html[data-legal-theme="light"] .legal-brand picture img {
     overflow-x: hidden;
     border-radius: 18px !important;
     scrollbar-width: thin;
+    scroll-padding-bottom: calc(58px + env(safe-area-inset-bottom));
   }
 
   .uets-import-page > div,
@@ -917,6 +927,7 @@ html[data-legal-theme="light"] .legal-brand picture img {
     overflow-x: hidden;
     border-radius: 18px !important;
     scrollbar-width: thin;
+    scroll-padding-bottom: calc(58px + env(safe-area-inset-bottom));
   }
 
   .uets-import-page > div > div:first-child,

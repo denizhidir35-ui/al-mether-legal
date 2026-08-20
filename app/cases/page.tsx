@@ -501,6 +501,22 @@ export default function CasesPage() {
   }, []);
 
   useEffect(() => {
+    const refreshOnFocus = () => {
+      if (document.visibilityState === "visible") {
+        void loadCases();
+      }
+    };
+
+    window.addEventListener("focus", refreshOnFocus);
+    document.addEventListener("visibilitychange", refreshOnFocus);
+
+    return () => {
+      window.removeEventListener("focus", refreshOnFocus);
+      document.removeEventListener("visibilitychange", refreshOnFocus);
+    };
+  }, []);
+
+  useEffect(() => {
     const caseType =
       new URLSearchParams(window.location.search)
         .get("type")

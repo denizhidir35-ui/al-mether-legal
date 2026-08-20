@@ -449,6 +449,22 @@ export default function CalendarPage() {
   }, [loadEvents]);
 
   useEffect(() => {
+    const refreshOnFocus = () => {
+      if (document.visibilityState === "visible") {
+        void loadEvents();
+      }
+    };
+
+    window.addEventListener("focus", refreshOnFocus);
+    document.addEventListener("visibilitychange", refreshOnFocus);
+
+    return () => {
+      window.removeEventListener("focus", refreshOnFocus);
+      document.removeEventListener("visibilitychange", refreshOnFocus);
+    };
+  }, [loadEvents]);
+
+  useEffect(() => {
     const eventId =
       new URLSearchParams(window.location.search)
         .get("event")

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getOrCreateAppUser } from "@/lib/alUser";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
@@ -81,7 +82,7 @@ function eventCategory(event: DashboardEvent) {
   return "task";
 }
 
-function serializeEvent(event: DashboardEvent) {
+function serializeEvent(event: DashboardEvent, readAtBySourceId: Map<string, string>) {
   return {
     id: event.id,
     caseId: event.case_id || "",
@@ -93,7 +94,17 @@ function serializeEvent(event: DashboardEvent) {
     eventType: event.event_type || "",
     category: eventCategory(event),
     source: event.source || "",
+    readAt: readAtBySourceId.get(event.id) || "",
   };
+}
+
+function notificationReadReceiptId(userId: string, notificationId: string) {
+  const hash = createHash("sha256")
+    .update(`legal:notification-read:${userId}:${notificationId}`)
+    .digest("hex");
+  const variant = ((Number.parseInt(hash[16], 16) & 0x3) | 0x8).toString(16);
+
+  return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-5${hash.slice(13, 16)}-${variant}${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
 }
 
 export async function GET() {
@@ -114,7 +125,7 @@ export async function GET() {
     weekEndDate.setDate(weekEndDate.getDate() + 7);
     const weekEnd = dateOnly(weekEndDate);
 
-    const [cases, criticalCases, events, incoming, documents] =
+    const [cases, criticalCases, events, incoming, documents, notificationReads] =
       await Promise.all([
         supabase
           .from("legal_cases")
@@ -156,10 +167,22 @@ export async function GET() {
           .eq("user_id", appUser.id)
           .order("created_at", { ascending: false })
           .limit(6),
+        supabase
+          .from("core_notifications")
+          .select("source_id,status,metadata,created_at")
+          .eq("user_id", appUser.id)
+          .eq("status", "read")
+          .not("source_id", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(500),
       ]);
 
     const firstError =
-      cases.error || criticalCases.error || events.error || incoming.error;
+      cases.error ||
+      criticalCases.error ||
+      events.error ||
+      incoming.error ||
+      notificationReads.error;
 
     if (firstError) {
       return NextResponse.json(
@@ -184,6 +207,17 @@ export async function GET() {
           raw: event.raw,
         })
     );
+    const readAtBySourceId = new Map<string, string>();
+
+    for (const notification of notificationReads.data || []) {
+      const sourceId = text(notification.source_id);
+      const metadata = record(notification.metadata);
+      const readAt = text(metadata.readAt) || text(notification.created_at);
+
+      if (sourceId && !readAtBySourceId.has(sourceId)) {
+        readAtBySourceId.set(sourceId, readAt);
+      }
+    }
     const todayEvents = visibleEvents
       .filter((event) => (event.due_date || event.start_date) === today)
       .sort((left, right) =>
@@ -217,9 +251,13 @@ export async function GET() {
         upcomingDeadlines,
         newNotices: visibleIncoming.length,
       },
-      dailyPlan: todayEvents.map(serializeEvent),
-      timeline: visibleEvents.slice(0, 8).map(serializeEvent),
-      incoming: visibleIncoming.slice(0, 5).map(serializeEvent),
+      dailyPlan: todayEvents.map((event) => serializeEvent(event, readAtBySourceId)),
+      timeline: visibleEvents
+        .slice(0, 8)
+        .map((event) => serializeEvent(event, readAtBySourceId)),
+      incoming: visibleIncoming
+        .slice(0, 5)
+        .map((event) => serializeEvent(event, readAtBySourceId)),
       documents: documents.error
         ? []
         : (documents.data || []).map((document) => ({
@@ -238,6 +276,117 @@ export async function GET() {
           error instanceof Error
             ? error.message
             : "Dashboard verileri okunamadı.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const { appUser, error: authError } = await getOrCreateAppUser();
+
+    if (authError || !appUser) {
+      return NextResponse.json(
+        { ok: false, error: authError || "Oturum bulunamadı." },
+        { status: 401 }
+      );
+    }
+
+    const payload = (await request.json().catch(() => null)) as
+      | { notificationId?: unknown }
+      | null;
+    const notificationId = text(payload?.notificationId);
+
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(notificationId)) {
+      return NextResponse.json(
+        { ok: false, error: "Geçerli bildirim kimliği gerekiyor." },
+        { status: 400 }
+      );
+    }
+
+    const supabase = getSupabaseAdmin();
+    const event = await supabase
+      .from("calendar_events")
+      .select("id,title,description")
+      .eq("id", notificationId)
+      .eq("user_id", appUser.id)
+      .maybeSingle();
+
+    if (event.error) {
+      return NextResponse.json(
+        { ok: false, error: event.error.message },
+        { status: 500 }
+      );
+    }
+
+    if (!event.data) {
+      return NextResponse.json(
+        { ok: false, error: "Bildirim bulunamadı." },
+        { status: 404 }
+      );
+    }
+
+    const readAt = new Date().toISOString();
+    const existingNotifications = await supabase
+      .from("core_notifications")
+      .select("id")
+      .eq("user_id", appUser.id)
+      .eq("source_id", notificationId);
+
+    if (existingNotifications.error) {
+      return NextResponse.json(
+        { ok: false, error: existingNotifications.error.message },
+        { status: 500 }
+      );
+    }
+
+    const existingIds = (existingNotifications.data || []).map((item) => item.id);
+    const persisted = existingIds.length > 0
+      ? await supabase
+          .from("core_notifications")
+          .update({ status: "read" })
+          .eq("user_id", appUser.id)
+          .in("id", existingIds)
+          .select("id")
+      : await supabase
+          .from("core_notifications")
+          .upsert(
+            {
+              id: notificationReadReceiptId(appUser.id, notificationId),
+              title: event.data.title,
+              message: event.data.description || event.data.title,
+              channel: "in-app",
+              status: "read",
+              product: "legal",
+              user_id: appUser.id,
+              source: "calendar-event",
+              source_id: notificationId,
+              metadata: {
+                readAt,
+                target: `/calendar?event=${notificationId}`,
+              },
+            },
+            { onConflict: "id" }
+          )
+          .select("id");
+
+    if (persisted.error || !persisted.data?.length) {
+      return NextResponse.json(
+        { ok: false, error: persisted.error?.message || "Bildirim güncellenemedi." },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ ok: true, id: notificationId, readAt });
+  } catch (error: unknown) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Bildirim güncellenemedi.",
       },
       { status: 500 }
     );

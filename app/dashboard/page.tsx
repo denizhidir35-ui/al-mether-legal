@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -31,6 +32,7 @@ type DashboardItem = {
   eventType: string;
   category: "hearing" | "expert" | "petition" | "notice" | "deadline" | "task";
   source: string;
+  readAt: string;
 };
 
 type DashboardDocument = {
@@ -177,6 +179,7 @@ function normalizeCaseTypeKey(value: string) {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [data, setData] = useState<DashboardData>(EMPTY_DATA);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -252,6 +255,13 @@ export default function DashboardPage() {
           }
 
           setData(payload);
+          setNotificationReadIds(
+            new Set(
+              [...payload.incoming, ...payload.dailyPlan, ...payload.timeline]
+                .filter((item) => Boolean(item.readAt))
+                .map((item) => item.id)
+            )
+          );
           setCaseTypesTotal(activeCases.length);
           setCaseTypes(
             Array.from(grouped, ([key, group]) => {
@@ -294,6 +304,27 @@ export default function DashboardPage() {
       active = false;
     };
   }, [reloadKey]);
+
+  useEffect(() => {
+    let lastRefresh = 0;
+
+    const refreshOnFocus = () => {
+      if (document.visibilityState !== "visible") return;
+
+      const now = Date.now();
+      if (now - lastRefresh < 500) return;
+      lastRefresh = now;
+      setReloadKey((current) => current + 1);
+    };
+
+    window.addEventListener("focus", refreshOnFocus);
+    document.addEventListener("visibilitychange", refreshOnFocus);
+
+    return () => {
+      window.removeEventListener("focus", refreshOnFocus);
+      document.removeEventListener("visibilitychange", refreshOnFocus);
+    };
+  }, []);
 
   const executeSearch = useCallback(async (value: string) => {
     const query = value.trim();
@@ -406,17 +437,6 @@ export default function DashboardPage() {
   }, [searchQuery]);
 
   useEffect(() => {
-    try {
-      const saved = JSON.parse(
-        window.localStorage.getItem("legal-notification-read") || "[]"
-      );
-      setNotificationReadIds(
-        new Set(Array.isArray(saved) ? saved.filter((id) => typeof id === "string") : [])
-      );
-    } catch {
-      setNotificationReadIds(new Set());
-    }
-
     function closeNotifications(event: MouseEvent) {
       if (!notificationBoxRef.current?.contains(event.target as Node)) {
         setNotificationOpen(false);
@@ -489,14 +509,31 @@ export default function DashboardPage() {
     (item) => !notificationReadIds.has(item.id)
   ).length;
 
-  function markNotificationRead(id: string) {
+  async function markNotificationRead(id: string) {
     setNotificationReadIds((current) => {
       const next = new Set(current);
       next.add(id);
-      window.localStorage.setItem("legal-notification-read", JSON.stringify([...next]));
       return next;
     });
     setNotificationOpen(false);
+
+    try {
+      const response = await fetch("/api/dashboard-v2", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notificationId: id }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Bildirim okundu olarak kaydedilemedi.");
+      }
+    } catch {
+      setNotificationReadIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+    }
   }
 
   const summary = [
@@ -699,7 +736,11 @@ export default function DashboardPage() {
                             key={item.id}
                             href={item.href}
                             className={`notification-row ${unread ? "unread" : ""}`}
-                            onClick={() => markNotificationRead(item.id)}
+                            onClick={async (event) => {
+                              event.preventDefault();
+                              await markNotificationRead(item.id);
+                              router.push(item.href);
+                            }}
                           >
                             <span className={`notification-icon ${meta.tone}`}>
                               <Icon size={14} />
