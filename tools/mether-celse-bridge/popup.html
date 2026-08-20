@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  >
+  <title>METHER CELSE Bridge</title>
+
+  <style>
+    body {
+      width: 300px;
+      margin: 0;
+      padding: 16px;
+      box-sizing: border-box;
+      background: #07131f;
+      color: #eef5f6;
+      font-family: Arial, sans-serif;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 16px;
+    }
+
+    p {
+      margin: 0 0 14px;
+      color: #9db0ba;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    button {
+      width: 100%;
+      margin-top: 8px;
+      padding: 10px;
+      border-radius: 9px;
+      border: 1px solid #284458;
+      background: #102638;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    #status {
+      margin-top: 12px;
+      color: #77e4df;
+      font-size: 12px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>METHER CELSE / UYAP</h1>
+
+  <p>
+    UYAP Avukat Portal'da açık olan dava ve duruşma
+    metnini METHER Legal'e aktarır. Şifre, çerez veya
+    oturum tokenı aktarılmaz.
+  </p>
+
+  <button id="local">
+    Localhost kullan
+  </button>
+
+  <button id="prod">
+    Production kullan
+  </button>
+
+  <div id="status"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

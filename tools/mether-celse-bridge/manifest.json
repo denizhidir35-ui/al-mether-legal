@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "METHER CELSE / UYAP Bridge",
+  "version": "0.1.0",
+  "description": "UYAP Avukat Portal'daki açık dava ve duruşma metnini METHER Legal çalışma alanına aktarır; kimlik bilgisi, çerez veya token toplamaz.",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://avukat.uyap.gov.tr/*",
+    "http://localhost/*",
+    "https://al-mether-legal.vercel.app/*",
+    "https://legal.almether.com/*"
+  ],
+  "action": {
+    "default_title": "METHER CELSE / UYAP Bridge",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://avukat.uyap.gov.tr/*"
+      ],
+      "js": [
+        "content-uyap.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "http://localhost/*",
+        "https://al-mether-legal.vercel.app/*",
+        "https://legal.almether.com/*"
+      ],
+      "js": [
+        "content-mether.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

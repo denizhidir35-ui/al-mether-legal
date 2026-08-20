@@ -1,0 +1,79 @@
+<!doctype html>
+<html
+  lang="tr"
+  data-mether-source-url="https://avukat.uyap.gov.tr/mock/dosya/2026-987654"
+>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>UYAP Avukat Portal - Lokal CELSE Kabul Testi</title>
+  <style>
+    body {
+      margin: 0;
+      background: #eef2f5;
+      color: #18222d;
+      font-family: Arial, sans-serif;
+    }
+    header {
+      padding: 18px 28px;
+      background: #173650;
+      color: white;
+    }
+    main {
+      width: min(900px, calc(100% - 40px));
+      margin: 32px auto;
+      padding: 26px;
+      box-sizing: border-box;
+      border: 1px solid #cbd5df;
+      border-radius: 10px;
+      background: white;
+      box-shadow: 0 10px 30px rgba(20, 40, 60, .08);
+    }
+    h1 { margin: 0; font-size: 20px; }
+    h2 { margin-top: 0; }
+    dl {
+      display: grid;
+      grid-template-columns: 190px 1fr;
+      gap: 12px;
+    }
+    dt { color: #647687; }
+    dd { margin: 0; font-weight: 700; }
+    #acceptance-status {
+      margin-top: 24px;
+      padding: 14px;
+      border: 1px solid #b8c7d5;
+      border-radius: 8px;
+      background: #f6f9fb;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>UYAP Avukat Portal — Lokal Mock</h1>
+  </header>
+  <main id="uyap-content">
+    <h2>Duruşma Bilgileri</h2>
+    <dl>
+      <dt>Mahkeme:</dt>
+      <dd>Ankara 12. İş Mahkemesi</dd>
+      <dt>Esas No:</dt>
+      <dd>2026/987654</dd>
+      <dt>Duruşma tarihi:</dt>
+      <dd>18.09.2026</dd>
+      <dt>Duruşma saati:</dt>
+      <dd>10:30</dd>
+      <dt>Duruşma türü:</dt>
+      <dd>Ön inceleme duruşması</dd>
+    </dl>
+    <p>
+      Ankara 12. İş Mahkemesi 2026/987654 Esas sayılı dosyanın
+      duruşması 18.09.2026 tarihinde saat 10:30&apos;da yapılacaktır.
+    </p>
+    <div id="acceptance-status">Kabul testi bekleniyor.</div>
+  </main>
+
+  <script src="mock-uyap.js"></script>
+  <script src="content-uyap.js"></script>
+</body>
+</html>
