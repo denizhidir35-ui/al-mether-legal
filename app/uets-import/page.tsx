@@ -896,7 +896,9 @@ export default function UetsImportPage() {
       ) {
         if (
           event.source !==
-          window
+            window ||
+          event.origin !==
+            window.location.origin
         ) {
           return;
         }
@@ -925,6 +927,28 @@ export default function UetsImportPage() {
           return;
         }
 
+        try {
+          const sourceUrl =
+            new URL(
+              safeText(
+                payload.url
+              )
+            );
+
+          if (
+            sourceUrl.origin !==
+              "https://ptt.etebligat.gov.tr" ||
+            sourceUrl.search ||
+            sourceUrl.hash ||
+            sourceUrl.username ||
+            sourceUrl.password
+          ) {
+            return;
+          }
+        } catch {
+          return;
+        }
+
         setCapture(
           payload
         );
@@ -938,7 +962,7 @@ export default function UetsImportPage() {
             source:
               "METHER_UETS_ACK",
           },
-          "*"
+          window.location.origin
         );
 
         void analyzeCapture(

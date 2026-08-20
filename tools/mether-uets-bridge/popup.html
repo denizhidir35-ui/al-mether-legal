@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  />
+
+  <title>METHER UETS</title>
+
+  <style>
+    body {
+      width: 260px;
+      margin: 0;
+      padding: 14px;
+      background: #0b1220;
+      color: #f8fafc;
+      font-family: Arial,sans-serif;
+    }
+
+    strong {
+      display: block;
+      margin-bottom: 5px;
+      color: #f3cf7a;
+      font-size: 13px;
+    }
+
+    p {
+      margin: 0 0 12px;
+      color: #94a3b8;
+      font-size: 10px;
+      line-height: 1.5;
+    }
+
+    button {
+      width: 100%;
+      height: 34px;
+      margin-top: 6px;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      background: #111827;
+      color: #e2e8f0;
+      cursor: pointer;
+    }
+
+    button.active {
+      border-color: #d2a94f;
+      color: #f3cf7a;
+    }
+
+    #status {
+      margin-top: 10px;
+      color: #86efac;
+      font-size: 9px;
+    }
+  </style>
+</head>
+<body>
+  <strong>METHER UETS Bridge</strong>
+
+  <p>
+    UETS oturumu browser içinde kalır.
+    METHER giriş bilgilerinizi okumaz.
+  </p>
+
+  <button id="local">
+    Localhost kullan
+  </button>
+
+  <button id="prod">
+    Vercel production kullan
+  </button>
+
+  <button id="testBridge">
+  Bridge Test Aktarımı
+</button>
+
+<div id="status"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

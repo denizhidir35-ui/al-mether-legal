@@ -1,0 +1,51 @@
+#mether-uets-bridge-button {
+  position: fixed;
+  right: 18px;
+  bottom: 22px;
+  z-index: 2147483647;
+
+  min-width: 132px;
+  height: 40px;
+
+  padding: 0 16px;
+
+  border: 1px solid #d2a94f;
+  border-radius: 11px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #111827,
+      #1e293b
+    );
+
+  color: #f3cf7a;
+
+  font-family:
+    Arial,
+    sans-serif;
+
+  font-size: 12px;
+  font-weight: 800;
+
+  box-shadow:
+    0 12px 32px
+    rgba(
+      0,
+      0,
+      0,
+      .28
+    );
+
+  cursor: pointer;
+}
+
+#mether-uets-bridge-button:hover {
+  transform:
+    translateY(-1px);
+}
+
+#mether-uets-bridge-button:disabled {
+  opacity: .72;
+  cursor: wait;
+}

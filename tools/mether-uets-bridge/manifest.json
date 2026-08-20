@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "METHER UETS Bridge",
+  "version": "0.1.0",
+  "description": "Yetkili UETS oturumundaki açık tebligatı METHER Legal çalışma alanına aktarır.",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://ptt.etebligat.gov.tr/*",
+    "http://localhost/*",
+    "https://legal.almether.com/*"
+  ],
+  "action": {
+    "default_title": "METHER UETS Bridge",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://ptt.etebligat.gov.tr/*"
+      ],
+      "js": [
+        "content-uets.js"
+      ],
+      "css": [
+        "bridge.css"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "http://localhost/*",
+        "https://legal.almether.com/*"
+      ],
+      "js": [
+        "content-mether.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
