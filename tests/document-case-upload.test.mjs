@@ -183,11 +183,11 @@ test("analysis is editable before either create action", () => {
 
   assert.match(
     casesSource,
-    /Davayı Oluştur/
+    /Davayı Kaydet/
   );
   assert.match(
     casesSource,
-    /Davayı Oluştur ve Takvime Ekle/
+    /Davayı Kaydet ve Takvime Ekle/
   );
   assert.match(
     analysisRoute,

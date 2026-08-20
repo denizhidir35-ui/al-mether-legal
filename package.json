@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:document-analysis": "node --import ./tests/register-server-only-loader.mjs --test tests/document-case-upload.test.mjs tests/document-petition-semantics.test.mjs tests/mobile-image-ocr.test.mjs tests/ocr-production-trace.test.mjs tests/uets-large-95mb-stress.test.mjs tests/universal-document-extraction.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

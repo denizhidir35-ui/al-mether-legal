@@ -204,7 +204,7 @@ test("case value and result/request never participate in calendar conditions", a
     "utf8"
   );
   const calendarLabelIndex = casesSource.indexOf(
-    "Davayı Oluştur ve Takvime Ekle"
+    "Davayı Kaydet ve Takvime Ekle"
   );
   const calendarButtonIndex = casesSource.lastIndexOf(
     "<button",
