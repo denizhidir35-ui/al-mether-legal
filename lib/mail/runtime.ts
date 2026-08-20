@@ -6,7 +6,11 @@ import {
 } from "@/lib/alUser";
 
 import {
+  assertMailCredentialsKey,
   decryptMailSecret,
+  decryptStoredMailSecret,
+  encryptStoredMailSecret,
+  isEncryptedMailSecret,
 } from "@/lib/mail/credentialCrypto";
 
 import {
@@ -32,6 +36,98 @@ export type MailConnectionRow = {
   settings?: Record<string, unknown> | null;
   secret_encrypted?: string | null;
 };
+
+export async function decryptAndMigrateOAuthSecrets(
+  connection: MailConnectionRow,
+  supabase: ReturnType<
+    typeof getSupabaseAdmin
+  >
+) {
+  if (
+    connection.provider !== "google" &&
+    connection.provider !== "microsoft"
+  ) {
+    return connection;
+  }
+
+  assertMailCredentialsKey();
+
+  const decrypted:
+    MailConnectionRow = {
+      ...connection,
+      access_token:
+        decryptStoredMailSecret(
+          connection.access_token
+        ),
+      refresh_token:
+        decryptStoredMailSecret(
+          connection.refresh_token
+        ),
+    };
+
+  const encryptedUpdate:
+    Record<string, string> = {};
+
+  if (
+    connection.access_token &&
+    !isEncryptedMailSecret(
+      connection.access_token
+    )
+  ) {
+    encryptedUpdate.access_token =
+      encryptStoredMailSecret(
+        connection.access_token
+      )!;
+  }
+
+  if (
+    connection.refresh_token &&
+    !isEncryptedMailSecret(
+      connection.refresh_token
+    )
+  ) {
+    encryptedUpdate.refresh_token =
+      encryptStoredMailSecret(
+        connection.refresh_token
+      )!;
+  }
+
+  if (
+    Object.keys(
+      encryptedUpdate
+    ).length === 0
+  ) {
+    return decrypted;
+  }
+
+  const migrated =
+    await supabase
+      .from("mail_connections")
+      .update({
+        ...encryptedUpdate,
+        updated_at:
+          new Date()
+            .toISOString(),
+      })
+      .eq("id", connection.id)
+      .eq(
+        "user_id",
+        connection.user_id
+      )
+      .select("id")
+      .maybeSingle();
+
+  if (
+    migrated.error ||
+    !migrated.data
+  ) {
+    throw new Error(
+      "OAuth kimlik bilgileri güvenli biçime yükseltilemedi."
+    );
+  }
+
+  return decrypted;
+}
 
 export async function getOwnedMailConnection(
   connectionId: string
@@ -85,11 +181,16 @@ export async function getOwnedMailConnection(
     );
   }
 
+  const connection =
+    await decryptAndMigrateOAuthSecrets(
+      result.data as MailConnectionRow,
+      supabase
+    );
+
   return {
     appUser,
     supabase,
-    connection:
-      result.data as MailConnectionRow,
+    connection,
   };
 }
 
@@ -109,11 +210,15 @@ function createGoogleOAuthClient(
 
   oauth2Client.setCredentials({
     access_token:
-      connection.access_token ||
+      decryptStoredMailSecret(
+        connection.access_token
+      ) ||
       undefined,
 
     refresh_token:
-      connection.refresh_token ||
+      decryptStoredMailSecret(
+        connection.refresh_token
+      ) ||
       undefined,
 
     expiry_date:
@@ -140,14 +245,18 @@ function createGoogleOAuthClient(
         tokens.access_token
       ) {
         update.access_token =
-          tokens.access_token;
+          encryptStoredMailSecret(
+            tokens.access_token
+          );
       }
 
       if (
         tokens.refresh_token
       ) {
         update.refresh_token =
-          tokens.refresh_token;
+          encryptStoredMailSecret(
+            tokens.refresh_token
+          );
       }
 
       if (
@@ -184,9 +293,15 @@ export async function getGoogleGrantedScopes(
     typeof getSupabaseAdmin
   >
 ) {
+  const securedConnection =
+    await decryptAndMigrateOAuthSecrets(
+      connection,
+      supabase
+    );
+
   const oauth2Client =
     createGoogleOAuthClient(
-      connection,
+      securedConnection,
       supabase
     );
 
@@ -236,6 +351,16 @@ export async function getMicrosoftAccessToken(
     typeof getSupabaseAdmin
   >
 ) {
+  const accessToken =
+    decryptStoredMailSecret(
+      connection.access_token
+    );
+
+  const refreshToken =
+    decryptStoredMailSecret(
+      connection.refresh_token
+    );
+
   const expiresAt =
     connection
       .token_expires_at
@@ -246,16 +371,15 @@ export async function getMicrosoftAccessToken(
       : 0;
 
   if (
-    connection.access_token &&
+    accessToken &&
     expiresAt >
       Date.now() + 60_000
   ) {
-    return connection
-      .access_token;
+    return accessToken;
   }
 
   if (
-    !connection.refresh_token
+    !refreshToken
   ) {
     throw new Error(
       "Microsoft oturumu yenilenemedi. Hesabı yeniden bağlayın."
@@ -291,8 +415,7 @@ export async function getMicrosoftAccessToken(
         "refresh_token",
 
       refresh_token:
-        connection
-          .refresh_token,
+        refreshToken,
 
       scope: [
         "openid",
@@ -346,7 +469,7 @@ export async function getMicrosoftAccessToken(
 
   const nextRefresh =
     data.refresh_token ||
-    connection.refresh_token;
+    refreshToken;
 
   await supabase
     .from(
@@ -354,10 +477,14 @@ export async function getMicrosoftAccessToken(
     )
     .update({
       access_token:
-        data.access_token,
+        encryptStoredMailSecret(
+          data.access_token
+        ),
 
       refresh_token:
-        nextRefresh,
+        encryptStoredMailSecret(
+          nextRefresh
+        ),
 
       token_expires_at:
         nextExpiry,

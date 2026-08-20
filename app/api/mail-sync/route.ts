@@ -18,6 +18,11 @@ import {
 } from "@/lib/supabaseAdmin";
 
 import {
+  decryptAndMigrateOAuthSecrets,
+  type MailConnectionRow,
+} from "@/lib/mail/runtime";
+
+import {
   GMAIL_LEGAL_QUERY,
   isLegalMail,
 } from "@/lib/mail/legalMailFilter";
@@ -495,6 +500,12 @@ export async function POST(
       );
     }
 
+    const securedConnection =
+      await decryptAndMigrateOAuthSecrets(
+        connection.data as MailConnectionRow,
+        supabase
+      );
+
     const oauth2Client =
       new google.auth.OAuth2(
         process.env
@@ -505,12 +516,12 @@ export async function POST(
 
     oauth2Client.setCredentials({
       access_token:
-        connection.data
+        securedConnection
           .access_token ||
         undefined,
 
       refresh_token:
-        connection.data
+        securedConnection
           .refresh_token ||
         undefined,
 

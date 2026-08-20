@@ -30,6 +30,10 @@ function getKey() {
   return key;
 }
 
+export function assertMailCredentialsKey() {
+  getKey();
+}
+
 export function encryptMailSecret(
   value: string
 ) {
@@ -115,4 +119,53 @@ export function decryptMailSecret(
 
     decipher.final(),
   ]).toString("utf8");
+}
+
+export function isEncryptedMailSecret(
+  value: unknown
+) {
+  if (
+    typeof value !== "string"
+  ) {
+    return false;
+  }
+
+  const parts =
+    value.split(".");
+
+  return (
+    parts.length === 4 &&
+    parts[0] === "v1" &&
+    parts.slice(1).every(Boolean)
+  );
+}
+
+export function decryptStoredMailSecret(
+  value:
+    | string
+    | null
+    | undefined
+) {
+  if (!value) {
+    return null;
+  }
+
+  assertMailCredentialsKey();
+
+  return isEncryptedMailSecret(
+    value
+  )
+    ? decryptMailSecret(value)
+    : value;
+}
+
+export function encryptStoredMailSecret(
+  value:
+    | string
+    | null
+    | undefined
+) {
+  return value
+    ? encryptMailSecret(value)
+    : null;
 }

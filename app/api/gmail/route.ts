@@ -1,6 +1,13 @@
 ﻿import { google } from "googleapis";
 import { getOrCreateAppUser } from "@/lib/alUser";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import {
+  decryptAndMigrateOAuthSecrets,
+  type MailConnectionRow,
+} from "@/lib/mail/runtime";
+import {
+  encryptStoredMailSecret,
+} from "@/lib/mail/credentialCrypto";
 
 type GmailAttachment = {
   filename: string;
@@ -155,6 +162,12 @@ export async function GET() {
       );
     }
 
+    const securedConnection =
+      await decryptAndMigrateOAuthSecrets(
+        connection.data as MailConnectionRow,
+        supabase
+      );
+
     const oauth2Client =
       new google.auth.OAuth2(
         process.env.GOOGLE_CLIENT_ID,
@@ -163,11 +176,11 @@ export async function GET() {
 
     oauth2Client.setCredentials({
       access_token:
-        connection.data.access_token ||
+        securedConnection.access_token ||
         undefined,
 
       refresh_token:
-        connection.data.refresh_token ||
+        securedConnection.refresh_token ||
         undefined,
 
       expiry_date:
@@ -191,12 +204,16 @@ export async function GET() {
 
         if (tokens.access_token) {
           update.access_token =
-            tokens.access_token;
+            encryptStoredMailSecret(
+              tokens.access_token
+            );
         }
 
         if (tokens.refresh_token) {
           update.refresh_token =
-            tokens.refresh_token;
+            encryptStoredMailSecret(
+              tokens.refresh_token
+            );
         }
 
         if (tokens.expiry_date) {
@@ -327,13 +344,15 @@ export async function GET() {
     }
 
     return Response.json(result);
-  } catch (error: any) {
-    console.error("GMAIL HATASI:", error);
+  } catch {
+    console.error(
+      "GMAIL HATASI: Mail okunamadı"
+    );
 
     return Response.json(
       {
-        error: error?.message || "Mail okunamadı",
-        details: error?.response?.data || error,
+        error:
+          "Mail okunamadı",
       },
       { status: 500 }
     );

@@ -29,6 +29,12 @@ import {
 } from "@/lib/mail/googleScopes";
 
 import {
+  assertMailCredentialsKey,
+  decryptStoredMailSecret,
+  encryptStoredMailSecret,
+} from "@/lib/mail/credentialCrypto";
+
+import {
   isPendingApprovalStatus,
   notifyAdminsOfPendingUser,
   PENDING_APPROVAL_STATUS,
@@ -342,6 +348,8 @@ export const authOptions:
               : "";
 
         if (mailProvider) {
+          assertMailCredentialsKey();
+
           const cookieStore =
             await cookies();
 
@@ -418,6 +426,14 @@ export const authOptions:
                 ).toISOString()
               : null;
 
+          const refreshToken =
+            account
+              ?.refresh_token ||
+            decryptStoredMailSecret(
+              previous.data
+                ?.refresh_token
+            );
+
           const values = {
             user_id:
               owner.data.id,
@@ -430,15 +446,14 @@ export const authOptions:
             status:
               "connected",
             access_token:
-              account
-                ?.access_token ||
-              null,
+              encryptStoredMailSecret(
+                account
+                  ?.access_token
+              ),
             refresh_token:
-              account
-                ?.refresh_token ||
-              previous.data
-                ?.refresh_token ||
-              null,
+              encryptStoredMailSecret(
+                refreshToken
+              ),
             token_expires_at:
               expiresAt,
             settings:
