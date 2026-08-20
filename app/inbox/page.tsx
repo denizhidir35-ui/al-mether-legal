@@ -1673,9 +1673,12 @@ ${selectedMail.body || ""}`,
   return (
     <main className="legal-app mether-posta">
       <CalendarWriteToast />
+      <div className="posta-shell">
       <header className="posta-header">
         <div className="brand-side">
-          <LegalBrand compact />
+          <a href="/" className="brand-home" aria-label="Dashboard'a dön">
+            <LegalBrand compact />
+          </a>
 
           <span className="brand-context">
             Posta
@@ -1749,7 +1752,7 @@ ${selectedMail.body || ""}`,
               className="accounts-button"
               title="Posta hesapları"
             >
-              âš™
+              ⚙
             </a>
           </div>
         </div>
@@ -1914,7 +1917,7 @@ ${selectedMail.body || ""}`,
                     <div className="mail-top">
                       <strong>
                         {mail.sender ||
-                          "â€”"}
+                          "—"}
                       </strong>
 
                       <time>
@@ -1938,7 +1941,7 @@ ${selectedMail.body || ""}`,
 
                       {mail.hasAttachments && (
                         <b title="Ekli">
-                          â–±
+                          📎
                         </b>
                       )}
                     </div>
@@ -2108,7 +2111,7 @@ ${selectedMail.body || ""}`,
                             key={`${attachment.attachmentId || attachment.filename}-${index}`}
                           >
                             <span className="attachment-icon">
-                              â–±
+                              📎
                             </span>
 
                             <div>
@@ -2226,6 +2229,7 @@ ${selectedMail.body || ""}`,
           )}
         </section>
       </section>
+      </div>
 
       {composerOpen && (
         <div
@@ -3960,6 +3964,210 @@ ${selectedMail.body || ""}`,
         .mail-row.selected {
           background:
             var(--legal-surface-2);
+        }
+
+        .posta-shell {
+          display: contents;
+        }
+
+        @media (min-width: 761px) {
+          html:has(.mether-posta),
+          body:has(.mether-posta) {
+            height: 100%;
+            overflow: hidden;
+          }
+
+          .mether-posta {
+            height: 100vh;
+            display: block;
+            padding: 10px 72px 10px 10px;
+            overflow: hidden;
+            background: transparent;
+          }
+
+          .posta-shell {
+            width: 100%;
+            height: calc(100vh - 20px);
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid var(--legal-border);
+            border-radius: 22px;
+            background: color-mix(in srgb, var(--legal-surface) 94%, transparent);
+            box-shadow: var(--legal-shadow-md);
+            backdrop-filter: blur(24px);
+          }
+
+          .posta-header {
+            min-height: 60px;
+            flex: 0 0 60px;
+            padding: 0 16px;
+            background: transparent;
+          }
+
+          .brand-home {
+            color: inherit;
+            text-decoration: none;
+          }
+
+          .brand-context {
+            padding-left: 10px;
+            border-left: 1px solid var(--legal-border);
+            color: var(--legal-text);
+            font-size: 15px;
+            font-weight: 850;
+            letter-spacing: -.02em;
+          }
+
+          .header-tools {
+            gap: 7px;
+          }
+
+          .compose-primary,
+          .account-side select,
+          .accounts-button {
+            height: 35px;
+            border-radius: 10px;
+          }
+
+          .compose-primary {
+            color: var(--legal-gold-dark);
+          }
+
+          .provider-mark {
+            width: 35px;
+            height: 35px;
+            border-radius: 10px;
+          }
+
+          .account-side select {
+            width: min(330px, 32vw);
+            background: var(--legal-surface-2);
+            font-size: 9px;
+          }
+
+          .accounts-button {
+            width: 35px;
+            color: var(--legal-gold-dark);
+          }
+
+          .posta-toolbar {
+            min-height: 43px;
+            flex: 0 0 43px;
+            padding: 5px 12px;
+            background: color-mix(in srgb, var(--legal-surface-2) 72%, transparent);
+          }
+
+          .folder {
+            height: 29px;
+            padding: 0 11px;
+            border-radius: 8px;
+          }
+
+          .folder.active {
+            color: var(--legal-gold-dark);
+          }
+
+          .posta-message {
+            flex: 0 0 auto;
+          }
+
+          .posta-workspace {
+            flex: 1 1 auto;
+            min-height: 0;
+            grid-template-columns: minmax(330px, 34%) minmax(0, 1fr);
+            gap: 10px;
+            padding: 10px;
+          }
+
+          .mail-pane,
+          .detail-pane {
+            border-radius: 15px;
+            background: color-mix(in srgb, var(--legal-surface) 97%, transparent);
+            box-shadow: 0 5px 20px rgba(40, 34, 25, .035);
+          }
+
+          .mail-pane {
+            grid-template-rows: 44px minmax(0, 1fr);
+          }
+
+          .list-head {
+            padding: 0 12px;
+          }
+
+          .list-head strong {
+            color: var(--legal-text);
+            font-size: 10px;
+          }
+
+          .mail-row {
+            gap: 3px;
+            padding: 7px 11px;
+          }
+
+          .mail-row:hover {
+            background: color-mix(in srgb, var(--legal-gold-soft) 36%, var(--legal-surface-2));
+          }
+
+          .mail-row.selected {
+            background: var(--legal-gold-soft);
+            box-shadow: inset 3px 0 var(--legal-gold);
+          }
+
+          .mail-top strong,
+          .mail-subject span {
+            font-size: 8.5px;
+          }
+
+          .mail-snippet {
+            font-size: 7.5px;
+          }
+
+          .mail-account-source {
+            margin-top: 1px;
+            color: var(--legal-muted);
+            font-size: 6.5px;
+          }
+
+          .detail-header {
+            min-height: 76px;
+            padding: 12px 16px;
+          }
+
+          .detail-heading h1 {
+            font-size: clamp(13px, 1.25vw, 16px);
+          }
+
+          .recipient-line,
+          .mail-action-bar,
+          .attachments-strip {
+            padding-left: 16px;
+            padding-right: 16px;
+          }
+
+          .mail-content {
+            padding: 18px 20px;
+            font-size: 10px;
+            line-height: 1.65;
+          }
+
+          .mail-list,
+          .mail-content {
+            scrollbar-width: thin;
+            scrollbar-color: var(--legal-border-strong) transparent;
+          }
+
+          .mail-list::-webkit-scrollbar,
+          .mail-content::-webkit-scrollbar {
+            width: 5px;
+          }
+
+          .mail-list::-webkit-scrollbar-thumb,
+          .mail-content::-webkit-scrollbar-thumb {
+            border-radius: 999px;
+            background: var(--legal-border-strong);
+          }
         }
 `}</style>
     </main>

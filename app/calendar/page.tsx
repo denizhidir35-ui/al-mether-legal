@@ -10255,15 +10255,266 @@ export default function CalendarPage() {
             min-height: 44px;
           }
         }
+
+        /* CALENDAR DESKTOP PRODUCT SHELL */
+        @media (min-width: 901px) {
+          html:has(.lawyer-calendar),
+          body:has(.lawyer-calendar) {
+            height: 100%;
+            overflow: hidden;
+          }
+
+          .lawyer-calendar {
+            width: 100%;
+            height: 100vh;
+            min-height: 0;
+            padding: 10px 72px 10px 10px;
+            overflow: hidden;
+            background: transparent;
+          }
+
+          .workspace {
+            width: 100%;
+            max-width: none;
+            height: calc(100vh - 20px);
+            min-height: 0;
+            margin: 0;
+            overflow: hidden;
+            border: 1px solid var(--legal-border);
+            border-radius: 22px;
+            background: color-mix(in srgb, var(--legal-surface) 94%, transparent);
+            box-shadow: var(--legal-shadow-md);
+            backdrop-filter: blur(24px);
+          }
+
+          .topbar {
+            min-height: 58px;
+            height: 58px;
+            padding: 8px 16px;
+            background: transparent;
+          }
+
+          .brand {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+          }
+
+          .calendar-home-link {
+            color: inherit;
+            text-decoration: none;
+          }
+
+          .brand-subtitle {
+            display: block;
+            margin: 0;
+            padding-left: 11px;
+            border-left: 1px solid var(--legal-border);
+            color: var(--legal-text);
+            font-size: 15px;
+            font-weight: 850;
+            letter-spacing: -.02em;
+          }
+
+          .main-grid {
+            height: calc(100% - 58px);
+            min-height: 0;
+            grid-template-columns: minmax(0, 1.72fr) minmax(330px, .72fr);
+            overflow: hidden;
+          }
+
+          .summary-panel {
+            display: none;
+          }
+
+          .calendar-panel,
+          .detail-panel {
+            min-width: 0;
+            min-height: 0;
+            background: transparent;
+          }
+
+          .calendar-panel {
+            display: flex;
+            flex-direction: column;
+            padding: 12px 14px;
+            border-right: 1px solid var(--legal-border);
+          }
+
+          .detail-panel {
+            padding: 12px 14px;
+            overflow-y: auto;
+            background: color-mix(in srgb, var(--legal-surface-2) 58%, transparent);
+            scrollbar-width: thin;
+            scrollbar-color: var(--legal-border-strong) transparent;
+          }
+
+          .detail-panel::-webkit-scrollbar {
+            width: 5px;
+          }
+
+          .detail-panel::-webkit-scrollbar-thumb {
+            border-radius: 999px;
+            background: var(--legal-border-strong);
+          }
+
+          .calendar-toolbar {
+            min-height: 34px;
+            flex: 0 0 auto;
+            margin-bottom: 7px;
+          }
+
+          .month-title {
+            min-width: 150px;
+            font-size: 14px;
+            font-weight: 900;
+            letter-spacing: -.015em;
+          }
+
+          .weekdays {
+            flex: 0 0 auto;
+            margin-bottom: 4px;
+          }
+
+          .weekday {
+            padding: 4px 3px;
+            font-size: 7.5px;
+            font-weight: 850;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+          }
+
+          .month-grid {
+            flex: 1 1 auto;
+            min-height: 0;
+            grid-auto-rows: minmax(0, 1fr);
+            gap: 5px;
+          }
+
+          .day-cell,
+          .day-cell.empty {
+            min-width: 0;
+            min-height: 0;
+            padding: 6px;
+            overflow: hidden;
+            border: 1px solid var(--legal-border);
+            border-radius: 10px;
+            background: color-mix(in srgb, var(--legal-surface-2) 82%, transparent);
+          }
+
+          .day-cell.empty {
+            opacity: .48;
+          }
+
+          .day-cell:hover {
+            border-color: var(--legal-border-strong);
+            background: var(--legal-surface-2);
+          }
+
+          .day-cell.selected {
+            border: 1px solid var(--legal-gold);
+            background: var(--legal-gold-soft);
+            box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--legal-gold) 28%, transparent);
+          }
+
+          .day-number {
+            width: 22px;
+            height: 22px;
+            font-size: 8px;
+            font-weight: 900;
+          }
+
+          .event-dots {
+            gap: 3px;
+            margin-top: 4px;
+          }
+
+          .event-dots .event-chip,
+          .event-dots .event-count-chip {
+            min-width: 0;
+            padding: 3px 6px !important;
+            border: 1px solid var(--legal-border);
+            border-radius: 999px !important;
+            background: var(--legal-surface);
+            color: var(--legal-text-soft) !important;
+            font-size: 8.5px !important;
+            font-weight: 760;
+            line-height: 1.2;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            cursor: pointer;
+          }
+
+          .event-dots .event-chip.critical,
+          .event-dots .event-chip.deadline {
+            border-color: color-mix(in srgb, var(--legal-danger) 38%, var(--legal-border));
+            background: color-mix(in srgb, var(--legal-danger) 8%, var(--legal-surface));
+            color: var(--legal-danger) !important;
+          }
+
+          .event-dots .event-chip.approaching {
+            border-color: color-mix(in srgb, var(--legal-warning) 42%, var(--legal-border));
+            background: color-mix(in srgb, var(--legal-warning) 9%, var(--legal-surface));
+            color: var(--legal-warning) !important;
+          }
+
+          .event-dots .event-chip.hearing {
+            border-color: rgba(58, 133, 206, .38);
+            background: rgba(58, 133, 206, .08);
+            color: #3984c9 !important;
+          }
+
+          .event-dots .event-chip.notice,
+          .event-dots .event-count-chip {
+            border-color: color-mix(in srgb, var(--legal-gold) 38%, var(--legal-border));
+            background: var(--legal-gold-soft);
+            color: var(--legal-gold-dark) !important;
+          }
+
+          .event-dots .event-chip.service {
+            border-color: var(--legal-border-strong);
+            background: var(--legal-surface-2);
+            color: var(--legal-text-soft) !important;
+          }
+
+          .detail-date {
+            margin-bottom: 8px;
+            color: var(--legal-text);
+            font-size: 13px;
+          }
+
+          .event-selector-list {
+            max-height: 144px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+          }
+
+          .detail-tabs {
+            position: sticky;
+            top: -12px;
+            z-index: 2;
+            padding: 5px 0;
+            background: color-mix(in srgb, var(--legal-surface-2) 94%, transparent);
+          }
+
+          .detail-tab {
+            min-width: 0;
+            height: 28px;
+            font-size: 7px;
+          }
+        }
 `}</style>
 
       <section className="workspace">
         <header className="topbar">
           <div className="brand">
-            <LegalBrand />
+            <a href="/" className="calendar-home-link" aria-label="Dashboard'a dön">
+              <LegalBrand />
+            </a>
 
             <p className="brand-subtitle">
-              Hukuk çalışma masası
+              Takvim
             </p>
           </div>
 
@@ -10428,23 +10679,42 @@ export default function CalendarPage() {
                                 getManualReminderPresentation(
                                   event
                                 );
+                              const eventLabel = manual
+                                ? `${manual.time} — ${manual.note}`
+                                : event.title;
 
                               return (
                                 <span
                                   key={event.id}
-                                  className={`event-chip ${getEventKind(
-                                    event
-                                  )}`}
+                                  title={eventLabel}
+                                  className={`event-chip ${getEventKind(event)} ${
+                                    event.risk === "critical"
+                                      ? "critical"
+                                      : event.risk === "high"
+                                        ? "approaching"
+                                        : ""
+                                  }`}
+                                  onClick={(clickEvent) => {
+                                    clickEvent.stopPropagation();
+                                    setSelectedDate(date);
+                                    setSelectedEventId(event.id);
+                                    setCalendarDetailOpen(true);
+                                  }}
                                 >
-                                  {manual
-                                    ? `${manual.time} — ${manual.note}`
-                                    : event.title}
+                                  {eventLabel}
                                 </span>
                               );
                             })}
 
                           {dayEvents.length > 2 && (
-                            <span className="event-count-chip">
+                            <span
+                              className="event-count-chip"
+                              onClick={(clickEvent) => {
+                                clickEvent.stopPropagation();
+                                setSelectedDate(date);
+                                setCalendarDetailOpen(true);
+                              }}
+                            >
                               +{dayEvents.length - 2} kayıt
                             </span>
                           )}

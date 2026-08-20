@@ -226,23 +226,25 @@
 .legal-app::before {
   content: "";
   position: fixed;
-  inset: 0;
+  inset: -6px;
   z-index: -1;
   pointer-events: none;
   background:
     linear-gradient(
-      rgba(246, 243, 236, 0.95),
-      rgba(246, 243, 236, 0.95)
+      rgba(246, 243, 236, 0.87),
+      rgba(246, 243, 236, 0.87)
     ),
     url("/brand/legal-login-background.webp") center / cover no-repeat;
+  filter: blur(3px);
+  transform: scale(1.01);
 }
 
 html.dark .legal-app::before,
 html[data-legal-theme="dark"] .legal-app::before {
   background:
     linear-gradient(
-      rgba(5, 9, 17, 0.88),
-      rgba(5, 9, 17, 0.88)
+      rgba(5, 9, 17, 0.79),
+      rgba(5, 9, 17, 0.79)
     ),
     url("/brand/legal-login-background.webp") center / cover no-repeat;
 }
@@ -716,6 +718,266 @@ html[data-legal-theme="light"] .legal-brand picture img {
 
   .legal-dock a {
     flex: 0 0 auto;
+  }
+}
+
+/* =========================================================
+   AL METHER LEGAL — MOBILE APP SHELL
+   ========================================================= */
+
+@media (max-width: 760px) {
+  html,
+  body {
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  body {
+    padding: 0;
+  }
+
+  .legal-app:has(.mobile-legal-header) {
+    width: 100%;
+    height: 100dvh;
+    min-height: 100dvh;
+    max-height: 100dvh;
+    padding:
+      calc(max(6px, env(safe-area-inset-top)) + 60px)
+      max(8px, env(safe-area-inset-right))
+      calc(max(8px, env(safe-area-inset-bottom)) + 62px)
+      max(8px, env(safe-area-inset-left)) !important;
+    overflow: hidden !important;
+  }
+
+  .dashboard-page .dashboard-shell,
+  .cases-page .cases-shell,
+  .mether-posta .posta-shell,
+  .lawyer-calendar .workspace,
+  .converter-page .converter-shell,
+  .settings-page .settings-grid,
+  .uets-import-page > div,
+  .celse-import-page > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    max-height: 100% !important;
+  }
+
+  .dashboard-page .dashboard-shell {
+    height: 100% !important;
+    min-height: 0 !important;
+    border-radius: 18px !important;
+  }
+
+  .dashboard-page .dashboard-header {
+    min-height: 54px;
+    display: block;
+    padding: 7px !important;
+  }
+
+  .dashboard-page .dashboard-header > .brand-link,
+  .dashboard-page .dashboard-header > .header-actions {
+    display: none !important;
+  }
+
+  .dashboard-page .dashboard-search,
+  .dashboard-page .global-search {
+    width: 100%;
+  }
+
+  .dashboard-page .dashboard-body {
+    height: calc(100% - 54px);
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 9px !important;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+  }
+
+  .lawyer-calendar .main-grid {
+    height: auto !important;
+    min-height: 0 !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .lawyer-calendar .calendar-panel,
+  .lawyer-calendar .detail-panel {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .lawyer-calendar .detail-panel {
+    max-height: 48dvh;
+    overflow-y: auto !important;
+  }
+
+  .lawyer-calendar .day-cell {
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .legal-app.lawyer-calendar .event-dots .event-chip,
+  .legal-app.lawyer-calendar .event-dots .event-count-chip {
+    width: 100% !important;
+    height: auto !important;
+    min-width: 0 !important;
+    padding: 2px 4px !important;
+    overflow: hidden !important;
+    color: var(--legal-text-soft) !important;
+    font-size: 7px !important;
+    line-height: 1.2 !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .legal-app.lawyer-calendar .event-dots .event-chip.deadline,
+  .legal-app.lawyer-calendar .event-dots .event-chip.critical {
+    color: var(--legal-danger) !important;
+  }
+
+  .legal-app.lawyer-calendar .event-dots .event-chip.hearing {
+    color: #3984c9 !important;
+  }
+
+  .mether-posta .posta-layout {
+    min-width: 0 !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .mether-posta .mail-pane,
+  .mether-posta .detail-pane {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .dashboard-page .summary-grid,
+  .dashboard-page .workspace-grid,
+  .dashboard-page .side-column {
+    display: contents !important;
+  }
+
+  .dashboard-page .summary-card {
+    min-height: 66px !important;
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 9px 10px !important;
+  }
+
+  .dashboard-page .summary-card:nth-child(1) { order: 1; }
+  .dashboard-page .summary-card:nth-child(2) { order: 2; }
+  .dashboard-page .summary-card:nth-child(3) { order: 3; }
+  .dashboard-page .plan-card { order: 4; min-height: 210px; flex: 0 0 auto; }
+  .dashboard-page .incoming-card { order: 5; flex: 0 0 auto; }
+  .dashboard-page .distribution-summary { order: 6; flex: 0 0 auto; }
+  .dashboard-page .quick-card,
+  .dashboard-page .documents-card,
+  .dashboard-page .upcoming-strip,
+  .dashboard-page .dashboard-footer {
+    display: none !important;
+  }
+
+  .dashboard-page .plan-list,
+  .dashboard-page .incoming-card .compact-list {
+    max-height: 230px;
+    overflow-y: auto;
+  }
+
+  .dashboard-page .plan-row {
+    grid-template-columns: 44px 32px minmax(0, 1fr) !important;
+    gap: 7px !important;
+    padding: 8px !important;
+  }
+
+  .cases-page .cases-shell,
+  .mether-posta .posta-shell,
+  .lawyer-calendar .workspace,
+  .converter-page .converter-shell,
+  .settings-page .settings-grid {
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border-radius: 18px !important;
+    scrollbar-width: thin;
+  }
+
+  .uets-import-page > div,
+  .celse-import-page > div {
+    height: 100%;
+    min-height: 0;
+    padding: 12px !important;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border-radius: 18px !important;
+    scrollbar-width: thin;
+  }
+
+  .uets-import-page > div > div:first-child,
+  .celse-import-page > div > div:first-child {
+    display: none;
+  }
+
+  .uets-import-page > div > header,
+  .celse-import-page > div > header {
+    margin-bottom: 12px !important;
+  }
+
+  .uets-import-page > div > header .legal-brand,
+  .celse-import-page > div > header .legal-brand {
+    display: none;
+  }
+
+  .uets-import-page section,
+  .celse-import-page section {
+    max-width: 100%;
+  }
+
+  .settings-page .settings-grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .settings-page .settings-column {
+    display: grid;
+    gap: 8px;
+  }
+
+  .settings-page .users-list {
+    max-height: 260px;
+    overflow-y: auto;
+  }
+
+  .converter-page .converter-shell {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 8px;
+    padding: 0;
+  }
+
+  .converter-page .tool-list {
+    display: flex !important;
+    max-height: none !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+  }
+
+  .converter-page .tool-button {
+    min-width: 138px;
+  }
+
+  .converter-page .workspace,
+  .converter-page .history-panel {
+    height: auto !important;
+    max-height: none !important;
   }
 }
 

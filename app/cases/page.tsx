@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import CasePartiesEditor from "@/components/cases/CasePartiesEditor";
 
 import LegalBrand from "@/components/LegalBrand";
@@ -196,6 +197,24 @@ const EMPTY_DOCUMENT_PREVIEW:
     documentIdentity: "",
   };
 
+const UNCLASSIFIED_CASE_TYPE = "__unclassified__";
+
+function normalizeCaseTypeKey(value: string) {
+  return value
+    .trim()
+    .toLocaleLowerCase("tr-TR")
+    .replace(/ç/g, "c")
+    .replace(/ğ/g, "g")
+    .replace(/ı/g, "i")
+    .replace(/ö/g, "o")
+    .replace(/ş/g, "s")
+    .replace(/ü/g, "u")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 export default function CasesPage() {
   const router =
     useRouter();
@@ -211,6 +230,12 @@ export default function CasesPage() {
 
   const [search, setSearch] =
     useState("");
+
+  const [caseTypeFilter, setCaseTypeFilter] =
+    useState("");
+
+  const [caseQuickFilter, setCaseQuickFilter] =
+    useState<"all" | "critical" | "hearing">("all");
 
   const [manualOpen, setManualOpen] =
     useState(false);
@@ -247,6 +272,29 @@ export default function CasesPage() {
 
   const [documentOpen, setDocumentOpen] =
     useState(false);
+
+  useEffect(() => {
+    function openMobileCaseForm() {
+      setManualOpen(true);
+      setDocumentOpen(false);
+      delete (window as typeof window & {
+        __alMetherMobileAction?: string;
+      }).__alMetherMobileAction;
+    }
+
+    if (
+      (window as typeof window & {
+        __alMetherMobileAction?: string;
+      }).__alMetherMobileAction === "new-case"
+    ) {
+      openMobileCaseForm();
+    }
+
+    window.addEventListener("al-mether-mobile-new-case", openMobileCaseForm);
+    return () => {
+      window.removeEventListener("al-mether-mobile-new-case", openMobileCaseForm);
+    };
+  }, []);
 
   const [documentAnalyzing, setDocumentAnalyzing] =
     useState(false);
@@ -453,6 +501,22 @@ export default function CasesPage() {
   }, []);
 
   useEffect(() => {
+    const caseType =
+      new URLSearchParams(window.location.search)
+        .get("type")
+        ?.trim() || "";
+
+    if (caseType && caseType.length <= 160) {
+      setCaseTypeFilter(caseType);
+      setSearch(
+        caseType === UNCLASSIFIED_CASE_TYPE
+          ? "Türü belirtilmemiş"
+          : caseType
+      );
+    }
+  }, []);
+
+  useEffect(() => {
     if (
       loading ||
       notificationCaseHandled.current
@@ -485,24 +549,57 @@ export default function CasesPage() {
           .trim()
           .toLocaleLowerCase("tr-TR");
 
-      if (!value) {
-        return cases;
+      const typeValue = caseTypeFilter.trim();
+
+      const typeFilteredCases = typeValue
+        ? cases.filter(
+            (item) => typeValue === UNCLASSIFIED_CASE_TYPE
+              ? !(item.case_type || "").trim()
+              : normalizeCaseTypeKey(item.case_type || "") ===
+                normalizeCaseTypeKey(typeValue)
+          )
+        : cases;
+
+      const searchedCases = typeValue || !value
+        ? typeFilteredCases
+        : typeFilteredCases.filter((item) => {
+            const text = [
+              item.case_number,
+              item.court_name,
+              item.case_title,
+              item.case_type,
+              item.status,
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .toLocaleLowerCase("tr-TR");
+
+            return text.includes(value);
+          });
+
+      if (caseQuickFilter === "critical") {
+        return searchedCases.filter((item) => {
+          const deadlineState = getDeadlineState(
+            getNearestDeadline(item)?.calculated_due_date
+          );
+          return (
+            ["critical", "high"].includes(item.risk_level || "") ||
+            ["overdue", "critical", "urgent", "warning", "soon"].includes(deadlineState)
+          );
+        });
       }
 
-      return cases.filter((item) => {
-        const text = [
-          item.case_number,
-          item.court_name,
-          item.case_title,
-          item.status,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLocaleLowerCase("tr-TR");
+      if (caseQuickFilter === "hearing") {
+        return searchedCases.filter((item) => Boolean(getManualEvent(item, "hearing")));
+      }
 
-        return text.includes(value);
-      });
-    }, [cases, search]);
+      return searchedCases;
+    }, [caseQuickFilter, caseTypeFilter, cases, search]);
+
+  const activeCaseCount = useMemo(
+    () => cases.filter((item) => (item.status || "active") === "active").length,
+    [cases]
+  );
 
   function formatDate(
     value?: string | null
@@ -7649,14 +7746,477 @@ export default function CasesPage() {
             width: 100%;
           }
         }
+
+        /* CASES DESKTOP PRODUCT SHELL */
+        html:has(.cases-page),
+        body:has(.cases-page) {
+          min-height: 100%;
+          overflow-x: hidden;
+          overflow-y: auto;
+        }
+
+        .cases-page {
+          min-height: 100vh;
+          padding: 10px 72px 18px 10px;
+          background: transparent;
+          color: var(--legal-text);
+        }
+
+        .cases-shell {
+          width: 100%;
+          max-width: none;
+          height: auto;
+          min-height: calc(100vh - 28px);
+          margin: 0;
+          padding: 14px;
+          border: 1px solid var(--legal-border);
+          border-radius: 22px;
+          background: color-mix(in srgb, var(--legal-surface) 94%, transparent);
+          box-shadow: var(--legal-shadow-md);
+          backdrop-filter: blur(24px);
+        }
+
+        .cases-header {
+          min-height: 58px;
+          grid-template-columns: minmax(250px, 1fr) minmax(460px, auto) max-content;
+          grid-template-areas: "title actions session";
+          gap: 12px;
+          margin-bottom: 8px;
+          padding: 0 2px 10px;
+          border-bottom: 1px solid var(--legal-border);
+        }
+
+        .cases-title {
+          display: grid;
+          grid-template-columns: max-content max-content;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .cases-home-link {
+          color: inherit;
+          text-decoration: none;
+        }
+
+        .cases-title-copy {
+          display: flex;
+          align-items: baseline;
+          gap: 8px;
+        }
+
+        .cases-title-copy h1 {
+          margin: 0;
+          color: var(--legal-text);
+          font-size: 18px;
+          font-weight: 900;
+          letter-spacing: -.025em;
+        }
+
+        .cases-title-copy > span {
+          padding: 3px 7px;
+          border: 1px solid var(--legal-border);
+          border-radius: 999px;
+          background: var(--legal-surface-2);
+          color: var(--legal-muted);
+          font-size: 8px;
+          font-weight: 800;
+        }
+
+        .cases-title > p {
+          display: none;
+        }
+
+        .cases-header .header-actions {
+          grid-template-columns: minmax(210px, 280px) max-content max-content;
+          gap: 7px;
+        }
+
+        .cases-header .search-input,
+        .cases-header .manual-trigger {
+          height: 36px;
+          border-radius: 11px;
+        }
+
+        .cases-header .search-input {
+          background: var(--legal-surface-2);
+          font-size: 10px;
+        }
+
+        .cases-header .manual-trigger {
+          padding: 0 12px;
+          background: var(--legal-surface);
+          color: var(--legal-text-soft);
+          font-size: 9px;
+        }
+
+        .cases-header .document-trigger {
+          border-color: color-mix(in srgb, var(--legal-gold) 52%, var(--legal-border));
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-dark);
+        }
+
+        .case-filter-bar {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-bottom: 9px;
+          padding: 7px 8px;
+          border: 1px solid var(--legal-border);
+          border-radius: 12px;
+          background: var(--legal-surface-2);
+        }
+
+        .case-result-count {
+          margin-right: auto;
+          color: var(--legal-muted);
+          font-size: 8px;
+          font-weight: 750;
+        }
+
+        .case-filter-bar button {
+          min-height: 27px;
+          padding: 0 9px;
+          border: 1px solid var(--legal-border);
+          border-radius: 999px;
+          background: var(--legal-surface);
+          color: var(--legal-muted);
+          cursor: pointer;
+          font: inherit;
+          font-size: 8px;
+          font-weight: 800;
+        }
+
+        .case-filter-bar button:hover,
+        .case-filter-bar button.active {
+          border-color: var(--legal-gold);
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-dark);
+        }
+
+        .case-filter-bar button.active.critical {
+          border-color: color-mix(in srgb, var(--legal-danger) 45%, var(--legal-border));
+          background: color-mix(in srgb, var(--legal-danger) 8%, var(--legal-surface));
+          color: var(--legal-danger);
+        }
+
+        .case-filter-bar button.active.hearing {
+          border-color: rgba(58, 133, 206, .42);
+          background: rgba(58, 133, 206, .08);
+          color: #3984c9;
+        }
+
+        .case-filter-bar button:disabled {
+          cursor: default;
+          opacity: .55;
+        }
+
+        .cases-list {
+          min-height: 0;
+          display: grid;
+          align-content: start;
+          gap: 7px;
+          overflow: visible;
+          padding: 0;
+        }
+
+        .case-row {
+          position: relative;
+          min-height: 88px;
+          display: grid;
+          grid-template-columns: minmax(260px, .95fr) minmax(420px, 1.45fr) max-content;
+          align-items: center;
+          gap: 18px;
+          padding: 11px 12px 11px 15px;
+          border: 1px solid var(--legal-border);
+          border-radius: 14px;
+          background: var(--legal-surface);
+          box-shadow: 0 5px 18px rgba(40, 34, 25, .035);
+        }
+
+        .case-row::before {
+          content: "";
+          position: absolute;
+          top: 14px;
+          bottom: 14px;
+          left: 0;
+          width: 3px;
+          border-radius: 0 3px 3px 0;
+          background: var(--legal-border-strong);
+        }
+
+        .case-row:hover {
+          border-color: var(--legal-border-strong);
+          box-shadow: 0 8px 24px rgba(40, 34, 25, .065);
+        }
+
+        .case-row.selected {
+          border-color: color-mix(in srgb, var(--legal-gold) 70%, var(--legal-border));
+          background: color-mix(in srgb, var(--legal-gold-soft) 58%, var(--legal-surface));
+          box-shadow: inset 3px 0 0 var(--legal-gold);
+        }
+
+        .case-identity,
+        .case-overview {
+          min-width: 0;
+        }
+
+        .case-identity {
+          display: grid;
+          grid-template-columns: max-content minmax(0, 1fr);
+          align-items: center;
+          gap: 4px 7px;
+        }
+
+        .case-number {
+          color: var(--legal-text);
+          font-size: 12px;
+          font-weight: 900;
+          letter-spacing: -.01em;
+        }
+
+        .case-type-badge {
+          width: max-content;
+          max-width: 100%;
+          overflow: hidden;
+          padding: 3px 6px;
+          border: 1px solid var(--legal-border);
+          border-radius: 6px;
+          background: var(--legal-surface-2);
+          color: var(--legal-gold-dark);
+          font-size: 7px;
+          font-weight: 850;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .case-court,
+        .case-subject {
+          grid-column: 1 / -1;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .case-court {
+          margin: 1px 0 0;
+          color: var(--legal-text-soft);
+          font-size: 9px;
+          font-weight: 750;
+        }
+
+        .case-subject {
+          color: var(--legal-muted);
+          font-size: 8px;
+        }
+
+        .case-overview {
+          display: grid;
+          gap: 9px;
+        }
+
+        .case-badges {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+        }
+
+        .case-status,
+        .risk-badge {
+          width: max-content;
+          padding: 3px 7px;
+          border: 1px solid var(--legal-border);
+          border-radius: 999px;
+          background: var(--legal-surface-2);
+          color: var(--legal-muted);
+          font-size: 7px;
+          font-weight: 900;
+          text-transform: uppercase;
+        }
+
+        .case-status.status-completed,
+        .case-status.status-closed {
+          border-color: color-mix(in srgb, var(--legal-success) 42%, var(--legal-border));
+          color: var(--legal-success);
+        }
+
+        .risk-badge.risk-critical,
+        .risk-badge.risk-high {
+          border-color: color-mix(in srgb, var(--legal-danger) 42%, var(--legal-border));
+          background: color-mix(in srgb, var(--legal-danger) 7%, var(--legal-surface));
+          color: var(--legal-danger);
+        }
+
+        .case-timeline-summary {
+          min-width: 0;
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 8px;
+        }
+
+        .case-timeline-summary > span {
+          min-width: 0;
+          display: grid;
+          gap: 3px;
+          overflow: hidden;
+          color: var(--legal-text-soft);
+          font-size: 8px;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .case-timeline-summary strong {
+          color: var(--legal-muted);
+          font-size: 7px;
+          letter-spacing: .04em;
+          text-transform: uppercase;
+        }
+
+        .case-timeline-summary .has-hearing {
+          color: #3984c9;
+        }
+
+        .deadline-summary.warning,
+        .deadline-summary.urgent,
+        .deadline-summary.soon {
+          color: var(--legal-gold-dark);
+        }
+
+        .deadline-summary.critical,
+        .deadline-summary.overdue {
+          color: var(--legal-danger);
+        }
+
+        .case-timeline-summary .muted,
+        .deadline-summary.none {
+          color: var(--legal-muted);
+        }
+
+        .case-row-tools {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 6px;
+        }
+
+        .open-case-button,
+        .case-action-menu > summary {
+          height: 34px;
+          border: 1px solid var(--legal-border);
+          border-radius: 9px;
+          background: var(--legal-surface-2);
+          color: var(--legal-text-soft);
+          cursor: pointer;
+          font: inherit;
+          font-size: 8px;
+          font-weight: 850;
+        }
+
+        .open-case-button {
+          padding: 0 12px;
+          border-color: color-mix(in srgb, var(--legal-gold) 48%, var(--legal-border));
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-dark);
+        }
+
+        .open-case-button:hover,
+        .case-action-menu > summary:hover {
+          border-color: var(--legal-gold);
+        }
+
+        .case-action-menu {
+          position: relative;
+        }
+
+        .case-action-menu > summary {
+          width: 34px;
+          display: grid;
+          list-style: none;
+          place-items: center;
+          letter-spacing: 1px;
+        }
+
+        .case-action-menu > summary::-webkit-details-marker {
+          display: none;
+        }
+
+        .case-action-popover {
+          position: absolute;
+          top: calc(100% + 6px);
+          right: 0;
+          z-index: 30;
+          width: 164px;
+          display: grid;
+          gap: 2px;
+          padding: 5px;
+          border: 1px solid var(--legal-border);
+          border-radius: 11px;
+          background: color-mix(in srgb, var(--legal-surface) 98%, transparent);
+          box-shadow: 0 18px 42px rgba(28, 24, 18, .18);
+          backdrop-filter: blur(18px);
+        }
+
+        .case-action-popover button {
+          min-height: 30px;
+          padding: 0 9px;
+          border: 0;
+          border-radius: 7px;
+          background: transparent;
+          color: var(--legal-text-soft);
+          cursor: pointer;
+          font: inherit;
+          font-size: 8px;
+          font-weight: 750;
+          text-align: left;
+        }
+
+        .case-action-popover button:hover {
+          background: var(--legal-surface-2);
+          color: var(--legal-gold-dark);
+        }
+
+        .case-action-popover .case-delete-button {
+          margin-top: 3px;
+          border-top: 1px solid color-mix(in srgb, var(--legal-danger) 22%, var(--legal-border)) !important;
+          border-radius: 0 0 7px 7px;
+          color: var(--legal-danger) !important;
+        }
+
+        .case-inline-panel {
+          grid-column: 1 / -1;
+          margin: 1px -2px -2px;
+          padding: 12px;
+          border-top: 1px solid var(--legal-border);
+          border-radius: 0 0 12px 12px;
+          background: color-mix(in srgb, var(--legal-surface-2) 72%, transparent);
+        }
+
+        @media (max-width: 1180px) {
+          .cases-header {
+            grid-template-columns: minmax(230px, 1fr) max-content;
+            grid-template-areas: "title session" "actions actions";
+          }
+
+          .cases-header .header-actions {
+            width: 100%;
+          }
+
+          .case-row {
+            grid-template-columns: minmax(230px, .9fr) minmax(360px, 1.35fr) max-content;
+          }
+        }
 `}</style>
 
       <div className="cases-shell">
         <header className="cases-header">
           <div className="cases-title">
-            <LegalBrand compact />
+            <Link href="/" className="cases-home-link" aria-label="Dashboard'a dön">
+              <LegalBrand compact />
+            </Link>
 
-            <h1>Davalar</h1>
+            <div className="cases-title-copy">
+              <h1>Davalar</h1>
+              <span>{activeCaseCount} aktif dava</span>
+            </div>
 
             <p>
               Mailden algılanan ve kayıtlı dava dosyaları.
@@ -7668,9 +8228,12 @@ export default function CasesPage() {
               className="search-input"
               value={search}
               onChange={(event) =>
-                setSearch(
-                  event.target.value
-                )
+                {
+                  setCaseTypeFilter("");
+                  setSearch(
+                    event.target.value
+                  );
+                }
               }
               placeholder="Dava no veya mahkeme ara..."
             />
@@ -7708,6 +8271,51 @@ export default function CasesPage() {
 
           <LegalSessionControl />
         </header>
+
+        <div className="case-filter-bar" aria-label="Dava filtreleri">
+          <span className="case-result-count">{filteredCases.length} kayıt gösteriliyor</span>
+          <button
+            type="button"
+            className={!caseTypeFilter && caseQuickFilter === "all" ? "active" : ""}
+            onClick={() => {
+              setCaseQuickFilter("all");
+              setCaseTypeFilter("");
+              setSearch("");
+              router.replace("/cases");
+            }}
+          >
+            Tümü
+          </button>
+          <button
+            type="button"
+            className={caseTypeFilter ? "active" : ""}
+            disabled={!caseTypeFilter}
+            onClick={() => {
+              setCaseTypeFilter("");
+              setSearch("");
+              router.replace("/cases");
+            }}
+            title={caseTypeFilter ? "Dava türü filtresini kaldır" : "Dashboard'dan dava türü seçilebilir"}
+          >
+            {caseTypeFilter
+              ? search || "Dava türü"
+              : "Dava türü"}
+          </button>
+          <button
+            type="button"
+            className={caseQuickFilter === "critical" ? "active critical" : ""}
+            onClick={() => setCaseQuickFilter((current) => current === "critical" ? "all" : "critical")}
+          >
+            Kritik / Süresi yaklaşan
+          </button>
+          <button
+            type="button"
+            className={caseQuickFilter === "hearing" ? "active hearing" : ""}
+            onClick={() => setCaseQuickFilter((current) => current === "hearing" ? "all" : "hearing")}
+          >
+            Duruşması olan
+          </button>
+        </div>
 
         {manualOpen && (
           <div className="manual-form">
@@ -8752,187 +9360,91 @@ export default function CasesPage() {
                       "hearing"
                     );
 
-                  const manualDeadlineEvent =
-                    getManualEvent(
-                      item,
-                      "manual_deadline"
-                    );
-
                   return (
                     <article
                       key={item.id}
                       className={`case-row ${openCaseId === item.id ? "selected" : ""}`}
                     >
-                      <div>
+                      <div className="case-identity">
                         <div className="case-number">
-                          {item.case_number ||
-                            "Numarasız"}
+                          {item.case_number || "Numarasız"}
                         </div>
-
-                        <div className="case-court">
-                          {item.court_name ||
-                            "Mahkeme bilgisi yok"}
-                        </div>
-                      </div>
-
-                      <div className="case-title">
-                        <span>
-                          {item.case_title ||
-                            "Dava kaydı"}
+                        <span className="case-type-badge">
+                          {item.case_type || "Türü belirtilmemiş"}
                         </span>
-
-                        {(manualHearing ||
-                          manualDeadlineEvent) && (
-                          <div className="case-manual-dates">
-                            {manualHearing && (
-                              <small>
-                                Duruşma: {formatDateTime(
-                                  manualHearing.raw
-                                    ?.hearingAt ||
-                                  manualHearing.start_date
-                                )}
-                              </small>
-                            )}
-
-                            {manualDeadlineEvent && (
-                              <small>
-                                Manuel son tarih: {formatDate(
-                                  manualDeadlineEvent.raw
-                                    ?.manualDeadline ||
-                                  manualDeadlineEvent.due_date ||
-                                  manualDeadlineEvent.start_date
-                                )}
-                              </small>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="case-actions">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            requestCaseEdit(item)
-                          }
-                        >
-                          Düzenle
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            toggleCasePanel(
-                              item.id,
-                              "mail"
-                            )
-                          }
-                        >
-                          Mail
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            toggleCasePanel(
-                              item.id,
-                              "file"
-                            )
-                          }
-                        >
-                          Dosya
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            toggleCasePanel(
-                              item.id,
-                              "document"
-                            )
-                          }
-                        >
-                          Evrak
-                        </button>
-
-                        <button
-                          type="button"
-                          className={`deadline-button ${deadlineState}`}
-                          onClick={() =>
-                            toggleCasePanel(
-                              item.id,
-                              "deadline"
-                            )
-                          }
-                          title={
-                            deemedServiceDate
-                              ? `Tebliğ edilmiş sayılma: ${formatDate(deemedServiceDate)}`
-                              : deadline?.calculated_due_date
-                                ? formatDate(deadline.calculated_due_date)
-                              : "Süre yok"
-                          }
-                        >
-                          {deemedServiceDate ? (
-                            <>
-                              Tebliğ edilmiş sayılma ·{" "}
-                              {formatDate(deemedServiceDate)}
-                            </>
-                          ) : (
-                            <>
-                              Süre ·{" "}
-                              {getDeadlineText(deadline?.calculated_due_date)}
-                            </>
-                          )}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            toggleCasePanel(
-                              item.id,
-                              "note"
-                            )
-                          }
-                        >
-                          Not
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            requestManualReminder(
-                              item
-                            )
-                          }
-                        >
-                          Alarm Ekle
-                        </button>
-
-                        <button
-                          type="button"
-                          className="case-delete-button"
-                          disabled={Boolean(
-                            deletingCaseId
-                          )}
-                          onClick={() =>
-                            requestCaseDeletion(
-                              item
-                            )
-                          }
-                        >
-                          Sil
-                        </button>
-                      </div>
-
-                      <div className="case-meta">
-                        Son işlem:{" "}
-                        {formatDate(
-                          item.updated_at ||
-                            item.created_at
-                        )}
-
-                        <div className="case-status">
-                          {item.status ||
-                            "active"}
+                        <div className="case-court">
+                          {item.court_name || "Mahkeme bilgisi yok"}
                         </div>
+                        <div className="case-subject">
+                          {item.case_title || "Dava kaydı"}
+                        </div>
+                      </div>
+
+                      <div className="case-overview">
+                        <div className="case-badges">
+                          <span className={`case-status status-${item.status || "active"}`}>
+                            {item.status || "active"}
+                          </span>
+                          <span className={`risk-badge risk-${item.risk_level || "normal"}`}>
+                            {item.risk_level || "normal"}
+                          </span>
+                        </div>
+
+                        <div className="case-timeline-summary">
+                          <span className={manualHearing ? "has-hearing" : "muted"}>
+                            <strong>Duruşma</strong>
+                            {manualHearing
+                              ? formatDateTime(manualHearing.raw?.hearingAt || manualHearing.start_date)
+                              : "Kayıt yok"}
+                          </span>
+                          <span className={`deadline-summary ${deadlineState}`}>
+                            <strong>Son tarih</strong>
+                            {deemedServiceDate
+                              ? formatDate(deemedServiceDate)
+                              : getDeadlineText(deadline?.calculated_due_date)}
+                          </span>
+                          <span className="last-update">
+                            <strong>Son işlem</strong>
+                            {formatDate(item.updated_at || item.created_at)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="case-row-tools">
+                        <button
+                          type="button"
+                          className="open-case-button"
+                          onClick={() => toggleCasePanel(item.id, "deadline")}
+                        >
+                          Dosyayı Aç
+                        </button>
+
+                        <details className="case-action-menu">
+                          <summary aria-label="Dava işlemleri" title="Dava işlemleri">•••</summary>
+                          <div className="case-action-popover">
+                            <button type="button" onClick={() => requestCaseEdit(item)}>Düzenle</button>
+                            <button type="button" onClick={() => toggleCasePanel(item.id, "mail")}>Mail</button>
+                            <button type="button" onClick={() => toggleCasePanel(item.id, "file")}>Dosyalar</button>
+                            <button type="button" onClick={() => toggleCasePanel(item.id, "document")}>Evraklar</button>
+                            <button
+                              type="button"
+                              className={`deadline-button ${deadlineState}`}
+                              onClick={() => toggleCasePanel(item.id, "deadline")}
+                            >
+                              Süre ve takvim
+                            </button>
+                            <button type="button" onClick={() => toggleCasePanel(item.id, "note")}>Not</button>
+                            <button type="button" onClick={() => requestManualReminder(item)}>Alarm Ekle</button>
+                            <button
+                              type="button"
+                              className="case-delete-button"
+                              disabled={Boolean(deletingCaseId)}
+                              onClick={() => requestCaseDeletion(item)}
+                            >
+                              Davayı Sil
+                            </button>
+                          </div>
+                        </details>
                       </div>
 
                       {openCaseId === item.id &&
@@ -8964,21 +9476,6 @@ export default function CasesPage() {
                                 }
                               >
                                 Alarm Ekle
-                              </button>
-
-                              <button
-                                type="button"
-                                className="case-delete-button"
-                                disabled={Boolean(
-                                  deletingCaseId
-                                )}
-                                onClick={() =>
-                                  requestCaseDeletion(
-                                    item
-                                  )
-                                }
-                              >
-                                Sil
                               </button>
                             </div>
                           </div>

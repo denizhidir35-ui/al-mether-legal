@@ -1,83 +1,245 @@
-﻿import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { getOrCreateAppUser } from "@/lib/alUser";
+import "server-only";
 
-function toDateOnly(date: Date) {
-  return date.toISOString().slice(0, 10);
+import { NextResponse } from "next/server";
+import { getOrCreateAppUser } from "@/lib/alUser";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { isTestOrDevRecord } from "@/lib/testRecordVisibility";
+
+type DashboardEvent = {
+  id: string;
+  case_id: string | null;
+  title: string;
+  description: string | null;
+  start_date: string;
+  due_date: string | null;
+  priority: string | null;
+  event_type: string | null;
+  status: string | null;
+  source: string | null;
+  raw: unknown;
+  created_at: string;
+};
+
+const DEADLINE_TYPES = new Set([
+  "legal_deadline",
+  "manual_deadline",
+  "payment_deadline",
+]);
+
+function dateOnly(date: Date) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Istanbul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function text(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function eventTime(event: DashboardEvent) {
+  const raw = record(event.raw);
+  const candidates = [
+    raw.hearingTime,
+    raw.notificationTime,
+    raw.startTime,
+    raw.time,
+  ];
+
+  for (const candidate of candidates) {
+    const value = text(candidate);
+    const match = value.match(/(?:^|\s)([01]\d|2[0-3]):[0-5]\d(?:\s|$)/);
+    if (match) return match[1];
+  }
+
+  const match = `${event.title} ${event.description || ""}`.match(
+    /(?:^|\s)([01]\d|2[0-3]):[0-5]\d(?:\s|$)/
+  );
+
+  return match?.[1] || "";
+}
+
+function eventCategory(event: DashboardEvent) {
+  const type = (event.event_type || "").toLocaleLowerCase("tr-TR");
+  const label = `${event.title} ${event.description || ""}`.toLocaleLowerCase(
+    "tr-TR"
+  );
+
+  if (type === "hearing" || label.includes("duruşma")) return "hearing";
+  if (label.includes("bilirkişi")) return "expert";
+  if (label.includes("dilekçe")) return "petition";
+  if (type === "deemed_service" || type === "mail_received") return "notice";
+  if (DEADLINE_TYPES.has(type) || label.includes("son gün")) return "deadline";
+  return "task";
+}
+
+function serializeEvent(event: DashboardEvent) {
+  return {
+    id: event.id,
+    caseId: event.case_id || "",
+    title: event.title,
+    description: event.description || "",
+    date: event.due_date || event.start_date,
+    time: eventTime(event),
+    priority: event.priority || "normal",
+    eventType: event.event_type || "",
+    category: eventCategory(event),
+    source: event.source || "",
+  };
 }
 
 export async function GET() {
-  const supabase = getSupabaseAdmin();
-  const { appUser, error } = await getOrCreateAppUser();
+  try {
+    const { appUser, error: authError } = await getOrCreateAppUser();
 
-  if (error || !appUser) {
-    return NextResponse.json({ error }, { status: 401 });
+    if (authError || !appUser) {
+      return NextResponse.json(
+        { ok: false, error: authError || "Oturum bulunamadı." },
+        { status: 401 }
+      );
+    }
+
+    const supabase = getSupabaseAdmin();
+    const now = new Date();
+    const today = dateOnly(now);
+    const weekEndDate = new Date(now);
+    weekEndDate.setDate(weekEndDate.getDate() + 7);
+    const weekEnd = dateOnly(weekEndDate);
+
+    const [cases, criticalCases, events, incoming, documents] =
+      await Promise.all([
+        supabase
+          .from("legal_cases")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", appUser.id)
+          .eq("status", "active"),
+        supabase
+          .from("legal_cases")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", appUser.id)
+          .in("risk_level", ["critical", "high"]),
+        supabase
+          .from("calendar_events")
+          .select(
+            "id,case_id,title,description,start_date,due_date,priority,event_type,status,source,raw,created_at"
+          )
+          .eq("user_id", appUser.id)
+          .eq("status", "active")
+          .gte("due_date", today)
+          .lte("due_date", weekEnd)
+          .order("due_date", { ascending: true })
+          .limit(60),
+        supabase
+          .from("calendar_events")
+          .select(
+            "id,case_id,title,description,start_date,due_date,priority,event_type,status,source,raw,created_at"
+          )
+          .eq("user_id", appUser.id)
+          .in("event_type", [
+            "deemed_service",
+            "mail_received",
+            "notification_review",
+          ])
+          .order("created_at", { ascending: false })
+          .limit(8),
+        supabase
+          .from("case_document_records")
+          .select("id,case_id,file_name,document_type,created_at")
+          .eq("user_id", appUser.id)
+          .order("created_at", { ascending: false })
+          .limit(6),
+      ]);
+
+    const firstError =
+      cases.error || criticalCases.error || events.error || incoming.error;
+
+    if (firstError) {
+      return NextResponse.json(
+        { ok: false, error: firstError.message },
+        { status: 500 }
+      );
+    }
+
+    const visibleEvents = ((events.data || []) as DashboardEvent[]).filter(
+      (event) =>
+        !isTestOrDevRecord({
+          source: event.source,
+          title: event.title,
+          raw: event.raw,
+        })
+    );
+    const visibleIncoming = ((incoming.data || []) as DashboardEvent[]).filter(
+      (event) =>
+        !isTestOrDevRecord({
+          source: event.source,
+          title: event.title,
+          raw: event.raw,
+        })
+    );
+    const todayEvents = visibleEvents
+      .filter((event) => (event.due_date || event.start_date) === today)
+      .sort((left, right) =>
+        `${eventTime(left) || "99:99"}-${left.title}`.localeCompare(
+          `${eventTime(right) || "99:99"}-${right.title}`,
+          "tr"
+        )
+      );
+
+    const todayDeadlines = todayEvents.filter((event) =>
+      DEADLINE_TYPES.has(event.event_type || "")
+    ).length;
+    const todayHearings = todayEvents.filter(
+      (event) => eventCategory(event) === "hearing"
+    ).length;
+    const upcomingDeadlines = visibleEvents.filter((event) =>
+      DEADLINE_TYPES.has(event.event_type || "")
+    ).length;
+    const criticalToday = todayEvents.filter((event) =>
+      ["critical", "high", "important"].includes(event.priority || "")
+    ).length;
+
+    return NextResponse.json({
+      ok: true,
+      stats: {
+        activeCases: cases.count || 0,
+        criticalCases: criticalCases.count || 0,
+        criticalToday,
+        todayDeadlines,
+        todayHearings,
+        upcomingDeadlines,
+        newNotices: visibleIncoming.length,
+      },
+      dailyPlan: todayEvents.map(serializeEvent),
+      timeline: visibleEvents.slice(0, 8).map(serializeEvent),
+      incoming: visibleIncoming.slice(0, 5).map(serializeEvent),
+      documents: documents.error
+        ? []
+        : (documents.data || []).map((document) => ({
+            id: document.id,
+            caseId: document.case_id,
+            fileName: document.file_name,
+            documentType: document.document_type || "Belge",
+            createdAt: document.created_at,
+          })),
+    });
+  } catch (error: unknown) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Dashboard verileri okunamadı.",
+      },
+      { status: 500 }
+    );
   }
-
-  const today = new Date();
-  const todayStr = toDateOnly(today);
-
-  const weekEnd = new Date(today);
-  weekEnd.setDate(today.getDate() + 7);
-  const weekEndStr = toDateOnly(weekEnd);
-
-  const [casesRes, todayRes, weekRes, criticalRes, timelineRes] =
-    await Promise.all([
-      supabase
-        .from("legal_cases")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", appUser.id)
-        .eq("status", "active"),
-
-      supabase
-        .from("calendar_events")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", appUser.id)
-        .eq("due_date", todayStr)
-        .eq("status", "active"),
-
-      supabase
-        .from("calendar_events")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", appUser.id)
-        .gte("due_date", todayStr)
-        .lte("due_date", weekEndStr)
-        .eq("status", "active"),
-
-      supabase
-        .from("legal_cases")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", appUser.id)
-        .in("risk_level", ["critical", "high"]),
-
-      supabase
-        .from("calendar_events")
-        .select("id, title, due_date, priority, event_type, status")
-        .eq("user_id", appUser.id)
-        .gte("due_date", todayStr)
-        .lte("due_date", weekEndStr)
-        .order("due_date", { ascending: true })
-        .limit(8),
-    ]);
-
-  const firstError =
-    casesRes.error ||
-    todayRes.error ||
-    weekRes.error ||
-    criticalRes.error ||
-    timelineRes.error;
-
-  if (firstError) {
-    return NextResponse.json({ error: firstError.message }, { status: 500 });
-  }
-
-  return NextResponse.json({
-    stats: {
-      activeCases: casesRes.count || 0,
-      todayDeadlines: todayRes.count || 0,
-      weekDeadlines: weekRes.count || 0,
-      criticalCases: criticalRes.count || 0,
-    },
-    timeline: timelineRes.data || [],
-  });
 }

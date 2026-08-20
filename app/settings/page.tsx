@@ -9,6 +9,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import { useSession } from "next-auth/react";
 
 import LegalDock from "@/components/LegalDock";
 import LegalSessionControl from "@/components/LegalSessionControl";
@@ -39,8 +40,10 @@ type AdminNotification = {
 };
 
 export default function SettingsPage() {
+  const { data: session } = useSession();
+
   const [theme, setTheme] =
-    useState<Theme>("dark");
+    useState<Theme>("light");
 
   const [users, setUsers] =
     useState<AdminUser[]>([]);
@@ -79,9 +82,9 @@ export default function SettingsPage() {
       );
 
     const initial: Theme =
-      saved === "light"
-        ? "light"
-        : "dark";
+      saved === "dark"
+        ? "dark"
+        : "light";
 
     setTheme(initial);
 
@@ -370,8 +373,8 @@ export default function SettingsPage() {
 
   return (
     <main className="legal-app settings-page">
-      <div style={{ marginBottom: 16 }}>
-        <LegalBackButton fallback="/dashboard" />
+      <div className="settings-back">
+        <LegalBackButton fallback="/" />
       </div>
 
       <header className="settings-header">
@@ -385,7 +388,8 @@ export default function SettingsPage() {
       </header>
 
       <section className="settings-grid">
-        <div className="settings-panel">
+        <div className="settings-column settings-column-left">
+          <div className="settings-panel">
           <div className="settings-section-title">
             Görünüm
           </div>
@@ -435,9 +439,9 @@ export default function SettingsPage() {
               </span>
             </button>
           </div>
-        </div>
+          </div>
 
-        <div className="settings-panel">
+          <div className="settings-panel">
           <div className="settings-section-title">
             E-posta
           </div>
@@ -455,9 +459,9 @@ export default function SettingsPage() {
           >
             Mail bağlantısını yönet
           </a>
-        </div>
+          </div>
 
-        <div className="settings-panel">
+          <div className="settings-panel security-panel">
           <div className="settings-section-title">
             Güvenlik
           </div>
@@ -472,7 +476,31 @@ export default function SettingsPage() {
               noSessionMessage="Şifre değiştirmek için çıkış yapıp yeniden giriş yapın."
             />
           </div>
+          </div>
         </div>
+
+        <div className="settings-column settings-column-right">
+          <div className="settings-panel account-panel">
+            <div className="settings-section-title">
+              Hesap
+            </div>
+
+            <div className="account-summary">
+              <div className="account-avatar" aria-hidden="true">
+                {(session?.user?.name || session?.user?.email || "A")
+                  .trim()
+                  .charAt(0)
+                  .toLocaleUpperCase("tr-TR")}
+              </div>
+
+              <div className="account-copy">
+                <strong>{session?.user?.name || "AL METHER Legal kullanıcısı"}</strong>
+                <span>{session?.user?.email || "Oturum bilgisi yükleniyor"}</span>
+              </div>
+
+              <span className="account-status">Aktif oturum</span>
+            </div>
+          </div>
 
         {adminMode && (
           <div
@@ -646,8 +674,6 @@ export default function SettingsPage() {
                         )}
 
                         {user.role !== "admin" &&
-                          user.email.trim().toLowerCase() !==
-                            "denizhidir35@gmail.com" &&
                           (user.status === "pending" ||
                             user.status === "pending_approval" ||
                             user.status === "rejected" ||
@@ -671,6 +697,7 @@ export default function SettingsPage() {
             )}
           </div>
         )}
+        </div>
       </section>
 
       <LegalSessionControl />
@@ -743,6 +770,68 @@ export default function SettingsPage() {
 
           box-shadow:
             var(--legal-shadow-sm);
+        }
+
+        .settings-column {
+          min-width: 0;
+          min-height: 0;
+          display: grid;
+          gap: 9px;
+        }
+
+        .account-summary {
+          min-width: 0;
+          display: grid;
+          grid-template-columns: 38px minmax(0, 1fr) auto;
+          align-items: center;
+          gap: 10px;
+          margin-top: 10px;
+          padding: 10px;
+          border: 1px solid var(--legal-border);
+          border-radius: var(--legal-radius-md);
+          background: var(--legal-surface-2);
+        }
+
+        .account-avatar {
+          width: 38px;
+          height: 38px;
+          display: grid;
+          place-items: center;
+          border: 1px solid var(--legal-gold);
+          border-radius: 12px;
+          background: var(--legal-gold-soft);
+          color: var(--legal-gold-dark);
+          font-size: 14px;
+          font-weight: 900;
+        }
+
+        .account-copy {
+          min-width: 0;
+          display: grid;
+          gap: 3px;
+        }
+
+        .account-copy strong,
+        .account-copy span {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .account-copy strong {
+          font-size: 10px;
+        }
+
+        .account-copy span {
+          color: var(--legal-muted);
+          font-size: 8px;
+        }
+
+        .account-status {
+          color: var(--legal-success);
+          font-size: 8px;
+          font-weight: 850;
+          white-space: nowrap;
         }
 
         .settings-section-title {
@@ -1124,6 +1213,114 @@ export default function SettingsPage() {
           font-size: 8.5px;
 
           text-align: center;
+        }
+
+        @media (min-width: 901px) {
+          .settings-page {
+            height: 100vh;
+            min-height: 0;
+            padding: 10px 72px 10px 10px;
+            overflow: hidden;
+          }
+
+          .settings-back {
+            position: absolute;
+            top: 21px;
+            right: 88px;
+            z-index: 2;
+            margin: 0;
+          }
+
+          .settings-header {
+            height: 56px;
+            min-height: 56px;
+            padding: 0 16px;
+            border: 1px solid var(--legal-border);
+            border-radius: 20px 20px 0 0;
+            background: color-mix(in srgb, var(--legal-surface) 92%, transparent);
+            box-shadow: var(--legal-shadow-sm);
+            backdrop-filter: blur(20px);
+          }
+
+          .settings-header h1 {
+            font-size: 16px;
+            font-weight: 850;
+          }
+
+          .settings-grid {
+            width: 100%;
+            height: calc(100vh - 76px);
+            min-height: 0;
+            grid-template-columns: minmax(340px, .72fr) minmax(540px, 1.28fr);
+            gap: 10px;
+            margin-top: 0;
+            padding: 10px;
+            overflow: hidden;
+            border: 1px solid var(--legal-border);
+            border-top: 0;
+            border-radius: 0 0 20px 20px;
+            background: color-mix(in srgb, var(--legal-surface) 88%, transparent);
+            box-shadow: var(--legal-shadow-md);
+            backdrop-filter: blur(20px);
+          }
+
+          .settings-column-left {
+            grid-template-rows: auto auto minmax(0, 1fr);
+          }
+
+          .settings-column-right {
+            grid-template-rows: auto minmax(0, 1fr);
+          }
+
+          .settings-panel {
+            min-height: 0;
+            padding: 12px;
+            background: color-mix(in srgb, var(--legal-surface) 94%, transparent);
+          }
+
+          .settings-panel p {
+            margin-bottom: 9px;
+          }
+
+          .theme-option {
+            min-height: 54px;
+            padding: 9px 11px;
+          }
+
+          .security-panel {
+            overflow-y: auto;
+            scrollbar-width: thin;
+          }
+
+          .password-settings-form {
+            width: min(410px, 100%);
+          }
+
+          .admin-panel {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+          }
+
+          .admin-head,
+          .invite-form,
+          .invite-success,
+          .admin-notifications,
+          .user-error {
+            flex: 0 0 auto;
+          }
+
+          .users-list {
+            min-height: 0;
+            overflow-y: auto;
+            padding-right: 2px;
+            scrollbar-width: thin;
+          }
+
+          .user-row {
+            min-height: 44px;
+            grid-template-columns: minmax(0, 1fr) 68px 72px minmax(92px, auto);
+          }
         }
 
         @media (

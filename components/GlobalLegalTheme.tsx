@@ -34,9 +34,9 @@ export default function GlobalLegalTheme() {
 
     const theme:
       LegalTheme =
-      saved === "light"
-        ? "light"
-        : "dark";
+      saved === "dark"
+        ? "dark"
+        : "light";
 
     applyTheme(theme);
 
@@ -76,9 +76,9 @@ export default function GlobalLegalTheme() {
       const next:
         LegalTheme =
         event.newValue ===
-        "light"
-          ? "light"
-          : "dark";
+        "dark"
+          ? "dark"
+          : "light";
 
       applyTheme(next);
     }

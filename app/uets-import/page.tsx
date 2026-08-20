@@ -7,6 +7,8 @@ import {
 } from "react";
 
 import LegalBackButton from "@/components/LegalBackButton";
+import LegalBrand from "@/components/LegalBrand";
+import LegalDock from "@/components/LegalDock";
 
 type BridgeCapture = {
   title?: string;
@@ -256,7 +258,7 @@ export default function UetsImportPage() {
                     "",
                   case_title:
                     payload.title ||
-                    "UETS TebligatÄ±",
+                    "UETS Tebligatı",
                   institution:
                     "PTT UETS",
                   arrival_date:
@@ -273,7 +275,7 @@ export default function UetsImportPage() {
                     "",
                   subject:
                     payload.title ||
-                    "UETS TebligatÄ±",
+                    "UETS Tebligatı",
                   sender:
                     "PTT UETS",
                   mail_body:
@@ -326,7 +328,7 @@ export default function UetsImportPage() {
         ) {
           throw new Error(
             data.error ||
-              "UETS tebliÄŸ kaydÄ± oluÅŸturulamadÄ±."
+              "UETS tebliğ kaydı oluşturulamadı."
           );
         }
 
@@ -338,8 +340,8 @@ export default function UetsImportPage() {
           message:
             data.message ||
             (data.duplicate
-              ? "Bu UETS kaydÄ± daha Ã¶nce aktarÄ±lmÄ±ÅŸ."
-              : "TebliÄŸ edilmiÅŸ sayÄ±lma tarihi takvime kaydedildi; hukuki son gÃ¼n veya alarm oluÅŸturulmadÄ±."),
+              ? "Bu UETS kaydı daha önce aktarılmış."
+              : "Tebliğ edilmiş sayılma tarihi takvime kaydedildi; hukuki son gün veya alarm oluşturulmadı."),
         });
       },
       []
@@ -388,7 +390,7 @@ export default function UetsImportPage() {
           setCalendarStatus({
             kind: "warning",
             message:
-              "Test belgesi algÄ±landÄ± â€” Ã¶deme takvimi veya alarm kaydÄ± oluÅŸturulmadÄ±.",
+              "Test belgesi algılandı — ödeme takvimi veya alarm kaydı oluşturulmadı.",
           });
           return;
         }
@@ -398,7 +400,7 @@ export default function UetsImportPage() {
             setCalendarStatus({
               kind: "warning",
               message:
-                "SÃ¼re metni bulundu; baÅŸlangÄ±Ã§ tarihi doÄŸrulanamadÄ±ÄŸÄ± iÃ§in son tarih oluÅŸturulmadÄ±.",
+                "Süre metni bulundu; başlangıç tarihi doğrulanamadığı için son tarih oluşturulmadı.",
             });
           }
           return;
@@ -424,7 +426,7 @@ export default function UetsImportPage() {
                   "",
                 case_title:
                   payload.title ||
-                  "UETS TebligatÄ±",
+                  "UETS Tebligatı",
                 institution:
                   "PTT UETS",
                 arrival_date:
@@ -484,7 +486,7 @@ export default function UetsImportPage() {
         ) {
           throw new Error(
             data.error ||
-              "Ã–deme takvim kaydÄ± oluÅŸturulamadÄ±."
+              "Ödeme takvim kaydı oluşturulamadı."
           );
         }
 
@@ -496,8 +498,8 @@ export default function UetsImportPage() {
           message:
             data.message ||
             (data.duplicate
-              ? "Bu PDF Ã¶deme kaydÄ± daha Ã¶nce oluÅŸturulmuÅŸ; yeni takvim veya alarm eklenmedi."
-              : "PDF Ã¶deme son tarihi takvime ve alarm planÄ±na kaydedildi."),
+              ? "Bu PDF ödeme kaydı daha önce oluşturulmuş; yeni takvim veya alarm eklenmedi."
+              : "PDF ödeme son tarihi takvime ve alarm planına kaydedildi."),
         });
       },
       []
@@ -530,8 +532,8 @@ export default function UetsImportPage() {
           true;
 
         /*
-         * TEST BELGESÄ°:
-         * API'YE BÄ°LE TAKVÄ°M YAZDIRMIYORUZ.
+         * TEST BELGESİ:
+         * API'YE BİLE TAKVİM YAZDIRMIYORUZ.
          */
         if (isTest) {
           setCalendarStatus({
@@ -539,7 +541,7 @@ export default function UetsImportPage() {
               "warning",
 
             message:
-              "Test belgesi algÄ±landÄ± â€” hiÃ§bir takvim veya alarm kaydÄ± oluÅŸturulmadÄ±.",
+              "Test belgesi algılandı — hiçbir takvim veya alarm kaydı oluşturulmadı.",
           });
 
           return;
@@ -553,14 +555,14 @@ export default function UetsImportPage() {
               "info",
 
             message:
-              "Belgede aÃ§Ä±k bir duruÅŸma tarihi bulunmadÄ±. Otomatik takvim kaydÄ± oluÅŸturulmadÄ±.",
+              "Belgede açık bir duruşma tarihi bulunmadı. Otomatik takvim kaydı oluşturulmadı.",
           });
 
           return;
         }
 
         /*
-         * Tarih var ama saat yoksa otomatik kayÄ±t yapma.
+         * Tarih var ama saat yoksa otomatik kayıt yapma.
          * Avukat inceleyecek.
          */
         if (
@@ -576,7 +578,7 @@ export default function UetsImportPage() {
               "warning",
 
             message:
-              "DuruÅŸma bulundu ancak tarih/saat bilgisi eksik. Ä°nsan kontrolÃ¼ olmadan takvime yazÄ±lmadÄ±.",
+              "Duruşma bulundu ancak tarih/saat bilgisi eksik. İnsan kontrolü olmadan takvime yazılmadı.",
           });
 
           return;
@@ -592,7 +594,7 @@ export default function UetsImportPage() {
               "warning",
 
             message:
-              "Belge insan kontrolÃ¼ gerektiriyor. DuruÅŸma otomatik takvime yazÄ±lmadÄ±.",
+              "Belge insan kontrolü gerektiriyor. Duruşma otomatik takvime yazılmadı.",
           });
 
           return;
@@ -608,7 +610,7 @@ export default function UetsImportPage() {
               "warning",
 
             message:
-              "Belge otomatik takvim kaydÄ± iÃ§in gÃ¼venli bulunmadÄ±.",
+              "Belge otomatik takvim kaydı için güvenli bulunmadı.",
           });
 
           return;
@@ -674,13 +676,13 @@ export default function UetsImportPage() {
           ) {
             throw new Error(
               data.error ||
-              "Takvim kaydÄ± oluÅŸturulamadÄ±."
+              "Takvim kaydı oluşturulamadı."
             );
           }
 
           const message =
             data.message ||
-            "DuruÅŸma takvime kaydedildi.";
+            "Duruşma takvime kaydedildi.";
 
           setCalendarStatus({
             kind:
@@ -692,8 +694,8 @@ export default function UetsImportPage() {
           });
 
           /*
-           * Sonraki turda Posta ekranÄ±
-           * bu bilgiyi kÃ¼Ã§Ã¼k bildirim olarak gÃ¶sterecek.
+           * Sonraki turda Posta ekranı
+           * bu bilgiyi küçük bildirim olarak gösterecek.
            */
           if (
             typeof window !==
@@ -756,7 +758,7 @@ export default function UetsImportPage() {
               commitError instanceof
               Error
                 ? commitError.message
-                : "Takvim kaydÄ± oluÅŸturulamadÄ±.",
+                : "Takvim kaydı oluşturulamadı.",
           });
         }
       },
@@ -775,7 +777,7 @@ export default function UetsImportPage() {
 
         if (!capturedText) {
           setError(
-            "UETS belge metni boÅŸ geldi."
+            "UETS belge metni boş geldi."
           );
 
           return;
@@ -814,7 +816,7 @@ export default function UetsImportPage() {
                   JSON.stringify({
                     title:
                       payload.title ||
-                      "UETS TebligatÄ±",
+                      "UETS Tebligatı",
 
                     url:
                       payload.url ||
@@ -954,8 +956,8 @@ export default function UetsImportPage() {
         );
 
         /*
-         * Extension'a veriyi aldÄ±ÄŸÄ±mÄ±zÄ± bildir.
-         * GeÃ§ici chrome.storage kaydÄ± temizlenebilir.
+         * Extension'a veriyi aldığımızı bildir.
+         * Geçici chrome.storage kaydı temizlenebilir.
          */
         window.postMessage(
           {
@@ -996,7 +998,7 @@ export default function UetsImportPage() {
           background:
             "rgba(25,120,80,.12)",
           color:
-            "#8ce0b8",
+            "var(--legal-success)",
         }
       : calendarStatus?.kind ===
           "error"
@@ -1006,7 +1008,7 @@ export default function UetsImportPage() {
             background:
               "rgba(160,40,40,.12)",
             color:
-              "#ff9b9b",
+              "var(--legal-danger)",
           }
         : calendarStatus?.kind ===
             "warning"
@@ -1016,7 +1018,7 @@ export default function UetsImportPage() {
               background:
                 "rgba(170,125,30,.10)",
               color:
-                "#e6c879",
+                "var(--legal-warning)",
             }
           : {
               border:
@@ -1024,40 +1026,59 @@ export default function UetsImportPage() {
               background:
                 "rgba(80,110,150,.08)",
               color:
-                "#b8c8db",
+                "var(--legal-muted)",
             };
 
   return (
     <main
+      className="legal-app uets-import-page"
       style={{
         minHeight:
           "100vh",
 
         background:
-          "#070c12",
+          "transparent",
 
         color:
-          "#f4f5f7",
+          "var(--legal-text)",
 
         padding:
-          "34px 22px 70px",
+          "18px 76px 28px 18px",
       }}
     >
       <div
         style={{
           width:
-            "min(1120px, 100%)",
+            "min(1180px, 100%)",
 
           margin:
             "0 auto",
+
+          padding:
+            18,
+
+          border:
+            "1px solid var(--legal-border)",
+
+          borderRadius:
+            24,
+
+          background:
+            "color-mix(in srgb, var(--legal-surface) 92%, transparent)",
+
+          boxShadow:
+            "var(--legal-shadow-md)",
+
+          backdropFilter:
+            "blur(22px)",
         }}
       >
         <div
           style={{
-            marginBottom: 16,
+            marginBottom: 10,
           }}
         >
-          <LegalBackButton fallback="/dashboard" />
+          <LegalBackButton fallback="/" />
         </div>
 
         <header
@@ -1069,22 +1090,13 @@ export default function UetsImportPage() {
               "center",
 
             gap:
-              18,
+              14,
 
             marginBottom:
-              24,
+              16,
           }}
         >
-          <img
-            src="/icon.png"
-            alt="METHER Legal"
-            width={42}
-            height={42}
-            style={{
-              objectFit:
-                "contain",
-            }}
-          />
+          <LegalBrand />
 
           <div>
             <div
@@ -1102,31 +1114,19 @@ export default function UetsImportPage() {
                   "wrap",
               }}
             >
-              <strong
-                style={{
-                  fontSize:
-                    13,
-
-                  letterSpacing:
-                    ".04em",
-                }}
-              >
-                METHER LEGAL
-              </strong>
-
               <h1
                 style={{
                   margin:
                     0,
 
                   fontSize:
-                    23,
+                    21,
 
                   fontWeight:
-                    500,
+                    750,
                 }}
               >
-                UETS Ã‡alÄ±ÅŸma AlanÄ±
+                UETS Çalışma Alanı
               </h1>
             </div>
 
@@ -1136,13 +1136,13 @@ export default function UetsImportPage() {
                   "6px 0 0",
 
                 color:
-                  "#8290a3",
+                  "var(--legal-muted)",
 
                 fontSize:
                   12,
               }}
             >
-              AÃ§Ä±k tebligatÄ± gÃ¼venli browser kÃ¶prÃ¼sÃ¼nden alÄ±n.
+              Açık tebligatı güvenli browser köprüsünden alın.
             </p>
           </div>
         </header>
@@ -1151,22 +1151,22 @@ export default function UetsImportPage() {
           <section
             style={{
               border:
-                "1px solid #202c3b",
+                "1px solid var(--legal-border)",
 
               borderRadius:
-                18,
+                16,
 
               padding:
-                28,
+                20,
 
               background:
-                "#0d141e",
+                "var(--legal-surface)",
 
               color:
-                "#8997aa",
+                "var(--legal-muted)",
             }}
           >
-            UETS Bridge aktarÄ±mÄ± bekleniyorâ€¦
+            UETS Bridge aktarımı bekleniyor…
           </section>
         )}
 
@@ -1174,16 +1174,16 @@ export default function UetsImportPage() {
           <section
             style={{
               border:
-                "1px solid #263244",
+                "1px solid var(--legal-border)",
 
               borderRadius:
-                18,
+                16,
 
               padding:
-                18,
+                16,
 
               background:
-                "#0d141e",
+                "var(--legal-surface)",
             }}
           >
             <h2
@@ -1196,7 +1196,7 @@ export default function UetsImportPage() {
               }}
             >
               {capture.title ||
-                "UETS TebligatÄ±"}
+                "UETS Tebligatı"}
             </h2>
 
             <div
@@ -1211,7 +1211,7 @@ export default function UetsImportPage() {
                   1.7,
 
                 color:
-                  "#7f90a7",
+                  "var(--legal-muted)",
               }}
             >
               <div>
@@ -1232,10 +1232,10 @@ export default function UetsImportPage() {
                   1,
 
                 background:
-                  "#273242",
+                  "var(--legal-border)",
 
                 margin:
-                  "18px 0",
+                  "14px 0",
               }}
             />
 
@@ -1243,22 +1243,22 @@ export default function UetsImportPage() {
               <div
                 style={{
                   padding:
-                    15,
+                    12,
 
                   border:
-                    "1px solid #293646",
+                    "1px solid var(--legal-border)",
 
                   borderRadius:
                     12,
 
                   background:
-                    "#111a25",
+                    "var(--legal-surface-2)",
 
                   color:
-                    "#d2b765",
+                    "var(--legal-gold-dark)",
                 }}
               >
-                METHER Belge Analizi Ã§alÄ±ÅŸÄ±yorâ€¦
+                METHER Belge Analizi çalışıyor…
               </div>
             )}
 
@@ -1266,7 +1266,7 @@ export default function UetsImportPage() {
               <div
                 style={{
                   padding:
-                    15,
+                    12,
 
                   border:
                     "1px solid rgba(235,90,90,.55)",
@@ -1278,7 +1278,7 @@ export default function UetsImportPage() {
                     "rgba(160,40,40,.12)",
 
                   color:
-                    "#ff9b9b",
+                    "var(--legal-danger)",
                 }}
               >
                 {error}
@@ -1291,7 +1291,7 @@ export default function UetsImportPage() {
                   ...statusStyle,
 
                   padding:
-                    "13px 15px",
+                    "11px 13px",
 
                   borderRadius:
                     12,
@@ -1314,16 +1314,16 @@ export default function UetsImportPage() {
               <section
                 style={{
                   border:
-                    "1px solid #253143",
+                    "1px solid var(--legal-border)",
 
                   borderRadius:
                     14,
 
                   padding:
-                    16,
+                    14,
 
                   background:
-                    "#111a25",
+                    "var(--legal-surface-2)",
                 }}
               >
                 <strong
@@ -1350,14 +1350,14 @@ export default function UetsImportPage() {
                       style={{
                         marginBottom: 14,
                         padding: 13,
-                        border: "1px solid #35425a",
+                        border: "1px solid var(--legal-border)",
                         borderRadius: 12,
-                        background: "#0d1621",
+                        background: "var(--legal-surface)",
                         fontSize: 12,
                         lineHeight: 1.7,
                       }}
                     >
-                      <strong>Ã–deme Bilgisi</strong>
+                      <strong>Ödeme Bilgisi</strong>
                       <div>
                         {formatPaymentAmount(
                           result.document.payment.paymentAmount,
@@ -1366,13 +1366,13 @@ export default function UetsImportPage() {
                       </div>
                       <div>
                         {result.document.payment.paymentDescription ||
-                          "Ã–deme aÃ§Ä±klamasÄ± bulunamadÄ±"}
+                          "Ödeme açıklaması bulunamadı"}
                       </div>
                       <div>
                         {result.document.payment.paymentDueDate
                           ? `Son tarih: ${result.document.payment.paymentDueDate}`
                           : result.document.payment.paymentPeriodText ||
-                            "Son tarih bulunamadÄ±"}
+                            "Son tarih bulunamadı"}
                       </div>
                       <div>
                         {result.document.payment.sourceDocument ||
@@ -1381,7 +1381,7 @@ export default function UetsImportPage() {
                       {!result.document.payment.paymentDueDate &&
                         result.document.payment.paymentPeriodText && (
                           <div style={{ color: "#e6c879", marginTop: 5 }}>
-                            SÃ¼re metni bulundu; baÅŸlangÄ±Ã§ tarihi doÄŸrulanamadÄ±ÄŸÄ± iÃ§in son tarih oluÅŸturulmadÄ±.
+                            Süre metni bulundu; başlangıç tarihi doğrulanamadığı için son tarih oluşturulmadı.
                           </div>
                         )}
                     </div>
@@ -1408,7 +1408,7 @@ export default function UetsImportPage() {
                       "ui-monospace, SFMono-Regular, Menlo, monospace",
 
                     color:
-                      "#edf0f5",
+                      "var(--legal-text)",
                   }}
                 >
                   {JSON.stringify(
@@ -1426,7 +1426,7 @@ export default function UetsImportPage() {
                   14,
 
                 border:
-                  "1px solid #253143",
+                  "1px solid var(--legal-border)",
 
                 borderRadius:
                   12,
@@ -1435,7 +1435,7 @@ export default function UetsImportPage() {
                   "12px 14px",
 
                 background:
-                  "#0e1621",
+                  "var(--legal-surface-2)",
               }}
             >
               <summary
@@ -1444,7 +1444,7 @@ export default function UetsImportPage() {
                     "pointer",
 
                   color:
-                    "#d6b45f",
+                  "var(--legal-gold-dark)",
 
                   fontSize:
                     12,
@@ -1462,7 +1462,7 @@ export default function UetsImportPage() {
                     "14px 0 0",
 
                   maxHeight:
-                    420,
+                    320,
 
                   overflow:
                     "auto",
@@ -1480,7 +1480,7 @@ export default function UetsImportPage() {
                     1.65,
 
                   color:
-                    "#dce2e9",
+                    "var(--legal-text-soft)",
                 }}
               >
                 {capture.text}
@@ -1489,6 +1489,7 @@ export default function UetsImportPage() {
           </section>
         )}
       </div>
+      <LegalDock />
     </main>
   );
 }

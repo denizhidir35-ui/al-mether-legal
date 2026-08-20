@@ -967,6 +967,39 @@ export default function ConverterPage() {
   }, []);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedTool = params.get("tool") as Tool | null;
+    const pending = (window as typeof window & {
+      __alMetherMobileUpload?: { tool: Tool; files: File[] };
+    }).__alMetherMobileUpload;
+
+    if (pending && TOOLS.some((tool) => tool.id === pending.tool)) {
+      setActiveTool(pending.tool);
+      setFiles(pending.files);
+      delete (window as typeof window & {
+        __alMetherMobileUpload?: { tool: Tool; files: File[] };
+      }).__alMetherMobileUpload;
+    } else if (requestedTool && TOOLS.some((tool) => tool.id === requestedTool)) {
+      setActiveTool(requestedTool);
+    }
+
+    function receiveMobileUpload(event: Event) {
+      const detail = (event as CustomEvent<{ tool: Tool; files: File[] }>).detail;
+      if (!detail || !TOOLS.some((tool) => tool.id === detail.tool)) return;
+      setActiveTool(detail.tool);
+      setFiles(detail.files);
+      delete (window as typeof window & {
+        __alMetherMobileUpload?: { tool: Tool; files: File[] };
+      }).__alMetherMobileUpload;
+    }
+
+    window.addEventListener("al-mether-mobile-upload", receiveMobileUpload);
+    return () => {
+      window.removeEventListener("al-mether-mobile-upload", receiveMobileUpload);
+    };
+  }, []);
+
+  useEffect(() => {
     if (
       !result?.url ||
       !result.name
@@ -2419,12 +2452,12 @@ export default function ConverterPage() {
               }
               onChange={(
                 event
-              ) =>
+              ) => {
                 selectFiles(
                   event.target
                     .files
-                )
-              }
+                );
+              }}
             />
 
             <strong>
@@ -3922,6 +3955,155 @@ export default function ConverterPage() {
 
             flex-direction:
               column;
+          }
+        }
+
+        @media (min-width: 901px) {
+          .converter-page {
+            height: 100vh;
+            min-height: 0;
+            padding: 10px 72px 10px 10px;
+            overflow: hidden;
+          }
+
+          .converter-header {
+            height: 58px;
+            padding: 0 16px;
+            border: 1px solid var(--legal-border);
+            border-radius: 20px 20px 0 0;
+            background: color-mix(in srgb, var(--legal-surface) 92%, transparent);
+            box-shadow: var(--legal-shadow-sm);
+            backdrop-filter: blur(20px);
+          }
+
+          .converter-header h1 {
+            font-size: 16px;
+            font-weight: 850;
+          }
+
+          .converter-header > p {
+            font-size: 10px;
+          }
+
+          .converter-shell {
+            height: calc(100vh - 78px);
+            min-height: 0;
+            grid-template-columns: 184px minmax(0, 1fr) 276px;
+            gap: 10px;
+            margin-top: 0;
+            padding: 10px;
+            border: 1px solid var(--legal-border);
+            border-top: 0;
+            border-radius: 0 0 20px 20px;
+            background: color-mix(in srgb, var(--legal-surface) 88%, transparent);
+            box-shadow: var(--legal-shadow-md);
+            backdrop-filter: blur(20px);
+          }
+
+          .tool-list,
+          .workspace,
+          .history-panel {
+            height: 100%;
+            min-height: 0;
+            max-height: none;
+            background: color-mix(in srgb, var(--legal-surface) 94%, transparent);
+          }
+
+          .tool-list {
+            gap: 4px;
+            padding: 8px;
+          }
+
+          .tool-button {
+            min-height: 44px;
+            gap: 2px;
+            padding: 7px 9px;
+          }
+
+          .tool-button strong {
+            font-size: 10px;
+            line-height: 1.25;
+          }
+
+          .tool-button span {
+            font-size: 8px;
+            line-height: 1.3;
+          }
+
+          .workspace {
+            padding: 16px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+          }
+
+          .workspace-head {
+            margin-bottom: 14px;
+          }
+
+          .workspace-head h2 {
+            font-size: 17px;
+          }
+
+          .workspace-head p {
+            font-size: 10px;
+          }
+
+          .drop-zone {
+            min-height: 132px;
+            border-radius: 14px;
+          }
+
+          .drop-zone strong {
+            font-size: 13px;
+          }
+
+          .drop-zone span {
+            font-size: 9px;
+          }
+
+          .primary-action,
+          .download-action {
+            height: 36px;
+            font-size: 10px;
+          }
+
+          .history-head {
+            min-height: 58px;
+            padding: 11px 12px;
+          }
+
+          .history-head strong {
+            font-size: 11px;
+          }
+
+          .history-head span,
+          .history-file span,
+          .history-meta span {
+            font-size: 8px;
+          }
+
+          .history-list {
+            gap: 7px;
+            padding: 9px;
+          }
+
+          .history-item {
+            padding: 10px;
+            border-radius: 10px;
+          }
+
+          .history-file strong {
+            font-size: 9.5px;
+          }
+
+          .history-actions a,
+          .history-actions button {
+            height: 29px;
+            font-size: 8px;
+          }
+
+          .history-empty {
+            font-size: 9px;
           }
         }
       `}</style>

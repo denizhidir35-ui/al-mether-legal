@@ -4,6 +4,8 @@ import LegalBrand
   from "@/components/LegalBrand";
 import LegalBackButton
   from "@/components/LegalBackButton";
+import LegalDock
+  from "@/components/LegalDock";
 
 import {
   signIn,
@@ -394,8 +396,9 @@ export default function MailConnectPage() {
 
   if (status === "loading") {
     return (
-      <main className="connect-page">
+      <main className="legal-app connect-page">
         Oturum kontrol ediliyor...
+        <LegalDock />
       </main>
     );
   }
@@ -417,7 +420,7 @@ export default function MailConnectPage() {
   );
 
   return (
-    <main className="connect-page">
+    <main className="legal-app connect-page">
       <section className="connect-shell">
         <div className="back-row">
           <LegalBackButton fallback="/settings" />
@@ -858,13 +861,15 @@ export default function MailConnectPage() {
         </footer>
       </section>
 
+      <LegalDock />
+
       <style jsx>{`
         .connect-page {
           min-height: 100dvh;
           display: grid;
           place-items: center;
           padding: 20px;
-          background: var(--legal-bg);
+          background: transparent;
           color: var(--legal-text);
         }
         .connect-shell {

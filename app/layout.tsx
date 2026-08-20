@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#090c12",
+  themeColor: "#f6f3ec",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -44,9 +44,9 @@ const LEGAL_THEME_BOOTSTRAP = `
       );
 
     var theme =
-      saved === "light"
-        ? "light"
-        : "dark";
+      saved === "dark"
+        ? "dark"
+        : "light";
 
     var root =
       document.documentElement;

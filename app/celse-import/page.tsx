@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import LegalBackButton from "@/components/LegalBackButton";
+import LegalBrand from "@/components/LegalBrand";
+import LegalDock from "@/components/LegalDock";
 
 type BridgeCapture = {
   title?: string;
@@ -254,84 +256,85 @@ export default function CelseImportPage() {
 
   const statusColors =
     status?.kind === "success"
-      ? { borderColor: "#2d8b64", color: "#8ce0b8" }
+      ? { borderColor: "var(--legal-success)", color: "var(--legal-success)" }
       : status?.kind === "error"
-        ? { borderColor: "#a94444", color: "#ff9b9b" }
+        ? { borderColor: "var(--legal-danger)", color: "var(--legal-danger)" }
         : status?.kind === "warning"
-          ? { borderColor: "#8f7134", color: "#e6c879" }
-          : { borderColor: "#45617f", color: "#b8c8db" };
+          ? { borderColor: "var(--legal-warning)", color: "var(--legal-warning)" }
+          : { borderColor: "var(--legal-border-strong)", color: "var(--legal-muted)" };
 
   return (
-    <main style={{ minHeight: "100vh", background: "#070c12", color: "#f4f5f7", padding: "34px 22px 70px" }}>
-      <div style={{ width: "min(960px, 100%)", margin: "0 auto" }}>
-        <div style={{ marginBottom: 16 }}>
-          <LegalBackButton fallback="/dashboard" />
+    <main className="legal-app celse-import-page" style={{ minHeight: "100vh", background: "transparent", color: "var(--legal-text)", padding: "18px 76px 28px 18px" }}>
+      <div style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: 18, border: "1px solid var(--legal-border)", borderRadius: 24, background: "color-mix(in srgb, var(--legal-surface) 92%, transparent)", boxShadow: "var(--legal-shadow-md)", backdropFilter: "blur(22px)" }}>
+        <div style={{ marginBottom: 10 }}>
+          <LegalBackButton fallback="/" />
         </div>
 
-        <header style={{ display: "flex", gap: 18, alignItems: "center", marginBottom: 24 }}>
-          <img src="/icon.png" alt="METHER Legal" width={42} height={42} />
+        <header style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 16 }}>
+          <LegalBrand />
           <div>
-            <h1 style={{ margin: 0, fontSize: 23, fontWeight: 500 }}>UYAP / CELSE Aktarımı</h1>
-            <p style={{ margin: "6px 0 0", color: "#8290a3", fontSize: 12 }}>
+            <h1 style={{ margin: 0, fontSize: 21, fontWeight: 750 }}>UYAP / CELSE Aktarımı</h1>
+            <p style={{ margin: "6px 0 0", color: "var(--legal-muted)", fontSize: 12 }}>
               UYAP Avukat Portal&apos;daki açık dava ve duruşma bilgisini analiz eder.
             </p>
           </div>
         </header>
 
         {!capture && (
-          <section style={{ border: "1px solid #202c3b", borderRadius: 18, padding: 28, background: "#0d141e", color: "#8997aa" }}>
+          <section style={{ border: "1px solid var(--legal-border)", borderRadius: 16, padding: 20, background: "var(--legal-surface)", color: "var(--legal-muted)" }}>
             UYAP Avukat Portal&apos;dan “METHER&apos;e Aktar” işlemi bekleniyor…
           </section>
         )}
 
         {capture && (
-          <section style={{ border: "1px solid #263244", borderRadius: 18, padding: 18, background: "#0d141e" }}>
+          <section style={{ border: "1px solid var(--legal-border)", borderRadius: 16, padding: 16, background: "var(--legal-surface)" }}>
             <h2 style={{ margin: 0, fontSize: 16 }}>{capture.title || "UYAP Dava Dosyası"}</h2>
-            <div style={{ marginTop: 7, color: "#7f90a7", fontSize: 11, lineHeight: 1.7 }}>
+            <div style={{ marginTop: 7, color: "var(--legal-muted)", fontSize: 11, lineHeight: 1.7 }}>
               <div>{capture.url}</div>
               <div>{formatCapturedAt(capture.capturedAt)}</div>
             </div>
 
-            <div style={{ height: 1, background: "#273242", margin: "18px 0" }} />
+            <div style={{ height: 1, background: "var(--legal-border)", margin: "14px 0" }} />
 
-            {loading && <div style={{ padding: 15, color: "#d2b765" }}>METHER UYAP dosyasını analiz ediyor…</div>}
-            {error && <div style={{ padding: 15, border: "1px solid #a94444", borderRadius: 12, color: "#ff9b9b" }}>{error}</div>}
+            {loading && <div style={{ padding: 12, border: "1px solid var(--legal-border)", borderRadius: 12, background: "var(--legal-surface-2)", color: "var(--legal-gold-dark)" }}>METHER UYAP dosyasını analiz ediyor…</div>}
+            {error && <div style={{ padding: 12, border: "1px solid var(--legal-danger)", borderRadius: 12, background: "color-mix(in srgb, var(--legal-danger) 8%, var(--legal-surface))", color: "var(--legal-danger)" }}>{error}</div>}
             {status && (
-              <div style={{ ...statusColors, padding: 15, borderStyle: "solid", borderWidth: 1, borderRadius: 12, marginBottom: 14 }}>
+              <div style={{ ...statusColors, padding: "11px 13px", borderStyle: "solid", borderWidth: 1, borderRadius: 12, marginBottom: 12, background: "var(--legal-surface-2)" }}>
                 {status.message}
               </div>
             )}
 
             {matchedCase && (
-              <section style={{ border: "1px solid #2d5b4b", borderRadius: 12, padding: 14, marginBottom: 14, background: "#0d1817" }}>
+              <section style={{ border: "1px solid var(--legal-success)", borderRadius: 12, padding: 14, marginBottom: 14, background: "color-mix(in srgb, var(--legal-success) 8%, var(--legal-surface))" }}>
                 <strong>Eşleşen dava</strong>
-                <div style={{ marginTop: 6, color: "#b9d8cd", fontSize: 13 }}>
+                <div style={{ marginTop: 6, color: "var(--legal-success)", fontSize: 13 }}>
                   {matchedCase.court_name} — {matchedCase.case_number}
                 </div>
               </section>
             )}
 
             {result?.document && (
-              <section style={{ border: "1px solid #253143", borderRadius: 14, padding: 16, background: "#111a25" }}>
+              <section style={{ border: "1px solid var(--legal-border)", borderRadius: 14, padding: 14, background: "var(--legal-surface-2)" }}>
                 <strong>METHER Analizi</strong>
                 <dl style={{ display: "grid", gridTemplateColumns: "130px 1fr", gap: "8px 14px", margin: "14px 0 0", fontSize: 13 }}>
-                  <dt style={{ color: "#8290a3" }}>Mahkeme</dt><dd style={{ margin: 0 }}>{result.document.court || "—"}</dd>
-                  <dt style={{ color: "#8290a3" }}>Esas no</dt><dd style={{ margin: 0 }}>{result.document.fileNo || "—"}</dd>
-                  <dt style={{ color: "#8290a3" }}>Duruşma</dt><dd style={{ margin: 0 }}>{result.document.hearing?.date || "—"} {result.document.hearing?.time || ""}</dd>
-                  <dt style={{ color: "#8290a3" }}>Özet</dt><dd style={{ margin: 0 }}>{result.document.summary || "—"}</dd>
+                  <dt style={{ color: "var(--legal-muted)" }}>Mahkeme</dt><dd style={{ margin: 0 }}>{result.document.court || "—"}</dd>
+                  <dt style={{ color: "var(--legal-muted)" }}>Esas no</dt><dd style={{ margin: 0 }}>{result.document.fileNo || "—"}</dd>
+                  <dt style={{ color: "var(--legal-muted)" }}>Duruşma</dt><dd style={{ margin: 0 }}>{result.document.hearing?.date || "—"} {result.document.hearing?.time || ""}</dd>
+                  <dt style={{ color: "var(--legal-muted)" }}>Özet</dt><dd style={{ margin: 0 }}>{result.document.summary || "—"}</dd>
                 </dl>
               </section>
             )}
 
-            <details style={{ marginTop: 14, border: "1px solid #253143", borderRadius: 12, padding: "12px 14px", background: "#0e1621" }}>
-              <summary style={{ cursor: "pointer", color: "#d6b45f", fontSize: 12, fontWeight: 700 }}>Yakalanan UYAP metni</summary>
-              <pre style={{ margin: "14px 0 0", maxHeight: 420, overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 12, lineHeight: 1.65, color: "#dce2e9" }}>
+            <details style={{ marginTop: 14, border: "1px solid var(--legal-border)", borderRadius: 12, padding: "12px 14px", background: "var(--legal-surface-2)" }}>
+              <summary style={{ cursor: "pointer", color: "var(--legal-gold-dark)", fontSize: 12, fontWeight: 700 }}>Yakalanan UYAP metni</summary>
+              <pre style={{ margin: "14px 0 0", maxHeight: 320, overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 12, lineHeight: 1.65, color: "var(--legal-text-soft)" }}>
                 {capture.text}
               </pre>
             </details>
           </section>
         )}
       </div>
+      <LegalDock />
     </main>
   );
 }
