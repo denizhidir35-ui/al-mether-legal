@@ -1584,6 +1584,21 @@ export default function CalendarPage() {
       setAlarmChangingId("");
     }
   }
+  const selectedAnchor = new Date(`${selectedDate}T12:00:00`);
+  const selectedWeekStart = new Date(selectedAnchor);
+  selectedWeekStart.setDate(selectedAnchor.getDate() - ((selectedAnchor.getDay() + 6) % 7));
+  const mobileWeekDays = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(selectedWeekStart);
+    date.setDate(selectedWeekStart.getDate() + index);
+    const iso = toIsoDate(date.getFullYear(), date.getMonth(), date.getDate());
+    return {
+      iso,
+      day: date.getDate(),
+      label: new Intl.DateTimeFormat("tr-TR", { weekday: "short" }).format(date),
+      count: (eventsByDate.get(iso) || []).length,
+    };
+  });
+
   const todayEvents =
     eventsByDate.get(todayIso()) || [];
 
@@ -10626,6 +10641,26 @@ export default function CalendarPage() {
               >
                 Bugün
               </button>
+            </div>
+
+            <div className="mobile-week-strip" aria-label="Seçili hafta">
+              {mobileWeekDays.map((day) => (
+                <button
+                  type="button"
+                  key={day.iso}
+                  className={`mobile-week-day ${day.iso === selectedDate ? "selected" : ""}`}
+                  onClick={() => {
+                    setSelectedDate(day.iso);
+                    setYear(Number(day.iso.slice(0, 4)));
+                    setMonth(Number(day.iso.slice(5, 7)) - 1);
+                    setCalendarDetailOpen(true);
+                  }}
+                >
+                  <span>{day.label}</span>
+                  <strong>{day.day}</strong>
+                  {day.count > 0 && <i aria-label={`${day.count} kayıt`} />}
+                </button>
+              ))}
             </div>
 
             <div className="weekdays">

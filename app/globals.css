@@ -1164,3 +1164,343 @@ html[data-legal-theme="light"] .legal-brand picture img {
   font-weight: 700;
   text-align: center;
 }
+
+/* =========================================================
+   AL METHER LEGAL — NATIVE-FIRST MOBILE REDTEAM LAYER
+   Desktop rules remain untouched above 760px.
+   ========================================================= */
+@media (max-width: 760px) {
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden !important;
+    background: var(--legal-bg);
+  }
+
+  .legal-app { overflow-x: clip !important; }
+  .legal-app img,
+  .legal-app svg,
+  .legal-app canvas,
+  .legal-app video,
+  .legal-app iframe,
+  .legal-app pre,
+  .legal-app table { max-width: 100%; }
+
+  .mobile-sheet-backdrop { z-index: 100010 !important; }
+  .mobile-drawer,
+  .mobile-bottom-sheet { z-index: 100011 !important; }
+
+  body,
+  button,
+  input,
+  select,
+  textarea {
+    font-size: 14px;
+  }
+
+  .legal-app,
+  .legal-app * {
+    box-sizing: border-box;
+    min-width: 0;
+  }
+
+  .legal-app::before {
+    background: var(--legal-bg) !important;
+    filter: none !important;
+    transform: none !important;
+  }
+
+  .legal-app:has(.mobile-legal-header) {
+    padding:
+      calc(max(6px, env(safe-area-inset-top)) + 60px)
+      max(8px, env(safe-area-inset-right))
+      calc(64px + env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left)) !important;
+  }
+
+  .legal-app:has(.mobile-legal-header) > :not(.legal-dock-zone):not(style) {
+    max-width: 100% !important;
+  }
+
+  .legal-session-control,
+  .settings-back,
+  .cases-header,
+  .posta-header,
+  .converter-header,
+  .lawyer-calendar .topbar {
+    display: none !important;
+  }
+
+  .mobile-drawer,
+  .mobile-bottom-sheet {
+    max-width: calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 16px) !important;
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px) !important;
+  }
+
+  dialog,
+  [role="dialog"],
+  .modal,
+  .sheet {
+    max-width: calc(100vw - 16px) !important;
+    max-height: calc(100dvh - 16px) !important;
+  }
+
+  /* Dashboard: legal urgency first, compact native feed. */
+  .dashboard-page .dashboard-shell {
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .dashboard-page .dashboard-header {
+    min-height: 48px !important;
+    padding: 0 0 8px !important;
+    border: 0 !important;
+  }
+
+  .dashboard-page .global-search {
+    height: 44px;
+    border-radius: 13px;
+    background: var(--legal-surface);
+  }
+
+  .dashboard-page .global-search input { font-size: 14px !important; }
+  .dashboard-page .global-search kbd { display: none; }
+
+  .dashboard-page .dashboard-body {
+    height: calc(100% - 48px) !important;
+    gap: 10px !important;
+    padding: 0 0 92px !important;
+    scroll-padding-bottom: 92px;
+  }
+
+  .dashboard-page .summary-grid,
+  .dashboard-page .workspace-grid,
+  .dashboard-page .side-column { display: contents !important; }
+
+  .dashboard-page .summary-card {
+    min-height: 78px !important;
+    display: grid !important;
+    grid-template-columns: 38px minmax(0, 1fr) 18px !important;
+    gap: 10px !important;
+    padding: 12px !important;
+    border-radius: 15px !important;
+    background: var(--legal-surface) !important;
+    box-shadow: none !important;
+  }
+
+  .dashboard-page .summary-card:nth-child(1) { order: 1; border-left: 3px solid var(--legal-danger); }
+  .dashboard-page .summary-card:nth-child(2) { order: 2; border-left: 3px solid #477fac; }
+  .dashboard-page .summary-card:nth-child(3) { order: 3; border-left: 3px solid var(--legal-gold); }
+  .dashboard-page .incoming-card { order: 4; }
+  .dashboard-page .plan-card { order: 5; }
+  .dashboard-page .distribution-summary { order: 6; }
+
+  .dashboard-page .summary-copy > span,
+  .dashboard-page .summary-copy small,
+  .dashboard-page .compact-row strong,
+  .dashboard-page .plan-copy > strong { font-size: 13px !important; }
+  .dashboard-page .summary-copy strong { font-size: 21px !important; }
+  .dashboard-page .summary-copy small,
+  .dashboard-page .compact-row small,
+  .dashboard-page .plan-copy span { font-size: 12px !important; }
+
+  .dashboard-page .plan-card,
+  .dashboard-page .side-card,
+  .dashboard-page .distribution-summary {
+    padding: 12px !important;
+    border-radius: 15px !important;
+    background: var(--legal-surface) !important;
+    box-shadow: none !important;
+  }
+
+  .dashboard-page .plan-list,
+  .dashboard-page .incoming-card .compact-list { max-height: none !important; overflow: visible !important; }
+  .dashboard-page .plan-row { grid-template-columns: 48px 36px minmax(0, 1fr) !important; min-height: 68px; }
+  .dashboard-page .distribution-summary,
+  .dashboard-page .quick-card,
+  .dashboard-page .documents-card,
+  .dashboard-page .upcoming-strip,
+  .dashboard-page .dashboard-footer { display: none !important; }
+
+  /* Cases: one-tap compact legal file cards. */
+  .cases-page .cases-shell {
+    padding: 0 0 92px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .cases-page .cases-toolbar,
+  .cases-page .filters,
+  .cases-page .case-filters {
+    position: static !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 8px !important;
+    padding: 0 0 10px !important;
+  }
+
+  .cases-page .cases-list { display: grid !important; gap: 9px !important; padding: 0 !important; }
+  .cases-page .case-row {
+    position: relative;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 10px !important;
+    min-height: 142px !important;
+    padding: 13px !important;
+    overflow: visible !important;
+    border: 1px solid var(--legal-border) !important;
+    border-radius: 15px !important;
+    background: var(--legal-surface) !important;
+    box-shadow: none !important;
+    cursor: pointer;
+  }
+
+  .cases-page .case-identity { grid-column: 1 / -1; display: grid !important; gap: 4px !important; }
+  .cases-page .case-number { font-size: 15px !important; font-weight: 850 !important; color: var(--legal-text) !important; }
+  .cases-page .case-type-badge { position: absolute; top: 12px; right: 12px; max-width: 42%; font-size: 11px !important; }
+  .cases-page .case-court { padding-right: 42%; font-size: 13px !important; font-weight: 700 !important; }
+  .cases-page .case-subject { font-size: 12px !important; color: var(--legal-muted) !important; }
+  .cases-page .case-overview { display: block !important; }
+  .cases-page .case-badges,
+  .cases-page .last-update { display: none !important; }
+  .cases-page .case-timeline-summary { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 7px !important; }
+  .cases-page .case-timeline-summary > span { min-height: 42px; padding: 7px !important; border-radius: 10px; background: var(--legal-surface-2); font-size: 12px !important; }
+  .cases-page .case-timeline-summary strong { font-size: 10px !important; }
+  .cases-page .case-row-tools { align-self: end; }
+  .cases-page .open-case-button { min-height: 38px !important; font-size: 12px !important; }
+  .cases-page .case-inline-panel { grid-column: 1 / -1 !important; width: 100% !important; max-width: 100% !important; overflow: hidden !important; }
+
+  /* Mail: folder control, list, then full detail — never split view. */
+  .mether-posta .posta-shell {
+    padding: 0 0 92px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .mether-posta .posta-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    display: grid !important;
+    gap: 8px !important;
+    padding: 0 0 10px !important;
+    background: var(--legal-bg);
+  }
+
+  .mether-posta .folder-tabs { display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 4px !important; overflow: visible !important; }
+  .mether-posta .folder { min-width: 0 !important; min-height: 40px !important; padding: 0 4px !important; font-size: 12px !important; }
+  .mether-posta .sync-status { justify-content: space-between !important; font-size: 12px !important; }
+  .mether-posta .posta-workspace { display: block !important; min-height: 0 !important; }
+  .mether-posta .mail-pane,
+  .mether-posta .detail-pane { width: 100% !important; min-width: 0 !important; border: 0 !important; background: transparent !important; }
+  .mether-posta .mobile-hidden { display: none !important; }
+  .mether-posta .mail-list { display: grid; gap: 7px; overflow: visible !important; }
+  .mether-posta .mail-row { min-height: 92px !important; padding: 12px !important; border: 1px solid var(--legal-border) !important; border-radius: 14px !important; background: var(--legal-surface) !important; }
+  .mether-posta .mail-top strong,
+  .mether-posta .mail-subject { font-size: 13px !important; }
+  .mether-posta .mail-snippet,
+  .mether-posta .mail-account-source,
+  .mether-posta time { font-size: 12px !important; }
+  .mether-posta .detail-pane { padding: 0 !important; }
+  .mether-posta .detail-header,
+  .mether-posta .mail-body { padding: 12px !important; border-radius: 14px !important; background: var(--legal-surface) !important; }
+
+  /* Calendar: week/day rail with selected-day agenda. */
+  .lawyer-calendar .workspace {
+    padding: 0 0 92px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+  .lawyer-calendar .main-grid { display: flex !important; flex-direction: column !important; gap: 10px !important; }
+  .lawyer-calendar .summary-panel { display: none !important; }
+  .lawyer-calendar .calendar-panel,
+  .lawyer-calendar .detail-panel { padding: 12px !important; border-radius: 15px !important; background: var(--legal-surface) !important; box-shadow: none !important; }
+  .lawyer-calendar .calendar-toolbar { margin-bottom: 10px !important; }
+  .lawyer-calendar .month-title { font-size: 15px !important; }
+  .lawyer-calendar .weekdays,
+  .lawyer-calendar .month-grid { display: none !important; }
+  .lawyer-calendar .mobile-week-strip { display: grid !important; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+  .lawyer-calendar .mobile-week-day { min-height: 62px; display: grid; align-content: center; justify-items: center; gap: 4px; padding: 5px 2px; border: 1px solid var(--legal-border); border-radius: 11px; background: var(--legal-surface-2); color: var(--legal-text-soft); }
+  .lawyer-calendar .mobile-week-day span { font-size: 11px; color: var(--legal-muted); }
+  .lawyer-calendar .mobile-week-day strong { font-size: 15px; }
+  .lawyer-calendar .mobile-week-day i { width: 5px; height: 5px; border-radius: 50%; background: var(--legal-gold); }
+  .lawyer-calendar .mobile-week-day.selected { border-color: var(--legal-gold); background: var(--legal-gold-soft); color: var(--legal-gold-dark); }
+  .lawyer-calendar .detail-panel { max-height: none !important; overflow: visible !important; }
+  .lawyer-calendar .detail-date { font-size: 16px !important; }
+  .lawyer-calendar .event-selector-list { max-height: none !important; }
+  .lawyer-calendar .event-selector-button { min-height: 48px !important; font-size: 13px !important; }
+  .lawyer-calendar .detail-tabs { top: 0 !important; overflow-x: auto; scrollbar-width: none; }
+  .lawyer-calendar .detail-tab { min-width: 66px !important; height: 38px !important; font-size: 12px !important; }
+
+  /* Converter: compact two-column tool chooser, no horizontal rail. */
+  .converter-page .converter-shell {
+    padding: 0 0 92px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+  .converter-page .tool-list { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 7px !important; overflow: visible !important; padding: 0 !important; }
+  .converter-page .tool-button { width: 100% !important; min-width: 0 !important; min-height: 62px !important; padding: 9px !important; border-radius: 13px !important; font-size: 12px !important; }
+  .converter-page .workspace,
+  .converter-page .history-panel { width: 100% !important; max-width: 100% !important; padding: 12px !important; border-radius: 15px !important; background: var(--legal-surface) !important; }
+
+  /* UETS / CELSE: clean single-column working surfaces. */
+  .uets-import-page > div,
+  .celse-import-page > div {
+    padding: 12px 12px 92px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+  .uets-import-page section,
+  .celse-import-page section,
+  .uets-import-page form,
+  .celse-import-page form { width: 100% !important; max-width: 100% !important; display: block !important; }
+  .uets-import-page dl,
+  .celse-import-page dl { grid-template-columns: 1fr !important; gap: 4px !important; }
+  .uets-import-page pre,
+  .celse-import-page pre { max-width: 100% !important; overflow-wrap: anywhere; white-space: pre-wrap !important; }
+
+  /* Settings: native grouped sections; admin section stays server-authorized. */
+  .settings-page .settings-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 9px !important;
+    padding: 0 0 92px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+  }
+  .settings-page .settings-column { display: contents !important; }
+  .settings-page .settings-column-right .account-panel { order: -5; }
+  .settings-page .settings-column-left .settings-panel:nth-child(1) { order: -4; }
+  .settings-page .settings-column-left .settings-panel:nth-child(2) { order: -3; }
+  .settings-page .settings-column-left .settings-panel:nth-child(3) { order: -2; }
+  .settings-page .settings-panel { padding: 14px !important; border-radius: 15px !important; background: var(--legal-surface) !important; box-shadow: none !important; }
+  .settings-page .settings-section-title { font-size: 15px !important; }
+  .settings-page .settings-panel p,
+  .settings-page .settings-panel span,
+  .settings-page .settings-panel input,
+  .settings-page .settings-panel button,
+  .settings-page .settings-link { font-size: 12px !important; }
+  .settings-page .theme-options { grid-template-columns: 1fr 1fr !important; }
+  .settings-page .invite-form,
+  .settings-page .user-row { grid-template-columns: 1fr !important; }
+}
+
+@media (min-width: 761px) {
+  .mobile-week-strip { display: none !important; }
+}

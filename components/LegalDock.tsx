@@ -201,6 +201,17 @@ export default function LegalDock() {
     },
   ];
 
+  const mobileMenuItems = items.filter((item) =>
+    ["/uets-import", "/celse-import", "/converter", "/settings"].includes(item.href)
+  );
+
+  const mobileNavItems = [
+    { href: "/", icon: "⌂", label: "Bugün" },
+    { href: "/cases", icon: "⚖", label: "Davalar" },
+    { href: "/inbox", icon: "✉", label: "Mail" },
+    { href: "/calendar", icon: "▦", label: "Takvim" },
+  ];
+
   const mobileTitle = useMemo(() => {
     if (isDashboard) return "Bugün";
     return items.find((item) => item.href === pathname)?.label || "AL METHER Legal";
@@ -320,21 +331,35 @@ export default function LegalDock() {
             {unreadCount > 0 && <span className="mobile-unread-badge">{unreadCount}</span>}
           </button>
 
-          <button
-            type="button"
-            className="mobile-icon-button"
-            aria-label="Menüyü aç"
-            aria-expanded={mobileMenuOpen}
-            onClick={() => {
-              setMobileMenuOpen((open) => !open);
-              setMobileNotificationsOpen(false);
-              setMobileActionsOpen(false);
-            }}
-          >
-            <span aria-hidden="true">☰</span>
-          </button>
         </div>
       </header>
+
+      <nav className="mobile-bottom-navigation" aria-label="Ana navigasyon">
+        {mobileNavItems.map((item) => (
+          <Link
+            key={`bottom-${item.href}`}
+            href={item.href}
+            className={item.href === "/" ? isDashboard ? "active" : "" : pathname === item.href ? "active" : ""}
+          >
+            <span aria-hidden="true">{item.icon}</span>
+            <strong>{item.label}</strong>
+          </Link>
+        ))}
+        <button
+          type="button"
+          className={mobileMenuOpen ? "active" : ""}
+          aria-label="Menüyü aç"
+          aria-expanded={mobileMenuOpen}
+          onClick={() => {
+            setMobileMenuOpen((open) => !open);
+            setMobileNotificationsOpen(false);
+            setMobileActionsOpen(false);
+          }}
+        >
+          <span aria-hidden="true">☰</span>
+          <strong>Menü</strong>
+        </button>
+      </nav>
 
       <nav className="legal-dock">
         {items.map((item) => (
@@ -452,7 +477,7 @@ export default function LegalDock() {
         </div>
 
         <nav className="mobile-menu-list">
-          {items.map((item) => (
+          {mobileMenuItems.map((item) => (
             <Link
               key={`mobile-${item.href}`}
               href={item.href}
@@ -690,6 +715,7 @@ export default function LegalDock() {
         }
 
         .mobile-legal-header,
+        .mobile-bottom-navigation,
         .mobile-primary-action,
         .mobile-sheet-backdrop,
         .mobile-drawer,
@@ -726,15 +752,14 @@ export default function LegalDock() {
             z-index: 100003;
             height: 52px;
             display: grid;
-            grid-template-columns: minmax(92px, auto) minmax(0, 1fr) auto;
+            grid-template-columns: minmax(108px, auto) minmax(0, 1fr) 40px;
             align-items: center;
             gap: 8px;
             padding: 5px 7px 5px 9px;
             border: 1px solid var(--legal-border);
-            border-radius: 16px;
-            background: color-mix(in srgb, var(--legal-surface) 94%, transparent);
-            box-shadow: var(--legal-shadow-md);
-            backdrop-filter: blur(20px);
+            border-radius: 15px;
+            background: var(--legal-surface);
+            box-shadow: var(--legal-shadow-sm);
             pointer-events: auto;
           }
 
@@ -747,7 +772,7 @@ export default function LegalDock() {
           .mobile-page-title {
             overflow: hidden;
             color: var(--legal-text);
-            font-size: 11px;
+            font-size: 14px;
             font-weight: 850;
             text-align: center;
             text-overflow: ellipsis;
@@ -795,7 +820,7 @@ export default function LegalDock() {
           .mobile-primary-action {
             position: fixed;
             right: max(14px, calc(env(safe-area-inset-right) + 10px));
-            bottom: max(14px, calc(env(safe-area-inset-bottom) + 10px));
+            bottom: calc(72px + env(safe-area-inset-bottom));
             z-index: 100002;
             height: 44px;
             display: inline-flex;
@@ -822,7 +847,6 @@ export default function LegalDock() {
             padding: 0;
             border: 0;
             background: var(--legal-overlay);
-            backdrop-filter: blur(3px);
             pointer-events: auto;
           }
 
@@ -833,9 +857,8 @@ export default function LegalDock() {
             display: flex;
             flex-direction: column;
             border: 1px solid var(--legal-border);
-            background: color-mix(in srgb, var(--legal-surface) 97%, transparent);
+            background: var(--legal-surface);
             box-shadow: var(--legal-shadow-md);
-            backdrop-filter: blur(24px);
             pointer-events: auto;
             transition: transform 200ms ease-out;
           }
@@ -850,6 +873,44 @@ export default function LegalDock() {
             border-radius: 22px;
             transform: translateX(calc(100% + 18px));
           }
+
+          .mobile-bottom-navigation {
+            position: fixed;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 100003;
+            height: calc(64px + env(safe-area-inset-bottom));
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            align-items: start;
+            padding: 5px max(6px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(6px, env(safe-area-inset-left));
+            border-top: 1px solid var(--legal-border);
+            background: var(--legal-surface);
+            box-shadow: 0 -8px 24px rgba(34, 27, 17, 0.08);
+            pointer-events: auto;
+          }
+
+          .mobile-bottom-navigation a,
+          .mobile-bottom-navigation button {
+            min-width: 0;
+            height: 54px;
+            display: grid;
+            align-content: center;
+            justify-items: center;
+            gap: 2px;
+            padding: 0 2px;
+            border: 0;
+            border-radius: 11px;
+            background: transparent;
+            color: var(--legal-muted);
+            text-decoration: none;
+            font: inherit;
+          }
+
+          .mobile-bottom-navigation span { font-size: 18px; line-height: 1; }
+          .mobile-bottom-navigation strong { overflow: hidden; max-width: 100%; font-size: 11px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+          .mobile-bottom-navigation .active { background: var(--legal-gold-soft); color: var(--legal-gold-dark); }
 
           .mobile-drawer.open,
           .mobile-bottom-sheet.open {

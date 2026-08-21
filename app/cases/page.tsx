@@ -9380,6 +9380,20 @@ export default function CasesPage() {
                     <article
                       key={item.id}
                       className={`case-row ${openCaseId === item.id ? "selected" : ""}`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={(event) => {
+                        if (!window.matchMedia("(max-width: 760px)").matches) return;
+                        if ((event.target as HTMLElement).closest("button, a, input, select, textarea, summary, details")) return;
+                        toggleCasePanel(item.id, "deadline");
+                      }}
+                      onKeyDown={(event) => {
+                        if (!window.matchMedia("(max-width: 760px)").matches) return;
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          toggleCasePanel(item.id, "deadline");
+                        }
+                      }}
                     >
                       <div className="case-identity">
                         <div className="case-number">
