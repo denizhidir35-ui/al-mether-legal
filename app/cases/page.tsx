@@ -10,11 +10,13 @@ import {
 } from "next/navigation";
 
 import {
+  type ReactNode,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 
 import LegalDock from "@/components/LegalDock";
 import LegalSessionControl from "@/components/LegalSessionControl";
@@ -215,6 +217,32 @@ function normalizeCaseTypeKey(value: string) {
     .trim();
 }
 
+function CaseDetailHost({
+  mobile,
+  children,
+}: {
+  mobile: boolean;
+  children: ReactNode;
+}) {
+  if (mobile && typeof document !== "undefined") {
+    return createPortal(
+      <div className="case-mobile-detail-layer">
+        <section
+          className="case-inline-panel case-mobile-detail-panel"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Dava detayları"
+        >
+          {children}
+        </section>
+      </div>,
+      document.body
+    );
+  }
+
+  return <div className="case-inline-panel">{children}</div>;
+}
+
 export default function CasesPage() {
   const router =
     useRouter();
@@ -344,6 +372,12 @@ export default function CasesPage() {
   const [openCaseId, setOpenCaseId] =
     useState("");
 
+  const [isMobileCasesView, setIsMobileCasesView] =
+    useState(false);
+
+  const [openMobileCaseMenuId, setOpenMobileCaseMenuId] =
+    useState("");
+
   const notificationCaseHandled =
     useRef(false);
 
@@ -356,6 +390,43 @@ export default function CasesPage() {
       "note" |
       ""
     >("");
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 760px)");
+    const syncMobileView = () => setIsMobileCasesView(media.matches);
+
+    syncMobileView();
+    media.addEventListener("change", syncMobileView);
+    return () => media.removeEventListener("change", syncMobileView);
+  }, []);
+
+  useEffect(() => {
+    if (!openMobileCaseMenuId) return;
+
+    const closeMenu = () => setOpenMobileCaseMenuId("");
+    window.addEventListener("scroll", closeMenu, true);
+    window.addEventListener("resize", closeMenu);
+    return () => {
+      window.removeEventListener("scroll", closeMenu, true);
+      window.removeEventListener("resize", closeMenu);
+    };
+  }, [openMobileCaseMenuId]);
+
+  useEffect(() => {
+    if (!isMobileCasesView || !openCaseId || !openCaseTab) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeWithEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeCasePanel();
+    };
+    window.addEventListener("keydown", closeWithEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeWithEscape);
+    };
+  }, [isMobileCasesView, openCaseId, openCaseTab]);
 
   const [caseNote, setCaseNote] =
     useState("");
@@ -1263,6 +1334,7 @@ export default function CasesPage() {
   }
 
   function closeCasePanel() {
+    setOpenMobileCaseMenuId("");
     setOpenCaseId("");
     setOpenCaseTab("");
   }
@@ -1291,6 +1363,7 @@ export default function CasesPage() {
   function requestCaseEdit(
     item: LegalCase
   ) {
+    if (isMobileCasesView) closeCasePanel();
     setEditCase(item);
     setEditCaseNumber(
       item.case_number || ""
@@ -1522,6 +1595,7 @@ export default function CasesPage() {
   function requestManualReminder(
     item: LegalCase
   ) {
+    if (isMobileCasesView) closeCasePanel();
     manualReminderContextRequestRef.current =
       item.id;
     manualReminderNoteEditedRef.current =
@@ -1716,6 +1790,8 @@ export default function CasesPage() {
       | "deadline"
       | "note"
   ) {
+    setOpenMobileCaseMenuId("");
+
     if (
       openCaseId === caseId &&
       openCaseTab === tab
@@ -8206,6 +8282,71 @@ export default function CasesPage() {
           background: color-mix(in srgb, var(--legal-surface-2) 72%, transparent);
         }
 
+        .case-mobile-detail-layer,
+        .case-menu-backdrop {
+          display: none;
+        }
+
+        @media (max-width: 760px) {
+          .cases-shell {
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+          }
+
+          .case-mobile-detail-layer {
+            position: fixed;
+            inset: 0;
+            z-index: 100020;
+            display: block;
+            padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+            overflow: hidden;
+            background: var(--legal-bg);
+          }
+
+          .case-mobile-detail-panel {
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            margin: 0;
+            padding: 12px;
+            overflow-x: hidden;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            border: 1px solid var(--legal-border);
+            border-radius: 16px;
+            background: var(--legal-surface);
+            color: var(--legal-text);
+            -webkit-overflow-scrolling: touch;
+          }
+
+          .case-mobile-detail-panel button,
+          .case-mobile-detail-panel input,
+          .case-mobile-detail-panel textarea {
+            font-size: 13px;
+          }
+
+          .case-menu-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 100010;
+            display: block;
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            border: 0;
+            background: rgba(24, 20, 15, .12);
+          }
+
+          .case-row.menu-open {
+            z-index: 100011;
+          }
+
+          .case-row.menu-open .case-action-menu,
+          .case-row.menu-open .case-action-popover {
+            z-index: 100012;
+          }
+        }
+
         @media (max-width: 1180px) {
           .cases-header {
             grid-template-columns: minmax(230px, 1fr) max-content;
@@ -9379,7 +9520,7 @@ export default function CasesPage() {
                   return (
                     <article
                       key={item.id}
-                      className={`case-row ${openCaseId === item.id ? "selected" : ""}`}
+                      className={`case-row ${openCaseId === item.id ? "selected" : ""} ${openMobileCaseMenuId === item.id ? "menu-open" : ""}`}
                       role="button"
                       tabIndex={0}
                       onClick={(event) => {
@@ -9449,27 +9590,39 @@ export default function CasesPage() {
                           Dosyayı Aç
                         </button>
 
-                        <details className="case-action-menu">
-                          <summary aria-label="Dava işlemleri" title="Dava işlemleri">•••</summary>
+                        <details
+                          className="case-action-menu"
+                          open={isMobileCasesView ? openMobileCaseMenuId === item.id : undefined}
+                        >
+                          <summary
+                            aria-label="Dava işlemleri"
+                            title="Dava işlemleri"
+                            onClick={(event) => {
+                              if (!isMobileCasesView) return;
+                              event.preventDefault();
+                              event.stopPropagation();
+                              setOpenMobileCaseMenuId((current) => current === item.id ? "" : item.id);
+                            }}
+                          >•••</summary>
                           <div className="case-action-popover">
-                            <button type="button" onClick={() => requestCaseEdit(item)}>Düzenle</button>
-                            <button type="button" onClick={() => toggleCasePanel(item.id, "mail")}>Mail</button>
-                            <button type="button" onClick={() => toggleCasePanel(item.id, "file")}>Dosyalar</button>
-                            <button type="button" onClick={() => toggleCasePanel(item.id, "document")}>Evraklar</button>
+                            <button type="button" onClick={() => { setOpenMobileCaseMenuId(""); requestCaseEdit(item); }}>Düzenle</button>
+                            <button type="button" onClick={() => { setOpenMobileCaseMenuId(""); toggleCasePanel(item.id, "mail"); }}>Mail</button>
+                            <button type="button" onClick={() => { setOpenMobileCaseMenuId(""); toggleCasePanel(item.id, "file"); }}>Dosyalar</button>
+                            <button type="button" onClick={() => { setOpenMobileCaseMenuId(""); toggleCasePanel(item.id, "document"); }}>Evraklar</button>
                             <button
                               type="button"
                               className={`deadline-button ${deadlineState}`}
-                              onClick={() => toggleCasePanel(item.id, "deadline")}
+                              onClick={() => { setOpenMobileCaseMenuId(""); toggleCasePanel(item.id, "deadline"); }}
                             >
                               Süre ve takvim
                             </button>
-                            <button type="button" onClick={() => toggleCasePanel(item.id, "note")}>Not</button>
-                            <button type="button" onClick={() => requestManualReminder(item)}>Alarm Ekle</button>
+                            <button type="button" onClick={() => { setOpenMobileCaseMenuId(""); toggleCasePanel(item.id, "note"); }}>Not</button>
+                            <button type="button" onClick={() => { setOpenMobileCaseMenuId(""); requestManualReminder(item); }}>Alarm Ekle</button>
                             <button
                               type="button"
                               className="case-delete-button"
                               disabled={Boolean(deletingCaseId)}
-                              onClick={() => requestCaseDeletion(item)}
+                              onClick={() => { setOpenMobileCaseMenuId(""); requestCaseDeletion(item); }}
                             >
                               Davayı Sil
                             </button>
@@ -9479,7 +9632,7 @@ export default function CasesPage() {
 
                       {openCaseId === item.id &&
                         openCaseTab && (
-                        <div className="case-inline-panel">
+                        <CaseDetailHost mobile={isMobileCasesView}>
                           <div className="case-panel-back-row">
                             <LegalBackButton
                               fallback="/cases"
@@ -9878,7 +10031,7 @@ export default function CasesPage() {
                               )}
                             </>
                           )}
-                        </div>
+                        </CaseDetailHost>
                       )}
                     </article>
                   );
@@ -9887,6 +10040,15 @@ export default function CasesPage() {
             </section>
           )}
       </div>
+
+      {isMobileCasesView && openMobileCaseMenuId && (
+        <button
+          type="button"
+          className="case-menu-backdrop"
+          aria-label="Dava menüsünü kapat"
+          onClick={() => setOpenMobileCaseMenuId("")}
+        />
+      )}
 
       {editCase && (
         <div
