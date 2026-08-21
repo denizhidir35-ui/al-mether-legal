@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { isPrivacyPath } from "@/lib/publicRoutes";
 
 type AccountState = "checking" | "active" | "pending" | "blocked";
 type BootstrapState = "checking" | "authenticated" | "unauthenticated";
@@ -16,8 +17,11 @@ const PUBLIC_PATHS = [
 ];
 
 function isPublicPath(pathname: string) {
-  return PUBLIC_PATHS.some(
-    (path) => pathname === path || pathname.startsWith(`${path}/`)
+  return (
+    isPrivacyPath(pathname) ||
+    PUBLIC_PATHS.some(
+      (path) => pathname === path || pathname.startsWith(`${path}/`)
+    )
   );
 }
 
