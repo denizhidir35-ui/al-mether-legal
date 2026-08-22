@@ -249,6 +249,70 @@ export default function LoginPage() {
           text-decoration: underline;
         }
 
+        .browser-integrations {
+          display: grid;
+          gap: 8px;
+          margin-top: 2px;
+          padding-top: 13px;
+          border-top: 1px solid rgba(200, 164, 95, 0.16);
+        }
+
+        .browser-integrations-title {
+          margin: 0;
+          color: #8f949d;
+          font-size: 9px;
+          font-weight: 750;
+          letter-spacing: 0.08em;
+          text-align: center;
+          text-transform: uppercase;
+        }
+
+        .browser-integration-actions {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px;
+        }
+
+        .browser-integration-link {
+          display: grid;
+          min-height: 38px;
+          padding: 7px 9px;
+          border: 1px solid rgba(200, 164, 95, 0.28);
+          border-radius: 10px;
+          background: rgba(14, 18, 25, 0.72);
+          color: #c7a75f;
+          font-size: 9px;
+          font-weight: 780;
+          line-height: 1.25;
+          place-items: center;
+          text-align: center;
+          text-decoration: none;
+          transition:
+            border-color 140ms ease,
+            background-color 140ms ease,
+            color 140ms ease;
+        }
+
+        .browser-integration-link:hover {
+          border-color: rgba(217, 184, 110, 0.5);
+          background: rgba(200, 164, 95, 0.08);
+          color: #d9b86e;
+        }
+
+        .browser-integration-link:focus-visible {
+          outline: 2px solid #c8a45f;
+          outline-offset: 2px;
+        }
+
+        .browser-integrations-mobile-note {
+          display: none;
+          margin: 0;
+          color: #8f949d;
+          font-size: 9px;
+          line-height: 1.45;
+          text-align: center;
+        }
+
         @keyframes form-in {
           from {
             opacity: 0;
@@ -263,6 +327,15 @@ export default function LoginPage() {
         @media (max-width: 500px) {
           .login-shell {
             width: min(330px, calc(100vw - 36px));
+          }
+
+          .browser-integrations-title,
+          .browser-integration-actions {
+            display: none;
+          }
+
+          .browser-integrations-mobile-note {
+            display: block;
           }
         }
 
@@ -345,6 +418,36 @@ export default function LoginPage() {
             <Link className="forgot-link" href="/auth/forgot-password">
               Şifremi Unuttum
             </Link>
+
+            <div className="browser-integrations">
+              <p className="browser-integrations-title">
+                Tarayıcı Entegrasyonları
+              </p>
+
+              <div className="browser-integration-actions">
+                <a
+                  className="browser-integration-link"
+                  href="https://chromewebstore.google.com/detail/mether-uets-bridge/cnmjjlkcmficmebjggonppenbkhpmhda"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  UETS Bridge
+                </a>
+
+                <a
+                  className="browser-integration-link"
+                  href="https://chromewebstore.google.com/detail/mether-celse-uyap-bridge/eeifkhhlennmliiliapibkjhmeoihjhn"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  UYAP / CELSE Bridge
+                </a>
+              </div>
+
+              <p className="browser-integrations-mobile-note">
+                Masaüstü Chrome üzerinden kurulabilir
+              </p>
+            </div>
           </form>
         </section>
       ) : null}
