@@ -11,8 +11,27 @@ import { cn } from "@/lib/utils";
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata: Metadata = {
-  title: "Mether Legal",
-  description: "Avukatın hukuki süre kaçırmasını engelleyen sistem.",
+  metadataBase: new URL("https://legal.almether.com"),
+  title: {
+    default: "AL METHER Legal",
+    template: "%s | AL METHER Legal",
+  },
+  description: "Avukatlar için dava, hukuki süre, duruşma ve tebligat takip yazılımı.",
+  applicationName: "AL METHER Legal",
+  authors: [{ name: "AL METHER" }],
+  creator: "AL METHER",
+  publisher: "AL METHER",
+  category: "legal technology",
+  robots: {
+    index: false,
+    follow: false,
+    noarchive: true,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+    },
+  },
   manifest: "/manifest.json",
   icons: {
     icon: "/brand/legal-app-icon-light.png",

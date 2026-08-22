@@ -1,6 +1,6 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
-import { isPrivacyPath } from "@/lib/publicRoutes";
+import { isPublicIndexPath } from "@/lib/publicRoutes";
 
 function isPublicApi(pathname: string) {
   return (
@@ -16,7 +16,7 @@ export default withAuth(
   function middleware(req) {
     const pathname = req.nextUrl.pathname;
 
-    if (isPrivacyPath(pathname)) {
+    if (isPublicIndexPath(pathname)) {
       return NextResponse.next();
     }
 
@@ -49,7 +49,7 @@ export default withAuth(
 
     callbacks: {
       authorized: ({ token, req }) => {
-        if (isPrivacyPath(req.nextUrl.pathname)) {
+        if (isPublicIndexPath(req.nextUrl.pathname)) {
           return true;
         }
 

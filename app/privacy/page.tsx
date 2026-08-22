@@ -1,13 +1,24 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 
-export const metadata = {
-  title: "Gizlilik Politikası | AL METHER Legal",
+export const metadata: Metadata = {
+  title: { absolute: "Gizlilik Politikası | AL METHER Legal" },
   description: "AL METHER Legal UETS ve CELSE / UYAP köprüleri gizlilik politikası.",
+  alternates: { canonical: "/privacy" },
+  robots: { index: true, follow: true },
+  openGraph: {
+    type: "website",
+    locale: "tr_TR",
+    url: "/privacy",
+    siteName: "AL METHER Legal",
+    title: "Gizlilik Politikası | AL METHER Legal",
+    description: "AL METHER Legal UETS ve CELSE / UYAP köprüleri gizlilik politikası.",
+  },
 };
 
 export default function PrivacyPage() {
   return (
-    <main className="min-h-screen bg-[#f6f3ec] px-5 py-10 text-[#172033] sm:px-8">
+    <main className="h-[100dvh] overflow-y-auto bg-[#f6f3ec] px-5 py-10 text-[#172033] sm:px-8">
       <article className="mx-auto max-w-3xl rounded-[28px] border border-[#d8d1c3] bg-white/95 p-6 shadow-[0_24px_70px_rgba(35,28,18,0.10)] sm:p-10">
         <Image
           src="/brand/legal-logo-light.png"
