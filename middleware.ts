@@ -68,6 +68,7 @@ export const config = {
     "/",
     "/calendar/:path*",
     "/cases/:path*",
+    "/celse-import/:path*",
     "/converter/:path*",
     "/dashboard/:path*",
     "/dashboard-v2/:path*",

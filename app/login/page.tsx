@@ -13,6 +13,42 @@ type LoginPhase = "waiting" | "intro" | "fading" | "form";
 const INTRO_FALLBACK_MS = 7000;
 const INTRO_FADE_MS = 360;
 
+const IMPORT_CALLBACK_PATHS = new Set([
+  "/uets-import",
+  "/celse-import",
+]);
+
+function resolvePostLoginPath() {
+  const defaultPath = "/inbox";
+
+  if (typeof window === "undefined") {
+    return defaultPath;
+  }
+
+  const callbackUrl = new URLSearchParams(window.location.search).get(
+    "callbackUrl"
+  );
+
+  if (!callbackUrl) {
+    return defaultPath;
+  }
+
+  try {
+    const target = new URL(callbackUrl, window.location.origin);
+
+    if (
+      target.origin !== window.location.origin ||
+      !IMPORT_CALLBACK_PATHS.has(target.pathname)
+    ) {
+      return defaultPath;
+    }
+
+    return `${target.pathname}${target.search}${target.hash}`;
+  } catch {
+    return defaultPath;
+  }
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
@@ -23,7 +59,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (status === "authenticated" && session?.user) {
-      router.replace("/inbox");
+      router.replace(resolvePostLoginPath());
       return;
     }
 
@@ -81,7 +117,7 @@ export default function LoginPage() {
     });
 
     if (result?.ok) {
-      router.replace("/inbox");
+      router.replace(resolvePostLoginPath());
       router.refresh();
       return;
     }
