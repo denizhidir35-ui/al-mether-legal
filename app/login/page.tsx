@@ -3,7 +3,7 @@
 import { signIn, useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, MouseEvent, useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 
 import { createClient } from "@/lib/supabaseClient";
@@ -12,6 +12,10 @@ type LoginPhase = "waiting" | "intro" | "fading" | "form";
 
 const INTRO_FALLBACK_MS = 7000;
 const INTRO_FADE_MS = 360;
+const UETS_STORE_URL =
+  "https://chromewebstore.google.com/detail/mether-uets-bridge/cnmjjlkcmficmebjggonppenbkhpmhda";
+const CELSE_STORE_URL =
+  "https://chromewebstore.google.com/detail/mether-celse-uyap-bridge/eeifkhhlennmliiliapibkjhmeoihjhn";
 
 const IMPORT_CALLBACK_PATHS = new Set([
   "/uets-import",
@@ -47,6 +51,28 @@ function resolvePostLoginPath() {
   } catch {
     return defaultPath;
   }
+}
+
+function openBrowserIntegration(event: MouseEvent<HTMLAnchorElement>) {
+  const nativeWebView = (
+    window as Window & {
+      chrome?: {
+        webview?: {
+          postMessage: (message: unknown) => void;
+        };
+      };
+    }
+  ).chrome?.webview;
+
+  if (!nativeWebView) {
+    return;
+  }
+
+  event.preventDefault();
+  nativeWebView.postMessage({
+    source: "METHER_OPEN_EXTERNAL",
+    url: event.currentTarget.href,
+  });
 }
 
 export default function LoginPage() {
@@ -463,18 +489,20 @@ export default function LoginPage() {
               <div className="browser-integration-actions">
                 <a
                   className="browser-integration-link"
-                  href="https://chromewebstore.google.com/detail/mether-uets-bridge/cnmjjlkcmficmebjggonppenbkhpmhda"
+                  href={UETS_STORE_URL}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={openBrowserIntegration}
                 >
                   UETS Bridge
                 </a>
 
                 <a
                   className="browser-integration-link"
-                  href="https://chromewebstore.google.com/detail/mether-celse-uyap-bridge/eeifkhhlennmliiliapibkjhmeoihjhn"
+                  href={CELSE_STORE_URL}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={openBrowserIntegration}
                 >
                   UYAP / CELSE Bridge
                 </a>
