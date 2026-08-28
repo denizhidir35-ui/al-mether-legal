@@ -51,12 +51,16 @@ export async function readAlarmApiResponse<T>(
   try {
     const data = JSON.parse(body) as T & {
       ok?: boolean;
+      error?: unknown;
     };
 
     if (!response.ok || data?.ok === false) {
       return {
         ok: false,
-        error: ALARM_LOAD_ERROR_MESSAGE,
+        error:
+          typeof data?.error === "string" && data.error.trim()
+            ? data.error
+            : ALARM_LOAD_ERROR_MESSAGE,
       };
     }
 

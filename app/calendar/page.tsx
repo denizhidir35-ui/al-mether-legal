@@ -1,7 +1,9 @@
 ﻿"use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PDFDocument } from "pdf-lib";
+import ActionToast from "@/components/ActionToast";
 import LegalBrand from "@/components/LegalBrand";
 import LegalDock from "@/components/LegalDock";
 import LegalSessionControl from "@/components/LegalSessionControl";
@@ -111,6 +113,23 @@ const WEEKDAYS = [
   "Cmt",
   "Paz",
 ];
+
+const RISK_LABELS: Record<string, string> = {
+  critical: "Kritik Risk",
+  high: "Yüksek Risk",
+  normal: "Normal Risk",
+  low: "Düşük Risk",
+};
+
+function getRiskLabel(value?: string) {
+  const key = value?.trim().toLocaleLowerCase("tr-TR") || "";
+  if (!key) return "Bilgi yok";
+
+  return RISK_LABELS[key] ||
+    key
+      .replace(/[_-]+/g, " ")
+      .replace(/^./, (letter) => letter.toLocaleUpperCase("tr-TR"));
+}
 
 function pad(value: number): string {
   return String(value).padStart(2, "0");
@@ -318,6 +337,9 @@ export default function CalendarPage() {
     useState(false);
 
   const [checklistError, setChecklistError] =
+    useState("");
+
+  const [saveFeedback, setSaveFeedback] =
     useState("");
 
   const monthRange = useMemo(() => {
@@ -1107,6 +1129,7 @@ export default function CalendarPage() {
             : item
         )
       );
+      setSaveFeedback("Takvim kaydı güncellendi");
     } catch (error) {
       setAttachmentsError(
         error instanceof Error
@@ -1252,6 +1275,7 @@ export default function CalendarPage() {
 
       setSavedNotes(notes);
       setNotesEditing(false);
+      setSaveFeedback("Takvim kaydı güncellendi");
     } catch (error) {
       setNotesError(
         error instanceof Error
@@ -1302,6 +1326,7 @@ export default function CalendarPage() {
       setNotes("");
       setSavedNotes("");
       setNotesEditing(true);
+      setSaveFeedback("Takvim kaydı güncellendi");
     } catch (error) {
       setNotesError(
         error instanceof Error
@@ -1429,6 +1454,7 @@ export default function CalendarPage() {
             "Checklist kaydedilemedi."
         );
       }
+      setSaveFeedback("Takvim kaydı güncellendi");
     } catch (error) {
       setChecklist({
         ...nextChecklist,
@@ -1559,7 +1585,9 @@ export default function CalendarPage() {
         !result.data?.alarm
       ) {
         throw new Error(
-          "Alarm durumu değiştirilemedi."
+          result.ok
+            ? "Alarm durumu değiştirilemedi."
+            : result.error
         );
       }
 
@@ -1576,9 +1604,12 @@ export default function CalendarPage() {
                 : item
           )
       );
+      setSaveFeedback("Takvim kaydı güncellendi");
     } catch (error) {
       setAlarmsError(
-          "Alarm durumu değiştirilemedi."
+        error instanceof Error
+          ? error.message
+          : "Alarm durumu değiştirilemedi."
       );
     } finally {
       setAlarmChangingId("");
@@ -2265,6 +2296,15 @@ export default function CalendarPage() {
         .detail-grid {
           display: grid;
           gap: 8px;
+        }
+
+        .event-case-action {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: fit-content;
+          margin-top: 12px;
+          text-decoration: none;
         }
 
         .detail-row {
@@ -10963,11 +11003,26 @@ export default function CalendarPage() {
                         <div className="detail-row">
                           <span>Risk</span>
                           <strong>
-                            {selectedEvent.risk ||
-                              "Bilgi yok"}
+                            {getRiskLabel(selectedEvent.risk)}
                           </strong>
                         </div>
                       </div>
+
+                      {selectedEvent.caseId ? (
+                        <Link
+                          className="small-button event-case-action"
+                          href={`/cases?case=${encodeURIComponent(selectedEvent.caseId)}`}
+                        >
+                          Davayı Aç
+                        </Link>
+                      ) : (
+                        <Link
+                          className="small-button event-case-action"
+                          href={`/cases?calendarEvent=${encodeURIComponent(selectedEvent.id)}`}
+                        >
+                          Davayla ilişkilendir
+                        </Link>
+                      )}
                     </section>
                   )}
 
@@ -11519,6 +11574,10 @@ export default function CalendarPage() {
       </section>
       <LegalSessionControl />
       <LegalDock />
+      <ActionToast
+        message={saveFeedback}
+        onDismiss={() => setSaveFeedback("")}
+      />
 </main>
   );
 }

@@ -5,6 +5,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import ActionToast from "@/components/ActionToast";
 
 type Party = {
   id: string;
@@ -21,37 +22,47 @@ type Party = {
 type Draft = {
   id?: string;
   role: string;
-  party_type: string;
   name: string;
-  is_client: boolean;
-  identity_no: string;
   phone: string;
   email: string;
-  note: string;
 };
 
 const EMPTY: Draft = {
-  role: "davaci",
-  party_type: "person",
+  role: "muvekkil",
   name: "",
-  is_client: false,
-  identity_no: "",
   phone: "",
   email: "",
-  note: "",
 };
 
-const ROLE_LABELS: Record<string, string> = {
+const ROLE_LABELS = {
   muvekkil: "Müvekkil",
-  davaci: "Davacı",
-  davali: "Davalı",
-  sanik: "Sanık",
-  supheli: "Şüpheli",
-  katilan: "Katılan",
-  feri_mudahil: "Feri Müdahil",
+  karsi_taraf: "Karşı Taraf",
   vekil: "Vekil",
-  diger: "Diğer",
-};
+  kurum: "Kurum",
+} as const;
+
+function getUiRole(party: Party) {
+  if (party.is_client || party.role === "muvekkil") return "muvekkil";
+  if (party.party_type === "organization") return "kurum";
+  if (party.role === "vekil") return "vekil";
+  return "karsi_taraf";
+}
+
+function getApiFields(role: string) {
+  if (role === "muvekkil") {
+    return { role: "muvekkil", party_type: "person", is_client: true };
+  }
+
+  if (role === "vekil") {
+    return { role: "vekil", party_type: "person", is_client: false };
+  }
+
+  if (role === "kurum") {
+    return { role: "diger", party_type: "organization", is_client: false };
+  }
+
+  return { role: "davali", party_type: "person", is_client: false };
+}
 
 export default function CasePartiesEditor({
   caseId,
@@ -67,6 +78,8 @@ export default function CasePartiesEditor({
   const [saving, setSaving] =
     useState(false);
   const [error, setError] =
+    useState("");
+  const [feedback, setFeedback] =
     useState("");
 
   const load = useCallback(async () => {
@@ -110,14 +123,10 @@ export default function CasePartiesEditor({
   function startEdit(party: Party) {
     setDraft({
       id: party.id,
-      role: party.role,
-      party_type: party.party_type,
+      role: getUiRole(party),
       name: party.name,
-      is_client: party.is_client,
-      identity_no: party.identity_no || "",
       phone: party.phone || "",
       email: party.email || "",
-      note: party.note || "",
     });
     setError("");
   }
@@ -139,20 +148,33 @@ export default function CasePartiesEditor({
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(draft),
+          body: JSON.stringify({
+            ...draft,
+            ...getApiFields(draft.role),
+          }),
         }
       );
 
       const data = await response.json();
 
-      if (!response.ok || !data?.ok) {
+      if (!response.ok || !data?.ok || !data?.party) {
         throw new Error(
           data?.error || "Taraf kaydedilemedi."
         );
       }
 
+      const wasEditing = Boolean(draft.id);
+      const savedParty = data.party as Party;
+
+      setParties((current) =>
+        wasEditing
+          ? current.map((party) =>
+              party.id === savedParty.id ? savedParty : party
+            )
+          : [...current, savedParty]
+      );
       setDraft(null);
-      await load();
+      setFeedback(wasEditing ? "Taraf güncellendi" : "Taraf eklendi");
     } catch (err) {
       setError(
         err instanceof Error
@@ -189,7 +211,10 @@ export default function CasePartiesEditor({
         );
       }
 
-      await load();
+      setParties((current) =>
+        current.filter((item) => item.id !== party.id)
+      );
+      setFeedback("Taraf kaldırıldı");
     } catch (err) {
       setError(
         err instanceof Error
@@ -239,16 +264,9 @@ export default function CasePartiesEditor({
               <div>
                 <strong>{party.name}</strong>
                 <small>
-                  {ROLE_LABELS[party.role] ||
-                    party.role}
-                  {party.is_client
-                    ? " · Müvekkil"
-                    : ""}
-                  {" · "}
-                  {party.party_type ===
-                  "organization"
-                    ? "Kurum"
-                    : "Kişi"}
+                  {ROLE_LABELS[getUiRole(party)]}
+                  {party.phone ? ` · ${party.phone}` : ""}
+                  {party.email ? ` · ${party.email}` : ""}
                 </small>
               </div>
 
@@ -269,7 +287,7 @@ export default function CasePartiesEditor({
                     void remove(party)
                   }
                 >
-                  Çıkar
+                  Kaldır
                 </button>
               </div>
             </div>
@@ -290,41 +308,15 @@ export default function CasePartiesEditor({
                 })
               }
             >
-              <option value="davaci">Davacı</option>
-              <option value="davali">Davalı</option>
               <option value="muvekkil">Müvekkil</option>
-              <option value="sanik">Sanık</option>
-              <option value="supheli">Şüpheli</option>
-              <option value="katilan">Katılan</option>
-              <option value="feri_mudahil">
-                Feri Müdahil
-              </option>
+              <option value="karsi_taraf">Karşı Taraf</option>
               <option value="vekil">Vekil</option>
-              <option value="diger">Diğer</option>
+              <option value="kurum">Kurum</option>
             </select>
           </label>
 
           <label>
-            <span>Tip</span>
-            <select
-              value={draft.party_type}
-              onChange={(event) =>
-                setDraft({
-                  ...draft,
-                  party_type:
-                    event.target.value,
-                })
-              }
-            >
-              <option value="person">Kişi</option>
-              <option value="organization">
-                Kurum
-              </option>
-            </select>
-          </label>
-
-          <label>
-            <span>Ad Soyad / Ünvan</span>
+            <span>Ad / Ünvan</span>
             <input
               value={draft.name}
               onChange={(event) =>
@@ -337,38 +329,7 @@ export default function CasePartiesEditor({
           </label>
 
           <label>
-            <span>
-              <input
-                type="checkbox"
-                checked={draft.is_client}
-                onChange={(event) =>
-                  setDraft({
-                    ...draft,
-                    is_client:
-                      event.target.checked,
-                  })
-                }
-              />
-              {" "}Bu taraf müvekkilim
-            </span>
-          </label>
-
-          <label>
-            <span>TCKN / VKN</span>
-            <input
-              value={draft.identity_no}
-              onChange={(event) =>
-                setDraft({
-                  ...draft,
-                  identity_no:
-                    event.target.value,
-                })
-              }
-            />
-          </label>
-
-          <label>
-            <span>Telefon</span>
+            <span>Telefon (opsiyonel)</span>
             <input
               value={draft.phone}
               onChange={(event) =>
@@ -381,7 +342,7 @@ export default function CasePartiesEditor({
           </label>
 
           <label>
-            <span>E-posta</span>
+            <span>E-posta (opsiyonel)</span>
             <input
               type="email"
               value={draft.email}
@@ -389,19 +350,6 @@ export default function CasePartiesEditor({
                 setDraft({
                   ...draft,
                   email: event.target.value,
-                })
-              }
-            />
-          </label>
-
-          <label>
-            <span>Not</span>
-            <textarea
-              value={draft.note}
-              onChange={(event) =>
-                setDraft({
-                  ...draft,
-                  note: event.target.value,
                 })
               }
             />
@@ -439,6 +387,11 @@ export default function CasePartiesEditor({
           {error}
         </div>
       )}
+
+      <ActionToast
+        message={feedback}
+        onDismiss={() => setFeedback("")}
+      />
 
       <style jsx>{`
         .case-party-editor {

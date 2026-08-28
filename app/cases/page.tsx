@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import ActionToast from "@/components/ActionToast";
 import CasePartiesEditor from "@/components/cases/CasePartiesEditor";
 
 import LegalBrand from "@/components/LegalBrand";
@@ -200,6 +201,37 @@ const EMPTY_DOCUMENT_PREVIEW:
   };
 
 const UNCLASSIFIED_CASE_TYPE = "__unclassified__";
+
+const CASE_STATUS_LABELS: Record<string, string> = {
+  active: "Aktif",
+  closed: "Kapalı",
+  pending: "Beklemede",
+  archived: "Arşivlendi",
+  completed: "Tamamlandı",
+  inactive: "Pasif",
+};
+
+const RISK_LABELS: Record<string, string> = {
+  critical: "Kritik Risk",
+  high: "Yüksek Risk",
+  normal: "Normal Risk",
+  low: "Düşük Risk",
+};
+
+const DEADLINE_STATUS_LABELS: Record<string, string> = {
+  active: "Aktif",
+  open: "Açık",
+  pending: "Beklemede",
+  completed: "Tamamlandı",
+  closed: "Kapalı",
+  inactive: "Pasif",
+};
+
+function enumLabel(labels: Record<string, string>, value: string | null | undefined) {
+  const key = value?.trim().toLocaleLowerCase("tr-TR") || "";
+  if (!key) return "Bilgi yok";
+  return labels[key] || key.replace(/[_-]+/g, " ").replace(/^./, (letter) => letter.toLocaleUpperCase("tr-TR"));
+}
 
 function normalizeCaseTypeKey(value: string) {
   return value
@@ -485,6 +517,8 @@ export default function CasesPage() {
     useState(false);
 
   const [editError, setEditError] =
+    useState("");
+  const [saveFeedback, setSaveFeedback] =
     useState("");
   const [deleteCandidate, setDeleteCandidate] =
     useState<LegalCase | null>(null);
@@ -1469,6 +1503,7 @@ export default function CasesPage() {
       );
 
       setEditCase(null);
+      setSaveFeedback("Dava güncellendi");
     } catch (error) {
       setEditError(
         error instanceof Error
@@ -9554,10 +9589,10 @@ export default function CasesPage() {
                       <div className="case-overview">
                         <div className="case-badges">
                           <span className={`case-status status-${item.status || "active"}`}>
-                            {item.status || "active"}
+                            {enumLabel(CASE_STATUS_LABELS, item.status || "active")}
                           </span>
                           <span className={`risk-badge risk-${item.risk_level || "normal"}`}>
-                            {item.risk_level || "normal"}
+                            {enumLabel(RISK_LABELS, item.risk_level || "normal")}
                           </span>
                         </div>
 
@@ -10012,8 +10047,10 @@ export default function CasesPage() {
 
                                             <div className="case-mail-sender">
                                               Durum:{" "}
-                                              {deadline.status ||
-                                                "active"}
+                                              {enumLabel(
+                                                DEADLINE_STATUS_LABELS,
+                                                deadline.status || "active"
+                                              )}
                                             </div>
                                           </div>
 
@@ -10123,26 +10160,36 @@ export default function CasesPage() {
 
               <label>
                 <span>Durum</span>
-                <input
+                <select
                   value={editStatus}
                   onChange={(event) =>
                     setEditStatus(
                       event.target.value
                     )
                   }
-                />
+                >
+                  <option value="active">Aktif</option>
+                  <option value="pending">Beklemede</option>
+                  <option value="closed">Kapalı</option>
+                  <option value="archived">Arşivlendi</option>
+                </select>
               </label>
 
               <label>
                 <span>Risk</span>
-                <input
+                <select
                   value={editRiskLevel}
                   onChange={(event) =>
                     setEditRiskLevel(
                       event.target.value
                     )
                   }
-                />
+                >
+                  <option value="low">Düşük Risk</option>
+                  <option value="normal">Normal Risk</option>
+                  <option value="high">Yüksek Risk</option>
+                  <option value="critical">Kritik Risk</option>
+                </select>
               </label>
             </div>
 
@@ -10184,6 +10231,10 @@ export default function CasesPage() {
           </section>
         </div>
       )}
+      <ActionToast
+        message={saveFeedback}
+        onDismiss={() => setSaveFeedback("")}
+      />
       {manualReminderCase && (
         <div
           className="manual-reminder-backdrop"
