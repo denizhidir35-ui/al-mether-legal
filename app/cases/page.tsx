@@ -49,6 +49,10 @@ import {
   type BatchSaveProgress,
   type BatchSaveResult,
 } from "@/lib/legal/batchSaveClient";
+import {
+  matchesCaseStatusFilter,
+  type CaseListStatusFilter,
+} from "@/lib/legal/caseStatus";
 
 type LegalDeadline = {
   id: string;
@@ -297,6 +301,9 @@ export default function CasesPage() {
   const [caseQuickFilter, setCaseQuickFilter] =
     useState<"all" | "critical" | "hearing">("all");
 
+  const [caseStatusFilter, setCaseStatusFilter] =
+    useState<CaseListStatusFilter>("all");
+
   const [manualOpen, setManualOpen] =
     useState(false);
 
@@ -391,6 +398,9 @@ export default function CasesPage() {
 
   const [batchSaveError, setBatchSaveError] =
     useState("");
+
+  const [batchImportStatus, setBatchImportStatus] =
+    useState<"active" | "archived">("active");
 
   const pdfInputRef =
     useRef<HTMLInputElement>(null);
@@ -681,9 +691,18 @@ export default function CasesPage() {
           )
         : cases;
 
+      const statusFilteredCases =
+        typeFilteredCases.filter(
+          (item) =>
+            matchesCaseStatusFilter(
+              item.status,
+              caseStatusFilter
+            )
+        );
+
       const searchedCases = typeValue || !value
-        ? typeFilteredCases
-        : typeFilteredCases.filter((item) => {
+        ? statusFilteredCases
+        : statusFilteredCases.filter((item) => {
             const text = [
               item.case_number,
               item.court_name,
@@ -715,7 +734,7 @@ export default function CasesPage() {
       }
 
       return searchedCases;
-    }, [caseQuickFilter, caseTypeFilter, cases, search]);
+    }, [caseQuickFilter, caseStatusFilter, caseTypeFilter, cases, search]);
 
   const activeCaseCount = useMemo(
     () => cases.filter((item) => (item.status || "active") === "active").length,
@@ -2110,13 +2129,6 @@ export default function CasesPage() {
       return;
     }
 
-    if (files.length === 1) {
-      void analyzeCaseDocument(
-        files[0]
-      );
-      return;
-    }
-
     try {
       setBatchAnalyzing(true);
       setBatchResult(null);
@@ -2280,6 +2292,10 @@ export default function CasesPage() {
             setBatchSaveProgress(
               progress
             );
+          },
+          {
+            status:
+              batchImportStatus,
           }
         );
 
@@ -2289,21 +2305,6 @@ export default function CasesPage() {
 
       await loadCases();
 
-      const batchCompletedCleanly =
-        result.failures.length === 0 &&
-        result.skippedReviewCases === 0;
-
-      if (batchCompletedCleanly) {
-        await new Promise((resolve) =>
-          setTimeout(resolve, 900)
-        );
-
-        setBatchResult(null);
-        setBatchProgress(null);
-        setBatchSaveProgress(null);
-        setBatchSaveResult(null);
-        setBatchSaveError("");
-      }
     } catch (saveError) {
       setBatchSaveError(
         saveError instanceof Error
@@ -2337,8 +2338,8 @@ export default function CasesPage() {
       of batchSaveResult.failures
     ) {
       if (
-        failure.scope ===
-        "case"
+        failure.scope === "case" ||
+        failure.scope === "metadata"
       ) {
         retryGroupKeys.add(
           failure.groupKey
@@ -2381,6 +2382,8 @@ export default function CasesPage() {
             );
           },
           {
+            status:
+              batchImportStatus,
             retryGroupKeys,
             retryDocumentIds,
           }
@@ -2392,27 +2395,6 @@ export default function CasesPage() {
 
       await loadCases();
 
-      const batchCompletedCleanly =
-        result.failures.length ===
-          0 &&
-        result.skippedReviewCases ===
-          0;
-
-      if (batchCompletedCleanly) {
-        await new Promise(
-          (resolve) =>
-            setTimeout(
-              resolve,
-              900
-            )
-        );
-
-        setBatchResult(null);
-        setBatchProgress(null);
-        setBatchSaveProgress(null);
-        setBatchSaveResult(null);
-        setBatchSaveError("");
-      }
     } catch (saveError) {
       setBatchSaveError(
         saveError instanceof Error
@@ -2676,16 +2658,7 @@ export default function CasesPage() {
     }
 
     const title =
-      documentPreview.subject.trim() ||
-      documentPreview.fileNo.trim() ||
-      documentPreview.sourceDocument.trim();
-
-    if (!title) {
-      setError(
-        "Konu veya dosya numarası girin."
-      );
-      return;
-    }
+      documentPreview.subject.trim();
 
     try {
       setDocumentSaving(true);
@@ -8468,15 +8441,30 @@ export default function CasesPage() {
           <span className="case-result-count">{filteredCases.length} kayıt gösteriliyor</span>
           <button
             type="button"
-            className={!caseTypeFilter && caseQuickFilter === "all" ? "active" : ""}
+            className={caseStatusFilter === "all" ? "active" : ""}
             onClick={() => {
-              setCaseQuickFilter("all");
-              setCaseTypeFilter("");
-              setSearch("");
-              router.replace("/cases");
+              setCaseStatusFilter("all");
             }}
           >
             Tümü
+          </button>
+          <button
+            type="button"
+            className={caseStatusFilter === "active" ? "active" : ""}
+            onClick={() => {
+              setCaseStatusFilter("active");
+            }}
+          >
+            Aktif
+          </button>
+          <button
+            type="button"
+            className={caseStatusFilter === "archive" ? "active" : ""}
+            onClick={() => {
+              setCaseStatusFilter("archive");
+            }}
+          >
+            Kapalı-Arşiv
           </button>
           <button
             type="button"
@@ -8745,6 +8733,45 @@ export default function CasesPage() {
               </button>
             </div>
 
+            <label
+              style={{
+                display: "grid",
+                gap: 6,
+                maxWidth: 360,
+              }}
+            >
+              <span>Dava durumu</span>
+              <select
+                value={batchImportStatus}
+                disabled={
+                  batchAnalyzing ||
+                  batchSaving
+                }
+                onChange={(event) =>
+                  setBatchImportStatus(
+                    event.target.value ===
+                      "archived"
+                      ? "archived"
+                      : "active"
+                  )
+                }
+              >
+                <option value="active">
+                  Aktif dava
+                </option>
+                <option value="archived">
+                  Eski / kapalı dava (Arşiv)
+                </option>
+              </select>
+              <small>
+                Eski dava belgeleri yeni
+                kayıt oluşturursa Arşiv
+                görünümünde saklanır.
+                Mevcut davanın durumu
+                değiştirilmez.
+              </small>
+            </label>
+
             {documentAnalyzing && (
               <div className="state-box">
                 Belge analiz ediliyor...
@@ -8950,32 +8977,25 @@ export default function CasesPage() {
                       </strong>
 
                       <div>
-                        {
-                          batchSaveResult.createdCases
-                        }{" "}
-                        dava oluşturuldu ·{" "}
-                        {
-                          batchSaveResult.matchedCases
-                        }{" "}
-                        dava eşleşti ·{" "}
-                        {
-                          batchSaveResult.savedDocuments
-                        }{" "}
-                        belge kaydedildi ·{" "}
-                        {
-                          batchSaveResult.duplicateDocuments +
-                          batchSaveResult.inputDuplicateDocuments
-                        }{" "}
-                        tekrar belge ·{" "}
-                        {
-                          batchSaveResult.skippedReviewCases
-                        }{" "}
-                        kontrol gerekli ·{" "}
-                        {
-                          batchSaveResult.failures.length
-                        }{" "}
-                        başarısız
+                        Toplam: {batchResult.grouped.totalDocuments}
+                        {" · "}
+                        Başarılı: {batchSaveResult.savedDocuments + batchSaveResult.duplicateDocuments}
+                        {" · "}
+                        Yeni dava: {batchSaveResult.createdCases}
+                        {" · "}
+                        Mevcut davaya eşleşen: {batchSaveResult.matchedCases}
+                        {" · "}
+                        Duplicate: {batchSaveResult.duplicateDocuments + batchSaveResult.inputDuplicateDocuments}
+                        {" · "}
+                        Hatalı: {batchResult.failures.length + batchSaveResult.failures.length}
                       </div>
+
+                      {batchSaveResult.skippedReviewCases >
+                        0 && (
+                        <div>
+                          Kontrol bekleyen dava: {batchSaveResult.skippedReviewCases}
+                        </div>
+                      )}
 
                       {batchSaveResult.failures.length >
                         0 && (

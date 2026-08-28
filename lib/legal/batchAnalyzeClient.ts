@@ -1,7 +1,7 @@
 import {
   groupBatchDocuments,
   type BatchDocumentCandidate,
-} from "@/lib/legal/batchDocuments";
+} from "./batchDocuments";
 
 export type BatchAnalyzeProgress = {
   completed: number;
@@ -262,9 +262,6 @@ export async function analyzeBatchDocumentFile(
 
     caseType:
       document.caseType ||
-      document.subject ||
-      document
-        .documentTypeLabel ||
       "",
 
     caseValue:

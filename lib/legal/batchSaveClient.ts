@@ -1,11 +1,11 @@
 import type {
   BatchAnalyzeResult,
-} from "@/lib/legal/batchAnalyzeClient";
+} from "./batchAnalyzeClient";
 
 import type {
   BatchDocumentCandidate,
   BatchDocumentGroup,
-} from "@/lib/legal/batchDocuments";
+} from "./batchDocuments";
 
 export type BatchSaveProgress = {
   completedCases: number;
@@ -21,6 +21,7 @@ export type BatchSaveProgress = {
 export type BatchSaveFailure = {
   scope:
     | "case"
+    | "metadata"
     | "document";
 
   groupKey: string;
@@ -51,6 +52,10 @@ export type BatchSaveResult = {
 };
 
 export type BatchSaveOptions = {
+  status?:
+    | "active"
+    | "archived";
+
   /*
    * Dava kaydı başarısız olduysa
    * grubun tamamı yeniden denenir.
@@ -68,12 +73,20 @@ function documentsForGroup(
   group: BatchDocumentGroup,
   options?: BatchSaveOptions
 ) {
-  if (!options) {
+  const hasRetryFilter =
+    Boolean(
+      options?.retryGroupKeys
+        ?.size ||
+      options?.retryDocumentIds
+        ?.size
+    );
+
+  if (!hasRetryFilter) {
     return group.documents;
   }
 
   if (
-    options.retryGroupKeys?.has(
+    options?.retryGroupKeys?.has(
       group.key
     )
   ) {
@@ -81,7 +94,7 @@ function documentsForGroup(
   }
 
   const retryDocumentIds =
-    options.retryDocumentIds;
+    options?.retryDocumentIds;
 
   if (
     !retryDocumentIds ||
@@ -149,14 +162,8 @@ function getErrorMessage(
 function buildCaseTitle(
   group: BatchDocumentGroup
 ) {
-  return (
-    group.summary.subject.trim() ||
-    group.summary.caseType.trim() ||
-    group.fileNo.trim() ||
-    group.documents[0]
-      ?.fileName.trim() ||
-    "Hukuki Dava"
-  );
+  return group.summary
+    .subject.trim();
 }
 
 function buildCaseNote(
@@ -340,7 +347,10 @@ async function saveAttachment(
 }
 
 async function resolveCase(
-  group: BatchDocumentGroup
+  group: BatchDocumentGroup,
+  status:
+    | "active"
+    | "archived"
 ) {
   const firstDocumentIdentity =
     group.documents
@@ -389,7 +399,7 @@ async function resolveCase(
             null,
 
           status:
-            "active",
+            status,
 
           risk_level:
             "normal",
@@ -462,6 +472,311 @@ async function resolveCase(
     duplicate:
       data.duplicate === true,
   };
+}
+
+function normalizePartyIdentity(
+  value: string
+) {
+  return value
+    .toLocaleLowerCase("tr-TR")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractLabeledParty(
+  parties: string,
+  label:
+    | "Müvekkil"
+    | "Davacı"
+    | "Davalı"
+) {
+  const escapedLabel =
+    label.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      "\\$&"
+    );
+  const match =
+    parties.match(
+      new RegExp(
+        `(?:^|[\\n;])\\s*${escapedLabel}\\s*:\\s*(.+?)(?=(?:[\\n;]\\s*(?:Müvekkil|Davacı|Davalı|Vekil)\\s*:)|$)`,
+        "iu"
+      )
+    );
+
+  return match?.[1]?.trim() || "";
+}
+
+async function saveCaseParties(
+  caseId: string,
+  group: BatchDocumentGroup
+) {
+  const labeledClient =
+    extractLabeledParty(
+      group.summary.parties,
+      "Müvekkil"
+    );
+  const labeledPlaintiff =
+    extractLabeledParty(
+      group.summary.parties,
+      "Davacı"
+    );
+  const labeledDefendant =
+    extractLabeledParty(
+      group.summary.parties,
+      "Davalı"
+    );
+
+  const candidates = [
+    labeledClient
+      ? {
+          role: "muvekkil",
+          name: labeledClient,
+          isClient: true,
+        }
+      : null,
+    (
+      group.summary.plaintiff ||
+      labeledPlaintiff
+    )
+      ? {
+          role: "davaci",
+          name:
+            group.summary.plaintiff ||
+            labeledPlaintiff,
+          isClient: false,
+        }
+      : null,
+    (
+      group.summary.defendant ||
+      labeledDefendant
+    )
+      ? {
+          role: "davali",
+          name:
+            group.summary.defendant ||
+            labeledDefendant,
+          isClient: false,
+        }
+      : null,
+    ...group.summary.lawyers.map(
+      (name) => ({
+        role: "vekil",
+        name,
+        isClient: false,
+      })
+    ),
+  ].filter(
+    (
+      item
+    ): item is {
+      role: string;
+      name: string;
+      isClient: boolean;
+    } => Boolean(item?.name.trim())
+  );
+
+  if (candidates.length === 0) {
+    return;
+  }
+
+  const endpoint =
+    `/api/cases/${encodeURIComponent(
+      caseId
+    )}/parties`;
+
+  const existingResponse =
+    await fetch(endpoint, {
+      cache: "no-store",
+    });
+
+  const existingData =
+    await readResponse(
+      existingResponse
+    );
+
+  if (!existingResponse.ok) {
+    throw new Error(
+      getErrorMessage(
+        existingData,
+        "Taraf kayıtları alınamadı."
+      )
+    );
+  }
+
+  const existingParties =
+    Array.isArray(
+      existingData.parties
+    )
+      ? existingData.parties
+      : [];
+
+  const identities =
+    new Set(
+      existingParties.flatMap(
+        (party) => {
+          if (
+            !party ||
+            typeof party !==
+              "object"
+          ) {
+            return [];
+          }
+
+          const record =
+            party as Record<
+              string,
+              unknown
+            >;
+          const role =
+            typeof record.role ===
+              "string"
+              ? record.role
+              : "";
+          const name =
+            typeof record.name ===
+              "string"
+              ? record.name
+              : "";
+
+          return [
+            role + ":" +
+              normalizePartyIdentity(
+                name
+              ),
+          ];
+        }
+      )
+    );
+
+  for (const party of candidates) {
+    const identity =
+      party.role + ":" +
+      normalizePartyIdentity(
+        party.name
+      );
+
+    if (identities.has(identity)) {
+      continue;
+    }
+
+    const response =
+      await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+        body: JSON.stringify({
+          role: party.role,
+          party_type: "person",
+          name: party.name,
+          is_client:
+            party.isClient,
+        }),
+      });
+
+    const data =
+      await readResponse(response);
+
+    if (!response.ok) {
+      throw new Error(
+        getErrorMessage(
+          data,
+          `${party.name} taraf kaydı oluşturulamadı.`
+        )
+      );
+    }
+
+    identities.add(identity);
+  }
+}
+
+async function saveCaseDates(
+  caseId: string,
+  group: BatchDocumentGroup
+) {
+  const hearingAt =
+    group.summary.hearingDate &&
+    group.summary.hearingTime
+      ? `${group.summary.hearingDate}T${group.summary.hearingTime}`
+      : "";
+
+  const manualDeadline =
+    group.summary.explicitDeadline ||
+    "";
+
+  if (!hearingAt && !manualDeadline) {
+    return;
+  }
+
+  const response =
+    await fetch(
+      "/api/cases/manual-calendar",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+        body: JSON.stringify({
+          caseId,
+          hearingAt:
+            hearingAt || null,
+          manualDeadline:
+            manualDeadline || null,
+          note:
+            buildCaseNote(group) ||
+            null,
+        }),
+      }
+    );
+
+  const data =
+    await readResponse(response);
+
+  if (!response.ok) {
+    throw new Error(
+      getErrorMessage(
+        data,
+        "Duruşma / son tarih kaydedilemedi."
+      )
+    );
+  }
+}
+
+async function saveCaseAutofill(
+  caseId: string,
+  group: BatchDocumentGroup
+) {
+  const failures: string[] = [];
+
+  try {
+    await saveCaseParties(
+      caseId,
+      group
+    );
+  } catch (error) {
+    failures.push(
+      error instanceof Error
+        ? error.message
+        : "Taraflar kaydedilemedi."
+    );
+  }
+
+  try {
+    await saveCaseDates(
+      caseId,
+      group
+    );
+  } catch (error) {
+    failures.push(
+      error instanceof Error
+        ? error.message
+        : "Duruşma / son tarih kaydedilemedi."
+    );
+  }
+
+  return failures;
 }
 
 export async function saveLegalBatch(
@@ -564,7 +879,9 @@ export async function saveLegalBatch(
     try {
       const caseResult =
         await resolveCase(
-          group
+          group,
+          options?.status ||
+            "active"
         );
 
       caseId =
@@ -576,6 +893,25 @@ export async function saveLegalBatch(
         matchedCases += 1;
       } else {
         createdCases += 1;
+      }
+
+      const autofillFailures =
+        await saveCaseAutofill(
+          caseId,
+          group
+        );
+
+      if (
+        autofillFailures.length > 0
+      ) {
+        failures.push({
+          scope: "metadata",
+          groupKey: group.key,
+          error:
+            autofillFailures.join(
+              " "
+            ),
+        });
       }
     } catch (error) {
       failures.push({
@@ -715,7 +1051,10 @@ export async function saveLegalBatch(
     skippedReviewCases,
 
     inputDuplicateDocuments:
-      options
+      options?.retryGroupKeys
+        ?.size ||
+      options?.retryDocumentIds
+        ?.size
         ? 0
         : batch.grouped
             .duplicateDocuments,

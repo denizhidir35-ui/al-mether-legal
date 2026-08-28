@@ -211,12 +211,9 @@ function bestCaseType(
 ) {
   const candidates =
     uniqueTexts(
-      documents.flatMap(
-        (document) => [
-          document.caseType,
-          document.subject,
-          document.documentTypeLabel,
-        ]
+      documents.map(
+        (document) =>
+          document.caseType
       )
     );
 
@@ -229,16 +226,12 @@ function bestCaseType(
       "bilinmeyen",
     ]);
 
-  return (
-    candidates.find(
-      (value) =>
-        !generic.has(
-          normalizeValue(value)
-        )
-    ) ||
-    candidates[0] ||
-    ""
-  );
+  return candidates.find(
+    (value) =>
+      !generic.has(
+        normalizeValue(value)
+      )
+  ) || "";
 }
 
 function uniqueTexts(

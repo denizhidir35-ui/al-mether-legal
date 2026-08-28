@@ -249,9 +249,19 @@ export async function POST(request: Request) {
 
   const body = await request.json();
 
-  const caseTitle = body.case_title?.toString()?.trim();
+  const caseTitle =
+    body.case_title
+      ?.toString()
+      ?.trim() || "";
 
-  if (!caseTitle) {
+  const isDocumentUpload =
+    body.source ===
+      "document_upload";
+
+  if (
+    !caseTitle &&
+    !isDocumentUpload
+  ) {
     return NextResponse.json(
       { error: "Dosya başlığı zorunludur." },
       { status: 400 }
@@ -309,10 +319,6 @@ export async function POST(request: Request) {
       .toLocaleLowerCase("tr-TR") ||
     "";
 
-  const isDocumentUpload =
-    body.source ===
-      "document_upload";
-
   if (
     isDocumentUpload &&
     documentIdentity &&
@@ -337,6 +343,77 @@ export async function POST(request: Request) {
     isDocumentUpload &&
     documentIdentity
   ) {
+    const existingDocumentRecord =
+      await supabase
+        .from(
+          "case_document_records"
+        )
+        .select("case_id")
+        .eq(
+          "user_id",
+          appUser.id
+        )
+        .eq(
+          "document_identity",
+          documentIdentity
+        )
+        .limit(1)
+        .maybeSingle();
+
+    if (
+      existingDocumentRecord.error
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            existingDocumentRecord
+              .error.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    if (
+      existingDocumentRecord.data
+    ) {
+      const recordedCase =
+        await supabase
+          .from("legal_cases")
+          .select("*")
+          .eq(
+            "id",
+            existingDocumentRecord
+              .data.case_id
+          )
+          .eq(
+            "user_id",
+            appUser.id
+          )
+          .maybeSingle();
+
+      if (recordedCase.error) {
+        return NextResponse.json(
+          {
+            error:
+              recordedCase.error
+                .message,
+          },
+          { status: 500 }
+        );
+      }
+
+      if (recordedCase.data) {
+        return NextResponse.json({
+          case:
+            recordedCase.data,
+          duplicate: true,
+          duplicateReason:
+            "document_record_identity",
+          enriched: false,
+        });
+      }
+    }
+
     const existingDocument =
       await supabase
         .from("legal_cases")
@@ -709,7 +786,8 @@ export async function POST(request: Request) {
       user_id: appUser.id,
       case_number: caseNumber || null,
       court_name: body.court_name || null,
-      case_title: caseTitle,
+      case_title:
+        caseTitle || null,
       case_type: body.case_type || null,
       status: body.status || "active",
       risk_level: body.risk_level || "normal",
