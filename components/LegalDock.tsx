@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { signOutLegalSession } from "@/components/LegalSessionControl";
 import LegalBrand from "@/components/LegalBrand";
+import { Bell, CalendarDays, Camera, Files, House, Image as ImageIcon, Mail, Scale, Upload, UserRound, X } from "lucide-react";
 
 type LegalTheme = "light" | "dark";
 
@@ -216,10 +217,10 @@ export default function LegalDock() {
   );
 
   const mobileNavItems = [
-    { href: "/", icon: "⌂", label: "Bugün" },
-    { href: "/cases", icon: "⚖", label: "Davalar" },
-    { href: "/inbox", icon: "✉", label: "Mail" },
-    { href: "/calendar", icon: "▦", label: "Takvim" },
+    { href: "/", icon: "⌂", Icon: House, label: "Bugün" },
+    { href: "/cases", icon: "⚖", Icon: Files, label: "Davalar" },
+    { href: "/inbox", icon: "✉", Icon: Mail, label: "Mail" },
+    { href: "/calendar", icon: "▦", Icon: CalendarDays, label: "Takvim" },
   ];
 
   const mobileTitle = useMemo(() => {
@@ -320,10 +321,11 @@ export default function LegalDock() {
     >
       <header className="mobile-legal-header">
         <Link href="/" className="mobile-brand-link" aria-label="AL METHER Legal ana sayfa">
-          <LegalBrand compact />
+          <span className="portrait-legacy"><LegalBrand compact /></span>
+          <Scale className="portrait-only portrait-brand-icon" size={24} aria-hidden="true" />
         </Link>
 
-        <strong className="mobile-page-title">{mobileTitle}</strong>
+        <strong className="mobile-page-title"><span className="portrait-legacy">{mobileTitle}</span><span className="portrait-only">{pathname === "/settings" ? "Profil" : pathname === "/inbox" ? "Mail" : mobileTitle}</span></strong>
 
         <div className="mobile-header-actions">
           <button
@@ -337,7 +339,8 @@ export default function LegalDock() {
               setMobileActionsOpen(false);
             }}
           >
-            <span aria-hidden="true">♢</span>
+            <span className="portrait-legacy" aria-hidden="true">♢</span>
+            <Bell className="portrait-only" size={22} aria-hidden="true" />
             {unreadCount > 0 && <span className="mobile-unread-badge">{unreadCount}</span>}
           </button>
 
@@ -352,13 +355,14 @@ export default function LegalDock() {
             className={item.href === "/" ? isDashboard ? "active" : "" : pathname === item.href ? "active" : ""}
             aria-current={(item.href === "/" ? isDashboard : pathname === item.href) ? "page" : undefined}
           >
-            <span aria-hidden="true">{item.icon}</span>
+            <span className="portrait-legacy" aria-hidden="true">{item.icon}</span>
+            <item.Icon className="portrait-only" size={22} aria-hidden="true" />
             <strong>{item.label}</strong>
           </Link>
         ))}
         <button
           type="button"
-          className={mobileMenuOpen || mobileMenuItems.some((item) => item.href === pathname) ? "active" : ""}
+          className={`portrait-legacy ${mobileMenuOpen || mobileMenuItems.some((item) => item.href === pathname) ? "active" : ""}`}
           aria-label="Menüyü aç"
           aria-expanded={mobileMenuOpen}
           onClick={() => {
@@ -370,6 +374,9 @@ export default function LegalDock() {
           <span aria-hidden="true">☰</span>
           <strong>Menü</strong>
         </button>
+        <Link href="/settings" className={`portrait-only portrait-profile-nav ${mobileMenuItems.some((item) => item.href === pathname) ? "active" : ""}`} aria-current={pathname === "/settings" ? "page" : undefined}>
+          <UserRound size={22} aria-hidden="true" /><strong>Profil</strong>
+        </Link>
       </nav>
 
       <nav className="legal-dock">

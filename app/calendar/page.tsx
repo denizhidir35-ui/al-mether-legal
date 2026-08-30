@@ -259,6 +259,15 @@ export default function CalendarPage() {
     useState("");
   const [calendarDetailOpen, setCalendarDetailOpen] =
     useState(true);
+  const [portraitDetailOpen, setPortraitDetailOpen] = useState(false);
+  const portraitDetailRef = useRef<HTMLElement>(null);
+  const portraitAgendaRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (portraitDetailOpen && window.matchMedia("(max-width: 760px) and (orientation: portrait)").matches) {
+      portraitDetailRef.current?.scrollIntoView({ block: "start" });
+    }
+  }, [portraitDetailOpen, selectedEventId]);
 
   const [activeDetailTab, setActiveDetailTab] =
     useState<
@@ -417,6 +426,11 @@ export default function CalendarPage() {
           return;
         }
 
+        // Portrait keeps the day the user chose (including Today) after a month reload.
+        if (!notificationEvent && window.matchMedia("(max-width: 760px) and (orientation: portrait)").matches) {
+          return;
+        }
+
         const firstEventDate =
           (notificationEvent || loadedEvents[0]).startDate;
 
@@ -439,6 +453,7 @@ export default function CalendarPage() {
           if (notificationEvent) {
             setSelectedEventId(notificationEvent.id);
             setCalendarDetailOpen(true);
+            setPortraitDetailOpen(true);
             notificationEventRef.current = "";
           }
         }
@@ -526,6 +541,7 @@ export default function CalendarPage() {
         setSelectedDate(target.startDate);
         setSelectedEventId(eventId);
         setCalendarDetailOpen(true);
+        setPortraitDetailOpen(true);
       } catch {
         notificationEventRef.current = "";
         // Eski/geçersiz hedefte takvim güvenli varsayılan görünümde kalır.
@@ -1672,6 +1688,7 @@ export default function CalendarPage() {
   }
 
   function changeMonth(direction: number) {
+    setPortraitDetailOpen(false);
     const next = new Date(
       year,
       month + direction,
@@ -1691,6 +1708,7 @@ export default function CalendarPage() {
   }
 
   function goToday() {
+    setPortraitDetailOpen(false);
     const today = new Date();
 
     setYear(today.getFullYear());
@@ -10714,7 +10732,7 @@ export default function CalendarPage() {
               ))}
             </div>
 
-            <div className="month-grid">
+            <div className="month-grid" data-weeks={calendarCells.length / 7}>
               {calendarCells.map(
                 (day, index) => {
                   if (!day) {
@@ -10753,9 +10771,12 @@ export default function CalendarPage() {
                       type="button"
                       key={date}
                       className={classes}
+                      aria-label={`${formatLongDate(date)}, ${dayEvents.length} kayıt`}
+                      aria-pressed={date === selectedDate}
                       onClick={() => {
                         setSelectedDate(date);
                         setCalendarDetailOpen(true);
+                        setPortraitDetailOpen(false);
                       }}
                     >
                       <span className="day-number">
@@ -10790,6 +10811,7 @@ export default function CalendarPage() {
                                     setSelectedDate(date);
                                     setSelectedEventId(event.id);
                                     setCalendarDetailOpen(true);
+                                    setPortraitDetailOpen(false);
                                   }}
                                 >
                                   {eventLabel}
@@ -10804,6 +10826,7 @@ export default function CalendarPage() {
                                 clickEvent.stopPropagation();
                                 setSelectedDate(date);
                                 setCalendarDetailOpen(true);
+                                setPortraitDetailOpen(false);
                               }}
                             >
                               +{dayEvents.length - 2} kayıt
@@ -10835,7 +10858,34 @@ export default function CalendarPage() {
             )}
           </section>
 
-          <aside className="detail-panel">
+          <section className="portrait-only portrait-calendar-agenda" ref={portraitAgendaRef} aria-label="Seçilen günün ajandası">
+            <div className="portrait-agenda-heading">
+              <h2>{formatLongDate(selectedDate)}</h2>
+              <span>{selectedEvents.length} kayıt</span>
+            </div>
+            {loading ? <p>Ajanda yükleniyor…</p> : error ? <p>Ajanda yüklenemedi.</p> : selectedEvents.length === 0 ? <p>Bu gün için planlanmış kayıt yok.</p> : selectedEvents.map((event) => {
+              const reminder = getManualReminderPresentation(event);
+              return (
+                <button key={event.id} type="button" className={`portrait-agenda-event ${getEventKind(event)}`} onClick={() => {
+                  setSelectedEventId(event.id);
+                  setCalendarDetailOpen(true);
+                  setActiveDetailTab("general");
+                  setPortraitDetailOpen(true);
+                }}>
+                  <span><small>{getKindLabel(event)}{reminder?.time ? ` · ${reminder.time}` : ""}</small><strong>{event.title}</strong></span>
+                  <span aria-hidden="true">›</span>
+                </button>
+              );
+            })}
+          </section>
+
+          <aside className="detail-panel" ref={portraitDetailRef} data-portrait-open={portraitDetailOpen}>
+            <div className="portrait-only portrait-calendar-detail-tools">
+              <button type="button" onClick={() => { setPortraitDetailOpen(false); portraitAgendaRef.current?.scrollIntoView({ block: "start" }); }}>‹ Ajandaya dön</button>
+              <select aria-label="Kayıt işlemleri" value={activeDetailTab} onChange={(event) => setActiveDetailTab(event.target.value as typeof activeDetailTab)}>
+                <option value="general">Genel</option><option value="mail">Mail</option><option value="attachments">Ekler</option><option value="checklist">Liste</option><option value="alarm">Alarm</option><option value="notes">Not</option>
+              </select>
+            </div>
             {selectedEvent && (
               <LegalBackButton
                 fallback="/calendar"

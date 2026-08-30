@@ -772,8 +772,8 @@ export default function DashboardPage() {
               { title: "Bugünün kritik işleri", items: data.dailyPlan.filter((item) => ["critical", "high", "important"].includes(item.priority)), empty: "Bugün kritik iş bulunmuyor." },
               { title: "Bugünkü duruşmalar", items: data.dailyPlan.filter((item) => item.category === "hearing" && !["critical", "high", "important"].includes(item.priority)), empty: "Bugün başka duruşma bulunmuyor." },
               { title: "Son günü yaklaşan işler", items: [...data.dailyPlan.filter((item) => item.category !== "hearing" && !["critical", "high", "important"].includes(item.priority)), ...data.timeline.filter((item) => !data.dailyPlan.some((today) => today.id === item.id))], empty: "Yaklaşan kayıt bulunmuyor." },
-            ].map((group) => (
-              <section className="mobile-agenda-group" key={group.title}>
+            ].map((group, index) => (
+              <section className="mobile-agenda-group" data-empty={group.items.length === 0} data-group={index} key={group.title}>
                 <h2>{group.title}</h2>
                 {group.items.length === 0 ? <p>{group.empty}</p> : group.items.map((item) => (
                   <Link className="mobile-agenda-row" href={`/calendar?event=${encodeURIComponent(item.id)}`} key={item.id}>

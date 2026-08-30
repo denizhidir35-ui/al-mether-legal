@@ -1708,3 +1708,118 @@ html[data-legal-theme="light"] .legal-brand picture img {
   body .lawyer-calendar .mobile-week-strip { gap: 0; }
   body .lawyer-calendar .detail-tabs { flex-wrap: wrap; overflow: visible; }
 }
+
+/* Portrait-only finishing pass; keep the existing desktop and landscape layouts. */
+.portrait-only { display: none !important; }
+.portrait-case-filters { display: contents; }
+@media (max-width: 760px) and (orientation: portrait) {
+  body .portrait-only { display: block !important; }
+  body .portrait-legacy { display: none !important; }
+  body .legal-app .mobile-legal-header { grid-template-columns: 44px minmax(0, 1fr) 44px; padding: 5px 8px; border-radius: 16px; box-shadow: none; }
+  body .legal-app .mobile-brand-link { justify-content: center; color: var(--legal-gold); }
+  body .legal-app .mobile-page-title { text-align: left; padding-left: 8px; }
+  body .legal-app .mobile-header-actions { width: 44px; min-width: 0; gap: 0; }
+  body .legal-app .mobile-icon-button { display: grid; place-items: center; background: transparent; border-color: transparent; }
+  body .legal-app .mobile-bottom-navigation :is(a, button) { gap: 4px; padding: 7px 2px; border-radius: 12px; }
+  body .legal-app .mobile-bottom-navigation .portrait-profile-nav { display: flex !important; flex-direction: column; align-items: center; justify-content: center; }
+  body .legal-app .mobile-bottom-navigation svg { flex-shrink: 0; stroke-width: 1.8; }
+  body .legal-app .mobile-bottom-navigation .active svg { stroke-width: 2.3; }
+  body .cases-page .case-filter-bar { background: transparent; padding: 0 0 10px; border: 0; }
+  body .cases-page .portrait-case-search { flex: 0 0 100%; width: 100%; border: 1px solid var(--legal-border); border-radius: 12px; padding: 12px; background: var(--legal-surface); color: var(--legal-text); }
+  body .cases-page .case-result-count { order: 3; color: var(--legal-muted); padding: 3px 4px; }
+  body .cases-page .case-filter-bar > button { flex: 1; padding: 8px 10px; border-radius: 12px; }
+  body .cases-page .portrait-case-filters { display: none; }
+  body .cases-page .portrait-case-filters[data-expanded="true"] { display: flex; flex-wrap: wrap; gap: 8px; flex-basis: 100%; padding: 8px 0; }
+  body .cases-page .portrait-case-filters button:disabled { display: none; }
+  body .cases-page .portrait-case-filters button { flex: 1; white-space: normal; }
+  body .cases-page .case-row { border-radius: 16px !important; }
+}
+
+/* Three core portrait screens: compact work lists and a complete month. */
+@media (max-width: 760px) and (orientation: portrait) {
+  body :is(.dashboard-page, .cases-page):has(.mobile-legal-header) { padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important; }
+  body :is(.dashboard-page, .cases-page).legal-app.legal-app .mobile-primary-action { width: 48px !important; min-width: 48px !important; padding: 0 !important; border-radius: 50% !important; font-size: 0 !important; gap: 0; box-shadow: 0 3px 12px #0002; }
+  body :is(.dashboard-page, .cases-page).legal-app.legal-app .mobile-primary-action { justify-content: center !important; }
+  body :is(.dashboard-page, .cases-page).legal-app.legal-app .mobile-primary-action span { font-size: 24px !important; }
+  body :is(.dashboard-page, .cases-page, .lawyer-calendar).legal-app.legal-app .mobile-bottom-navigation strong { height: auto !important; min-height: 16px; flex-shrink: 0; font-size: 12px !important; line-height: 16px !important; overflow: visible; }
+  body :is(.dashboard-page, .cases-page, .lawyer-calendar) .mobile-bottom-navigation a { padding-block: 5px; }
+
+  body .dashboard-page .mobile-daily-agenda { gap: 8px; }
+  body .dashboard-page .mobile-agenda-group[data-empty="true"]:not([data-group="2"]) { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 4px 2px; border: 0; background: transparent; }
+  body .dashboard-page .mobile-agenda-group[data-empty="true"]:not([data-group="2"])::before { content: "✓"; color: var(--legal-muted); }
+  body .dashboard-page .mobile-agenda-group[data-empty="true"]:not([data-group="2"]) h2 { display: none; }
+  body .dashboard-page .mobile-agenda-group[data-group="2"] { margin-top: 2px; }
+  body .dashboard-page .mobile-agenda-group[data-group="2"] h2 { padding-bottom: 4px; }
+  body .dashboard-page .mobile-agenda-row { padding-block: 10px; }
+  body .dashboard-page .mobile-agenda-row strong { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  body .dashboard-page .mobile-agenda-row svg { flex-shrink: 0; }
+
+  body .cases-page .case-result-count { display: none !important; }
+  body .cases-page .case-filter-bar { gap: 6px !important; padding-bottom: 10px !important; flex-shrink: 0; }
+  body .cases-page .portrait-case-search { padding-block: 10px; }
+  body .cases-page .case-filter-bar > button { padding-inline: 7px; }
+  body .cases-page .portrait-filter-backdrop { position: fixed; inset: 0; z-index: 210000; background: #10182870; backdrop-filter: blur(3px); }
+  body .cases-page .portrait-case-filters[data-expanded="true"] { position: fixed; inset: auto 0 0; z-index: 210001; display: flex; flex-direction: column; flex-wrap: nowrap; gap: 12px; padding: 16px 20px max(24px, env(safe-area-inset-bottom)); max-height: 85dvh; overflow-y: auto; border: 1px solid var(--legal-border); border-radius: 24px 24px 0 0; background: var(--legal-surface); box-shadow: 0 -12px 40px #0002; }
+  body .cases-page .portrait-case-filters[data-expanded="true"] { width: 100vw !important; max-width: 100vw !important; margin: 0 !important; box-sizing: border-box; }
+  body .cases-page .portrait-filter-heading { display: flex !important; align-items: center; justify-content: space-between; gap: 12px; }
+  body .cases-page .portrait-filter-heading h2 { margin: 0; }
+  body .cases-page .portrait-filter-heading button { flex: 0 0 44px; }
+  body .cases-page .portrait-case-filters button { flex: 0 0 auto; padding: 12px; border: 1px solid var(--legal-border); border-radius: 12px; background: var(--legal-surface-2); color: var(--legal-text); text-align: left; }
+  body .cases-page .portrait-case-filters button.active { border-color: var(--legal-gold); background: var(--legal-gold-soft); }
+  body .cases-page .portrait-case-filters .portrait-filter-done { text-align: center; background: var(--legal-gold); color: #17130b; margin-top: 4px; }
+  body .cases-page .cases-list { gap: 10px !important; padding: 0 !important; }
+  body .cases-page .case-row { min-height: 0 !important; padding: 12px !important; gap: 6px !important; }
+  body .cases-page .case-row > :is(.case-identity, .case-overview) { display: none !important; }
+  body .cases-page .portrait-case-info { min-width: 0; }
+  body .cases-page .portrait-case-info h3 { margin: 0 0 3px; font-weight: 700; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  body .cases-page.legal-app.legal-app .portrait-case-info p { margin: 0 0 5px; font-size: 14px !important; color: var(--legal-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body .cases-page .portrait-case-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+  body .cases-page .portrait-case-meta > span:first-child { margin-right: auto; font-weight: 600; overflow-wrap: anywhere; }
+  body .cases-page.legal-app.legal-app .portrait-case-meta :is(.case-status, .risk-badge) { display: inline-flex !important; padding: 1px 6px !important; min-height: 0; font-size: 12px !important; border-radius: 6px; }
+  body .cases-page .portrait-case-date { margin-top: 6px; color: var(--legal-gold-dark); overflow-wrap: anywhere; }
+  body .cases-page .case-row-tools { gap: 6px !important; border-top: 1px solid var(--legal-border); padding-top: 5px !important; }
+  body .cases-page .case-row-tools .open-case-button { min-height: 44px !important; padding: 6px 12px !important; background: transparent !important; border: 0 !important; color: var(--legal-text) !important; }
+  body .cases-page .case-action-menu > summary { border: 0 !important; background: transparent !important; }
+
+  body .lawyer-calendar:has(.mobile-legal-header) { padding-bottom: calc(80px + env(safe-area-inset-bottom)) !important; }
+  body .lawyer-calendar .mobile-primary-action { display: none !important; }
+  body .lawyer-calendar .main-grid { gap: 14px !important; }
+  body .lawyer-calendar .calendar-panel { flex: 0 0 auto !important; height: auto !important; min-height: 0 !important; padding: 8px !important; overflow: visible !important; }
+  body .lawyer-calendar .mobile-week-strip { display: none !important; }
+  body .lawyer-calendar .calendar-toolbar { display: flex !important; flex-wrap: nowrap !important; align-items: center; gap: 0 !important; margin-bottom: 0 !important; }
+  body .lawyer-calendar .calendar-navigation { display: grid !important; grid-template-columns: 44px minmax(0, 1fr) 44px !important; flex: 1; gap: 0 !important; width: auto !important; }
+  body .lawyer-calendar .month-title { min-width: 0 !important; text-align: center; white-space: nowrap; }
+  body .lawyer-calendar .calendar-toolbar > .action-button { width: auto !important; min-width: 44px; padding: 4px 8px !important; border: 0 !important; background: transparent !important; color: var(--legal-gold-dark); }
+  body .lawyer-calendar .weekdays { display: grid !important; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0 !important; margin: 2px 0 !important; }
+  body .lawyer-calendar.legal-app.legal-app .weekday { padding: 0 !important; text-align: center; font-size: 12px !important; line-height: 20px !important; color: var(--legal-muted); }
+  body .lawyer-calendar .month-grid { display: grid !important; grid-template-columns: repeat(7, minmax(0, 1fr)) !important; grid-template-rows: none !important; grid-auto-rows: 44px !important; flex: 0 0 auto !important; gap: 0 !important; height: auto !important; min-height: 0 !important; overflow: visible !important; }
+  body .lawyer-calendar .day-cell { display: flex !important; flex-direction: column; justify-content: center; align-items: center; gap: 2px !important; width: 100% !important; min-width: 0 !important; min-height: 44px !important; height: 44px !important; padding: 2px !important; border: 0 !important; border-radius: 10px !important; box-shadow: none !important; background: transparent !important; }
+  body .lawyer-calendar .day-cell.empty { visibility: hidden; }
+  body .lawyer-calendar .month-grid[data-weeks="6"] { grid-auto-rows: 38px !important; }
+  body .lawyer-calendar.legal-app.legal-app .month-grid[data-weeks="6"] .day-cell { min-height: 38px !important; height: 38px !important; }
+  body .lawyer-calendar .day-cell.today .day-number { color: var(--legal-gold-dark) !important; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
+  body .lawyer-calendar .day-cell.selected { background: var(--legal-gold-soft) !important; outline: 1px solid var(--legal-gold); outline-offset: -2px; }
+  body .lawyer-calendar .day-number { position: static !important; width: auto !important; height: auto !important; background: transparent !important; line-height: 22px !important; font-weight: 600 !important; }
+  body .lawyer-calendar .event-dots { display: flex !important; justify-content: center; align-items: center; gap: 3px !important; min-height: 5px; height: 5px !important; padding: 0 !important; overflow: visible !important; }
+  body .lawyer-calendar.legal-app.legal-app .event-chip { display: block !important; flex: 0 0 4px; width: 4px !important; height: 4px !important; min-height: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 50% !important; font-size: 0 !important; line-height: 0 !important; background: var(--legal-gold) !important; overflow: hidden; }
+  body .lawyer-calendar .event-chip.hearing { background: #52749c !important; }
+  body .lawyer-calendar .event-chip.critical { background: var(--legal-danger) !important; }
+  body .lawyer-calendar .event-count-chip { display: none !important; }
+  body .lawyer-calendar .calendar-panel > :is(.loading, .empty-state, .error-state) { padding: 8px !important; margin: 4px 0 0 !important; min-height: 0 !important; }
+  body .lawyer-calendar .calendar-panel > .empty-state { display: none !important; }
+  body .lawyer-calendar .portrait-calendar-agenda { flex: 0 0 auto; padding: 0 4px; }
+  body .lawyer-calendar .portrait-agenda-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+  body .lawyer-calendar .portrait-agenda-heading h2 { margin: 0; font-size: 16px !important; }
+  body .lawyer-calendar .portrait-agenda-heading > span { color: var(--legal-muted); white-space: nowrap; }
+  body .lawyer-calendar .portrait-calendar-agenda > p { color: var(--legal-muted); margin: 12px 0; }
+  body .lawyer-calendar .portrait-agenda-event { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; margin-bottom: 8px; padding: 12px; border: 1px solid var(--legal-border); border-radius: 12px; background: var(--legal-surface); color: var(--legal-text); text-align: left; }
+  body .lawyer-calendar .portrait-agenda-event > span:first-child { min-width: 0; display: grid; gap: 4px; }
+  body .lawyer-calendar .portrait-agenda-event small { color: var(--legal-muted); }
+  body .lawyer-calendar .portrait-agenda-event strong { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  body .lawyer-calendar .detail-panel { display: none !important; }
+  body .lawyer-calendar .detail-panel[data-portrait-open="true"] { display: block !important; flex: 0 0 auto; }
+  body .lawyer-calendar .detail-panel > :is(.legal-back-button, .event-selector, .detail-tabs) { display: none !important; }
+  body .lawyer-calendar .portrait-calendar-detail-tools { display: flex !important; align-items: center; gap: 8px; margin-bottom: 12px; }
+  body .lawyer-calendar .portrait-calendar-detail-tools button { flex: 1; color: var(--legal-text); text-align: left; }
+  body .lawyer-calendar .portrait-calendar-detail-tools select { max-width: 46%; padding: 8px; border: 1px solid var(--legal-border); border-radius: 10px; background: var(--legal-surface-2); color: var(--legal-text); }
+}

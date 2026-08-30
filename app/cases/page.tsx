@@ -300,6 +300,33 @@ export default function CasesPage() {
 
   const [caseQuickFilter, setCaseQuickFilter] =
     useState<"all" | "critical" | "hearing">("all");
+  const [portraitFiltersOpen, setPortraitFiltersOpen] = useState(false);
+  const portraitFiltersRef = useRef<HTMLDivElement>(null);
+  const portraitFilterToggleRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!portraitFiltersOpen) return;
+    const media = window.matchMedia("(max-width: 760px) and (orientation: portrait)");
+    const closeOnRotate = () => { if (!media.matches) setPortraitFiltersOpen(false); };
+    const buttons = () => Array.from(portraitFiltersRef.current?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") || []);
+    buttons()[0]?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPortraitFiltersOpen(false);
+      if (event.key !== "Tab") return;
+      const targets = buttons();
+      const first = targets[0];
+      const last = targets[targets.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    media.addEventListener("change", closeOnRotate);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      media.removeEventListener("change", closeOnRotate);
+      portraitFilterToggleRef.current?.focus();
+    };
+  }, [portraitFiltersOpen]);
 
   const [caseStatusFilter, setCaseStatusFilter] =
     useState<CaseListStatusFilter>("all");
@@ -8457,6 +8484,7 @@ export default function CasesPage() {
         </header>
 
         <div className="case-filter-bar" aria-label="Dava filtreleri">
+          <input className="portrait-only portrait-case-search" aria-label="Davaları ara" placeholder="Dava no veya mahkeme ara" value={search} onChange={(event) => { setCaseTypeFilter(""); setSearch(event.target.value); }} />
           <span className="case-result-count">{filteredCases.length} kayıt gösteriliyor</span>
           <button
             type="button"
@@ -8483,8 +8511,12 @@ export default function CasesPage() {
               setCaseStatusFilter("archive");
             }}
           >
-            Kapalı-Arşiv
+            <span className="portrait-legacy">Kapalı-Arşiv</span><span className="portrait-only">Arşiv</span>
           </button>
+          <button ref={portraitFilterToggleRef} type="button" className={`portrait-only portrait-filter-toggle ${caseQuickFilter !== "all" || caseTypeFilter ? "active" : ""}`} aria-expanded={portraitFiltersOpen} aria-controls="portrait-case-filters" onClick={() => setPortraitFiltersOpen((open) => !open)}>Filtre{caseQuickFilter !== "all" || caseTypeFilter ? " •" : ""}</button>
+          {portraitFiltersOpen && <div className="portrait-only portrait-filter-backdrop" onClick={() => setPortraitFiltersOpen(false)} aria-hidden="true" />}
+          <div ref={portraitFiltersRef} id="portrait-case-filters" className="portrait-case-filters" data-expanded={portraitFiltersOpen} role={portraitFiltersOpen ? "dialog" : undefined} aria-modal={portraitFiltersOpen || undefined} aria-label={portraitFiltersOpen ? "Dava filtreleri" : undefined}>
+          <div className="portrait-only portrait-filter-heading"><h2>Dava filtreleri</h2><button type="button" onClick={() => setPortraitFiltersOpen(false)} aria-label="Filtreleri kapat">×</button></div>
           <button
             type="button"
             className={caseTypeFilter ? "active" : ""}
@@ -8514,6 +8546,8 @@ export default function CasesPage() {
           >
             Duruşması olan
           </button>
+          <button className="portrait-only portrait-filter-done" type="button" onClick={() => setPortraitFiltersOpen(false)}>{filteredCases.length} davayı göster</button>
+          </div>
         </div>
 
         {manualOpen && (
@@ -9591,6 +9625,11 @@ export default function CasesPage() {
                       item,
                       "hearing"
                     );
+                  const nextDate = [
+                    { label: "Duruşma", date: manualHearing?.raw?.hearingAt || manualHearing?.start_date },
+                    { label: deemedServiceDate ? "Tebliğ" : "Son tarih", date: deemedServiceDate || deadline?.calculated_due_date },
+                  ].filter((entry) => entry.date && new Date(entry.date).getTime() >= new Date(new Date().toDateString()).getTime())
+                    .sort((a, b) => new Date(a.date!).getTime() - new Date(b.date!).getTime())[0];
 
                   return (
                     <article
@@ -9611,6 +9650,16 @@ export default function CasesPage() {
                         }
                       }}
                     >
+                      <div className="portrait-only portrait-case-info">
+                        <h3>{item.case_title || "Dava kaydı"}</h3>
+                        <p>{item.court_name || "Mahkeme bilgisi yok"}</p>
+                        <div className="portrait-case-meta">
+                          <span>{item.case_number || "Numarasız"}</span>
+                          <span className={`case-status status-${item.status || "active"}`}>{enumLabel(CASE_STATUS_LABELS, item.status || "active")}</span>
+                          {item.risk_level && item.risk_level !== "normal" && <span className={`risk-badge risk-${item.risk_level}`}>{enumLabel(RISK_LABELS, item.risk_level)}</span>}
+                        </div>
+                        {nextDate && <div className="portrait-case-date">{nextDate.label} · {nextDate.label === "Duruşma" ? formatDateTime(nextDate.date!) : formatDate(nextDate.date!)}</div>}
+                      </div>
                       <div className="case-identity">
                         <div className="case-number">
                           {item.case_number || "Numarasız"}
