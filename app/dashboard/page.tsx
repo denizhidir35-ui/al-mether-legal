@@ -766,6 +766,25 @@ export default function DashboardPage() {
         </header>
 
         <div className="dashboard-body">
+          <section className="mobile-daily-agenda" aria-label="Bugünkü işler">
+            <h1>Bugün ne yapacağım?</h1>
+            {loading ? <p>Günün işleri yükleniyor…</p> : [
+              { title: "Bugünün kritik işleri", items: data.dailyPlan.filter((item) => ["critical", "high", "important"].includes(item.priority)), empty: "Bugün kritik iş bulunmuyor." },
+              { title: "Bugünkü duruşmalar", items: data.dailyPlan.filter((item) => item.category === "hearing" && !["critical", "high", "important"].includes(item.priority)), empty: "Bugün başka duruşma bulunmuyor." },
+              { title: "Son günü yaklaşan işler", items: [...data.dailyPlan.filter((item) => item.category !== "hearing" && !["critical", "high", "important"].includes(item.priority)), ...data.timeline.filter((item) => !data.dailyPlan.some((today) => today.id === item.id))], empty: "Yaklaşan kayıt bulunmuyor." },
+            ].map((group) => (
+              <section className="mobile-agenda-group" key={group.title}>
+                <h2>{group.title}</h2>
+                {group.items.length === 0 ? <p>{group.empty}</p> : group.items.map((item) => (
+                  <Link className="mobile-agenda-row" href={`/calendar?event=${encodeURIComponent(item.id)}`} key={item.id}>
+                    <span><strong>{item.title}</strong><small>{formatDate(item.date)}{item.time ? ` · ${item.time}` : ""}</small></span>
+                    <ChevronRight size={20} aria-hidden="true" />
+                  </Link>
+                ))}
+              </section>
+            ))}
+            <Link className="mobile-agenda-calendar" href="/calendar">Takvimi aç <ChevronRight size={18} /></Link>
+          </section>
           <section className="summary-grid" aria-label="Günlük özet">
             {summary.map((item) => {
               const Icon = item.icon;

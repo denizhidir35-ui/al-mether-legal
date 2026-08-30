@@ -66,8 +66,10 @@ function getApiFields(role: string) {
 
 export default function CasePartiesEditor({
   caseId,
+  readOnly = false,
 }: {
   caseId: string;
+  readOnly?: boolean;
 }) {
   const [parties, setParties] =
     useState<Party[]>([]);
@@ -226,7 +228,7 @@ export default function CasePartiesEditor({
 
   return (
     <div className="case-party-editor">
-      <div className="case-party-header">
+      {!readOnly && <div className="case-party-header">
         <div>
           <strong>Taraflar ve Müvekkiller</strong>
           <small>
@@ -244,7 +246,7 @@ export default function CasePartiesEditor({
             + Taraf Ekle
           </button>
         )}
-      </div>
+      </div>}
 
       {loading ? (
         <div className="inline-empty">
@@ -270,7 +272,7 @@ export default function CasePartiesEditor({
                 </small>
               </div>
 
-              <div className="inline-actions">
+              {!readOnly && <div className="inline-actions">
                 <button
                   type="button"
                   onClick={() =>
@@ -289,7 +291,7 @@ export default function CasePartiesEditor({
                 >
                   Kaldır
                 </button>
-              </div>
+              </div>}
             </div>
           ))}
         </div>

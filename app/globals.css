@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
@@ -1503,4 +1503,208 @@ html[data-legal-theme="light"] .legal-brand picture img {
 
 @media (min-width: 761px) {
   .mobile-week-strip { display: none !important; }
+}
+
+/* Native mobile presentation. Desktop rules and data flows stay unchanged. */
+.mobile-daily-agenda, .mobile-settings-list, .mobile-settings-back,
+.mobile-notification-settings, .mobile-converter-upload, .mobile-converter-target,
+.mobile-bridge-help, .mobile-form-heading { display: none; }
+
+@media (max-width: 760px) {
+  body :is(.legal-app.legal-app.legal-app, .case-mobile-detail-layer.case-mobile-detail-layer.case-mobile-detail-layer) :is(div, p, span, strong, small, label, a, button, input, select, textarea, time, dt, dd, b) {
+    font-size: 14px !important;
+    line-height: 1.45;
+  }
+  body :is(.legal-app, .case-mobile-detail-layer) :is(h1, h2, h3) {
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    line-height: 1.3 !important;
+  }
+  body :is(.legal-app, .case-mobile-detail-layer) h1 { font-size: 22px !important; }
+  body :is(.legal-app, .case-mobile-detail-layer) h2 { font-size: 18px !important; }
+  body :is(.legal-app, .case-mobile-detail-layer) h3 { font-size: 16px !important; }
+  body :is(.legal-app.legal-app.legal-app, .case-mobile-detail-layer.case-mobile-detail-layer.case-mobile-detail-layer) :is(button, select, :where(input:not([type="file"]):not([type="hidden"])), summary, .legal-back-button) {
+    min-height: 44px !important;
+    height: auto;
+    min-width: 44px;
+  }
+  body :is(.legal-app.legal-app.legal-app, .case-mobile-detail-layer.case-mobile-detail-layer.case-mobile-detail-layer) :is(input, textarea, select) { font-size: 16px !important; }
+  body :is(.legal-app, .case-mobile-detail-layer) textarea { min-height: 112px !important; }
+  body :is(.legal-app, .case-mobile-detail-layer) :is(button, a):focus-visible { outline: 2px solid var(--legal-gold); outline-offset: 2px; }
+  body :is(.legal-app.legal-app.legal-app, .case-mobile-detail-layer.case-mobile-detail-layer.case-mobile-detail-layer) :is(.primary-action, .save-reminder, .manual-form-actions button, .composer footer button) { min-height: 48px !important; }
+
+  /* Reserve an actual viewport lane for the FAB, not just end-of-list padding. */
+  body .legal-app:has(.mobile-legal-header) {
+    display: flex !important;
+    flex-direction: column !important;
+    padding-bottom: calc(132px + env(safe-area-inset-bottom)) !important;
+    gap: 0;
+  }
+  body .legal-app :is(.cases-shell, .converter-shell, .settings-grid, .posta-shell),
+  body .lawyer-calendar > .workspace {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    padding-bottom: 16px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    scroll-padding-block: 12px 72px;
+    overscroll-behavior: contain;
+  }
+  body .dashboard-page .dashboard-shell { display: flex !important; flex-direction: column; }
+  body .dashboard-page .dashboard-header { flex: 0 0 auto; }
+  body .dashboard-page .dashboard-body { flex: 1 1 auto; height: auto !important; padding-bottom: 16px !important; }
+  body .legal-app .mobile-primary-action { height: 48px !important; min-height: 48px !important; }
+  body .legal-app .mobile-legal-header { grid-template-columns: minmax(70px, 1fr) minmax(0, 1.2fr) 44px; padding: 3px 7px; }
+  body .legal-app .mobile-icon-button { width: 44px !important; height: 44px !important; }
+  body .legal-app .mobile-brand-link { display: flex; align-items: center; min-height: 44px; }
+  body .legal-app .mobile-brand-link .legal-brand-copy { display: none; }
+  body .legal-app .mobile-bottom-navigation strong { font-size: 12px !important; }
+  body .legal-app .mobile-bottom-navigation :is(a, button) { min-height: 54px !important; }
+  body .legal-app :is(.mobile-drawer, .mobile-bottom-sheet)[aria-hidden="true"] { visibility: hidden; pointer-events: none; }
+  body .legal-app .mobile-bottom-sheet { overflow-y: auto !important; }
+  body .legal-app .mobile-notification-row :is(strong, small) { white-space: normal; overflow-wrap: anywhere; }
+  body .legal-app .mobile-notification-list { flex: 1; }
+  body .legal-app .mobile-action-grid :is(a, button) { min-height: 58px !important; }
+  body .legal-app .mobile-menu-list a { min-height: 48px !important; }
+  body .legal-app .settings-header { display: none !important; }
+
+  body:has([aria-modal="true"], .manual-form) .legal-dock-zone { visibility: hidden !important; }
+  body:has([aria-modal="true"], .manual-form) .mobile-primary-action { display: none !important; }
+  body .legal-app :is(.manual-reminder-backdrop, .case-delete-backdrop) { position: fixed !important; inset: 0 !important; z-index: 200000 !important; padding: 0 !important; }
+  body .legal-app :is(.manual-reminder-dialog, .case-delete-dialog),
+  body .case-mobile-detail-layer .case-mobile-detail-panel {
+    box-sizing: border-box;
+    width: 100% !important; max-width: 100% !important;
+    height: 100dvh !important; max-height: 100dvh !important;
+    padding: max(12px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)) !important;
+    border: 0 !important; border-radius: 0 !important;
+    overflow-y: auto !important; overflow-x: hidden !important;
+    background: var(--legal-surface) !important;
+    scroll-padding-block: 72px;
+  }
+  body .case-mobile-detail-layer { inset: 0 !important; z-index: 200000 !important; padding: 0 !important; }
+  body .legal-app .manual-reminder-actions {
+    position: sticky; bottom: 0; z-index: 3;
+    display: flex; flex-wrap: wrap; gap: 8px;
+    padding: 12px 0 max(8px, env(safe-area-inset-bottom));
+    background: var(--legal-surface);
+    margin-top: auto;
+  }
+  body .legal-app .manual-reminder-actions button { flex: 1; }
+  body .legal-app .manual-reminder-dialog { display: flex !important; flex-direction: column; gap: 12px; }
+  body .legal-app .manual-reminder-form { display: grid; grid-template-columns: 1fr !important; gap: 14px; }
+  body .legal-app :is(.manual-reminder-form, .password-settings-form) input,
+  body .legal-app :is(.manual-reminder-form, .password-settings-form) select { width: 100%; border: 1px solid var(--legal-border); border-radius: 10px; padding: 10px; background: var(--legal-surface-2); }
+  body .cases-page .cases-shell { backdrop-filter: var(--mobile-backdrop-filter, none) !important; container-type: normal !important; }
+  body .legal-app .manual-form { position: fixed; inset: 0; z-index: 200000; display: flex !important; flex-direction: column; align-items: stretch; width: 100%; height: 100dvh; margin: 0; gap: 14px; padding: 16px !important; padding-top: max(16px, env(safe-area-inset-top)) !important; overflow-y: auto; border-radius: 0; background: var(--legal-surface); }
+  body .legal-app .manual-form > * { flex-shrink: 0; width: 100%; }
+  body .legal-app .manual-form .mobile-form-heading { position: sticky; top: -16px; z-index: 4; background: var(--legal-surface); padding-block: 8px; }
+  body .legal-app .manual-form .mobile-form-heading h1 { max-width: none; }
+  body .legal-app .manual-form .mobile-form-heading button { width: auto; flex: 0 0 auto; }
+  body .legal-app .manual-form .mobile-form-heading button { color: var(--legal-text); background: var(--legal-surface-2); }
+  body .legal-app .mobile-form-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  body .legal-app .manual-form-actions { position: sticky; bottom: 0; display: grid !important; grid-template-columns: 1fr !important; gap: 8px; padding: 12px 0 max(12px, env(safe-area-inset-bottom)); background: var(--legal-surface); }
+  body .legal-app .manual-form-actions button { color: var(--legal-text); }
+  body .legal-app .manual-form-actions button:first-child { background: var(--legal-gold); color: #17130b; }
+
+  body .dashboard-page .mobile-daily-agenda { display: grid; order: 0; gap: 12px; }
+  body .dashboard-page .mobile-daily-agenda h1 { margin: 6px 0 0; }
+  body .dashboard-page .mobile-agenda-group { padding: 12px; border: 1px solid var(--legal-border); border-radius: 14px; background: var(--legal-surface); }
+  body .dashboard-page .mobile-agenda-group h2 { font-size: 16px !important; margin: 0 0 6px; }
+  body .dashboard-page .mobile-agenda-group p { margin: 0; color: var(--legal-muted); }
+  body :is(.legal-app, .case-mobile-detail-layer) .mobile-agenda-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 60px; padding: 10px 0; color: var(--legal-text); text-decoration: none; border-top: 1px solid var(--legal-border); }
+  body :is(.legal-app, .case-mobile-detail-layer) .mobile-agenda-row span { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+  body :is(.legal-app, .case-mobile-detail-layer) .mobile-agenda-row small { color: var(--legal-muted); }
+  body .dashboard-page .mobile-agenda-calendar { display: flex; min-height: 48px; align-items: center; justify-content: space-between; padding: 10px 12px; border: 1px solid var(--legal-gold); border-radius: 12px; color: var(--legal-text); }
+  body .dashboard-page .plan-card { display: none !important; }
+  body .dashboard-page .incoming-card { order: 1 !important; }
+  body .dashboard-page .summary-card { order: 2 !important; }
+  body .dashboard-page .side-heading a { min-height: 44px; display: inline-flex; align-items: center; }
+  body .dashboard-page .compact-row strong { white-space: normal !important; }
+
+  body .cases-page .case-filter-bar { display: flex !important; flex-wrap: wrap; gap: 6px; }
+  body .cases-page .case-filter-bar > span { flex-basis: 100%; }
+  body .cases-page .cases-list { height: auto !important; flex: none !important; grid-auto-rows: max-content; }
+  body .cases-page .case-row { grid-template-columns: minmax(0, 1fr) !important; height: max-content !important; }
+  body .cases-page .case-type-badge { position: static !important; max-width: 100%; white-space: normal; }
+  body .cases-page .case-court { padding-right: 0 !important; white-space: normal !important; }
+  body .cases-page .case-timeline-summary > span { white-space: normal; overflow: visible; }
+  body .cases-page .case-timeline-summary { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
+  body .cases-page .case-row-tools { justify-self: stretch; display: flex; justify-content: flex-end; }
+  body .case-mobile-detail-layer .case-panel-back-row { position: sticky; top: -12px; z-index: 4; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 12px 0; background: var(--legal-surface); }
+  body .case-mobile-detail-layer .case-panel-actions { display: flex; gap: 8px; }
+  body .case-mobile-detail-layer .case-panel-actions button { flex: 1; }
+  body .case-mobile-detail-layer .mobile-case-identity dl { display: grid; gap: 12px; }
+  body .case-mobile-detail-layer .mobile-case-identity h1 { max-width: none !important; width: 100%; }
+  body .case-mobile-detail-layer .mobile-case-identity dd { margin: 0; font-weight: 700; }
+  body .case-mobile-detail-layer :is(.mobile-case-identity p, dt) { color: var(--legal-muted); }
+  body .case-mobile-detail-layer :is(.mobile-case-section, .mobile-case-section-title) { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--legal-border); }
+  body .case-mobile-detail-layer :is(p, dd, strong, small, .case-mail-item) { overflow-wrap: anywhere; white-space: normal !important; }
+  body .case-mobile-detail-layer :is(.case-mail-item, .case-party-item, .case-file-toolbar) { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+  body .case-mobile-detail-layer .case-note-area { width: 100%; padding: 12px; background: var(--legal-surface-2); color: var(--legal-text); }
+  body .case-mobile-detail-layer .case-file-upload { min-height: 48px; display: flex; align-items: center; justify-content: center; }
+
+  body .converter-page .converter-shell { display: block !important; }
+  body .converter-page :is(.tool-list, .workspace-head, .drop-zone) { display: none !important; }
+  body .converter-page .workspace { height: auto !important; max-height: none !important; min-height: 0 !important; overflow: visible !important; display: grid !important; gap: 16px; }
+  body .converter-page :is(.mobile-converter-upload, .mobile-converter-target) { display: grid; gap: 8px; }
+  body .converter-page .mobile-converter-upload { padding: 16px; border: 1px dashed var(--legal-gold); border-radius: 14px; background: var(--legal-surface-2); }
+  body .converter-page .mobile-converter-upload input { display: block; width: 100%; min-height: 48px; }
+  body .converter-page input::file-selector-button { min-height: 44px; border: 1px solid var(--legal-border); border-radius: 8px; background: var(--legal-surface); color: var(--legal-text); font: inherit; }
+  body .converter-page .mobile-converter-target select { width: 100%; padding: 12px; border: 1px solid var(--legal-border); border-radius: 10px; background: var(--legal-surface-2); }
+  body .converter-page .selected-file { white-space: normal; overflow-wrap: anywhere; }
+  body .converter-page .converter-actions { display: grid; gap: 10px; }
+  body .converter-page .converter-actions :is(button, a) { width: 100%; min-height: 48px; justify-content: center; }
+  body .converter-page :is(.history-panel, .history-list) { height: auto !important; min-height: 0 !important; max-height: none !important; overflow: visible !important; }
+  body .converter-page .history-panel { margin-top: 16px; }
+  body .converter-page .history-actions a { display: grid; place-items: center; min-height: 44px; }
+  body .converter-page .history-file strong { white-space: normal; overflow-wrap: anywhere; }
+
+  body .settings-page .settings-grid { display: flex !important; }
+  body .settings-page .settings-panel { display: none !important; order: 0 !important; }
+  body .settings-page .mobile-section-active { display: block !important; }
+  body .settings-page .mobile-settings-list { display: grid; background: var(--legal-surface); border: 1px solid var(--legal-border); border-radius: 14px; overflow: hidden; }
+  body .settings-page:not([data-mobile-section=""]) .mobile-settings-list { display: none; }
+  body .settings-page .mobile-settings-list button { display: flex; align-items: center; justify-content: space-between; min-height: 60px !important; padding: 14px 16px; text-align: left; border-bottom: 1px solid var(--legal-border); color: var(--legal-text); }
+  body .settings-page .mobile-settings-back { display: block; order: -10; text-align: left; padding: 10px 12px; flex-shrink: 0; }
+  body .settings-page .mobile-notification-settings { padding: 16px; background: var(--legal-surface); border-radius: 14px; }
+  body .settings-page .mobile-notification-settings p { margin-block: 12px; }
+  body .settings-page .settings-link { display: inline-flex; align-items: center; min-height: 48px; }
+  body .settings-page .users-list { height: auto !important; max-height: none !important; overflow: visible !important; }
+  body .settings-page .account-summary { flex-wrap: wrap; }
+  body .settings-page :is(.account-copy, .user-main) :is(strong, span) { white-space: normal !important; overflow-wrap: anywhere; }
+  body .settings-page .account-status { white-space: normal; }
+  body .settings-page .password-settings-form button[aria-label] { min-width: 44px !important; }
+  body .settings-page .password-field { position: relative; display: block; }
+  body .settings-page .password-field input { padding-right: 52px; }
+  body .settings-page .password-toggle { position: absolute; right: 0; top: 0; width: 44px; height: 44px; display: grid; place-items: center; transform: none; }
+
+  body .legal-app .mobile-bridge-help { display: grid !important; align-content: start; gap: 16px; padding: 16px; overflow-y: auto; }
+  body .legal-app .desktop-bridge-workspace { display: none !important; }
+  body .legal-app .mobile-bridge-help a { display: grid; place-items: center; min-height: 48px; padding: 12px; border-radius: 12px; background: var(--legal-gold); color: #17130b; font-weight: 700; }
+
+  body .mether-posta .posta-shell { display: flex !important; flex-direction: column; }
+  body .mether-posta .posta-toolbar { flex: 0 0 auto; }
+  body .mether-posta .posta-workspace { flex: 1; overflow-y: auto !important; overflow-x: hidden !important; padding: 0 !important; }
+  body .mether-posta .detail-pane { height: auto !important; max-height: none !important; display: block; overflow: visible !important; }
+  body .mether-posta .detail-pane.mobile-hidden { display: none !important; }
+  body .mether-posta .detail-header { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  body .mether-posta .detail-header .legal-back-button { justify-self: start; }
+  body .mether-posta :is(.detail-meta, .recipient-line, .mail-action-bar) { display: flex; flex-wrap: wrap; gap: 8px; }
+  body .mether-posta :is(.detail-meta span, .recipient-line span, .detail-account-source) { white-space: normal; overflow-wrap: anywhere; }
+  body .mether-posta .mail-content { height: auto !important; max-height: none !important; overflow: visible !important; padding: 16px 12px !important; font-size: 16px !important; line-height: 1.65 !important; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
+  body .mether-posta:has(.detail-pane:not(.mobile-hidden)) .posta-toolbar { display: none !important; }
+  body .mether-posta :is(.mail-action-bar button, .attachments-strip a) { min-height: 44px !important; }
+  body .mether-posta .composer-backdrop { position: fixed !important; inset: 0 !important; z-index: 200000 !important; padding: 0 !important; }
+  body .mether-posta .composer { position: fixed !important; inset: 0 !important; width: 100% !important; max-width: 100% !important; height: 100dvh !important; max-height: 100dvh !important; transform: none !important; border-radius: 0 !important; display: flex !important; flex-direction: column; overflow-y: auto; padding: max(12px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom)); }
+  body .mether-posta .composer > * { flex-shrink: 0; }
+  body .mether-posta .composer footer { position: sticky; bottom: 0; background: var(--legal-surface); padding-block: 12px; margin-top: auto; }
+  body .mether-posta .composer footer button { min-height: 48px !important; }
+  body .mether-posta .compose-two { grid-template-columns: 1fr; }
+  body .mether-posta .composer-drag-handle { touch-action: auto; }
+  body .lawyer-calendar :is(.main-grid, .calendar-panel, .detail-panel) { height: auto !important; max-height: none !important; overflow: visible !important; flex-shrink: 0; }
+  body .lawyer-calendar .calendar-navigation { width: 100%; min-width: 0; grid-template-columns: 44px minmax(0, 1fr) 44px; }
+  body .lawyer-calendar .mobile-week-strip { gap: 0; }
+  body .lawyer-calendar .detail-tabs { flex-wrap: wrap; overflow: visible; }
 }

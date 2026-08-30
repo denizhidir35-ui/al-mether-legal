@@ -9,6 +9,7 @@ import {
 import LegalBackButton from "@/components/LegalBackButton";
 import LegalBrand from "@/components/LegalBrand";
 import LegalDock from "@/components/LegalDock";
+import MobileBridgeHelp from "@/components/MobileBridgeHelp";
 
 type BridgeCapture = {
   title?: string;
@@ -1046,7 +1047,8 @@ export default function UetsImportPage() {
           "18px 76px 28px 18px",
       }}
     >
-      <div
+      <MobileBridgeHelp />
+      <div className="desktop-bridge-workspace"
         style={{
           width:
             "min(1180px, 100%)",

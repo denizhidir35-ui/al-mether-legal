@@ -41,6 +41,16 @@ type AdminNotification = {
 
 export default function SettingsPage() {
   const { data: session } = useSession();
+  const [mobileSection, setMobileSection] = useState("");
+
+  useEffect(() => {
+    const syncSection = () => {
+      if (window.location.hash === "#user-management") setMobileSection("users");
+    };
+    syncSection();
+    window.addEventListener("hashchange", syncSection);
+    return () => window.removeEventListener("hashchange", syncSection);
+  }, []);
 
   const [theme, setTheme] =
     useState<Theme>("light");
@@ -372,7 +382,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="legal-app settings-page">
+    <main className="legal-app settings-page" data-mobile-section={mobileSection}>
       <div className="settings-back">
         <LegalBackButton fallback="/" />
       </div>
@@ -388,8 +398,24 @@ export default function SettingsPage() {
       </header>
 
       <section className="settings-grid">
+        <nav className="mobile-settings-list" aria-label="Ayar bölümleri">
+          {[
+            ["account", "Hesap"], ["appearance", "Görünüm"], ["mail", "Mail"],
+            ["notifications", "Bildirimler"], ["security", "Güvenlik"],
+            ...(adminMode ? [["users", "Kullanıcı Yönetimi"]] : []),
+          ].map(([id, label]) => (
+            <button type="button" key={id} onClick={() => setMobileSection(id)}>{label}<span aria-hidden="true">›</span></button>
+          ))}
+        </nav>
+        {mobileSection && <button type="button" className="mobile-settings-back" onClick={() => setMobileSection("")}>← Ayarlar</button>}
+        <section className={`mobile-notification-settings ${mobileSection === "notifications" ? "mobile-section-active" : ""}`}>
+          <h2>Bildirimler</h2>
+          <p>Dava, süre ve e-posta bildirimlerinizi bildirim merkezinden görüntüleyin.</p>
+          <button type="button" onClick={() => window.dispatchEvent(new Event("al-mether-open-notifications"))}>Bildirimleri görüntüle</button>
+          <p>Cihazın bildirim izinlerini tarayıcı veya işletim sistemi ayarlarından yönetebilirsiniz.</p>
+        </section>
         <div className="settings-column settings-column-left">
-          <div className="settings-panel">
+          <div className={`settings-panel ${mobileSection === "appearance" ? "mobile-section-active" : ""}`}>
           <div className="settings-section-title">
             Görünüm
           </div>
@@ -441,7 +467,7 @@ export default function SettingsPage() {
           </div>
           </div>
 
-          <div className="settings-panel">
+          <div className={`settings-panel ${mobileSection === "mail" ? "mobile-section-active" : ""}`}>
           <div className="settings-section-title">
             E-posta
           </div>
@@ -461,7 +487,7 @@ export default function SettingsPage() {
           </a>
           </div>
 
-          <div className="settings-panel security-panel">
+          <div className={`settings-panel security-panel ${mobileSection === "security" ? "mobile-section-active" : ""}`}>
           <div className="settings-section-title">
             Güvenlik
           </div>
@@ -480,7 +506,7 @@ export default function SettingsPage() {
         </div>
 
         <div className="settings-column settings-column-right">
-          <div className="settings-panel account-panel">
+          <div className={`settings-panel account-panel ${mobileSection === "account" ? "mobile-section-active" : ""}`}>
             <div className="settings-section-title">
               Hesap
             </div>
@@ -504,7 +530,7 @@ export default function SettingsPage() {
 
         {adminMode && (
           <div
-            className="settings-panel admin-panel"
+            className={`settings-panel admin-panel ${mobileSection === "users" ? "mobile-section-active" : ""}`}
             id="user-management"
           >
             <div className="admin-head">

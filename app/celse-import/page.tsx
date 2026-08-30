@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import LegalBackButton from "@/components/LegalBackButton";
 import LegalBrand from "@/components/LegalBrand";
 import LegalDock from "@/components/LegalDock";
+import MobileBridgeHelp from "@/components/MobileBridgeHelp";
 
 type BridgeCapture = {
   title?: string;
@@ -265,7 +266,8 @@ export default function CelseImportPage() {
 
   return (
     <main className="legal-app celse-import-page" style={{ minHeight: "100vh", background: "transparent", color: "var(--legal-text)", padding: "18px 76px 28px 18px" }}>
-      <div style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: 18, border: "1px solid var(--legal-border)", borderRadius: 24, background: "color-mix(in srgb, var(--legal-surface) 92%, transparent)", boxShadow: "var(--legal-shadow-md)", backdropFilter: "blur(22px)" }}>
+      <MobileBridgeHelp />
+      <div className="desktop-bridge-workspace" style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: 18, border: "1px solid var(--legal-border)", borderRadius: 24, background: "color-mix(in srgb, var(--legal-surface) 92%, transparent)", boxShadow: "var(--legal-shadow-md)", backdropFilter: "blur(22px)" }}>
         <div style={{ marginBottom: 10 }}>
           <LegalBackButton fallback="/" />
         </div>

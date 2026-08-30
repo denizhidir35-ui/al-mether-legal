@@ -349,6 +349,11 @@ export default function CasesPage() {
       }).__alMetherMobileAction;
     }
 
+    if (new URLSearchParams(window.location.search).get("import") === "document") {
+      setDocumentOpen(true);
+      setManualOpen(false);
+    }
+
     if (
       (window as typeof window & {
         __alMetherMobileAction?: string;
@@ -441,6 +446,16 @@ export default function CasesPage() {
     media.addEventListener("change", syncMobileView);
     return () => media.removeEventListener("change", syncMobileView);
   }, []);
+
+  useEffect(() => {
+    if (!isMobileCasesView || !openCaseId) return;
+    setCaseNote("");
+    setCaseFiles([]);
+    setCaseDocuments([]);
+    void loadCaseNote(openCaseId);
+    void loadCaseFiles(openCaseId);
+    void loadCaseDocuments(openCaseId);
+  }, [isMobileCasesView, openCaseId]);
 
   useEffect(() => {
     if (!openMobileCaseMenuId) return;
@@ -1857,6 +1872,10 @@ export default function CasesPage() {
 
     setOpenCaseId(caseId);
     setOpenCaseTab(tab);
+
+    if (isMobileCasesView) {
+      return;
+    }
 
     if (tab === "note") {
       loadCaseNote(caseId);
@@ -8499,6 +8518,7 @@ export default function CasesPage() {
 
         {manualOpen && (
           <div className="manual-form">
+            <div className="mobile-form-heading"><h1>Yeni dava</h1><button type="button" disabled={manualSaving} onClick={() => setManualOpen(false)}>İptal</button></div>
             <label>
               <span>Dava no</span>
               <input
@@ -9718,115 +9738,145 @@ export default function CasesPage() {
                             </div>
                           </div>
 
-                          {openCaseTab === "note" && (
+                          {isMobileCasesView && (
                             <>
-                              {caseNoteLoading ? (
-                                <div className="inline-empty">
-                                  Dava notu yükleniyor...
-                                </div>
-                              ) : (
-                                <>
-                                  <textarea
-                                    className="case-note-area"
-                                    value={caseNote}
-                                    onChange={(event) =>
-                                      setCaseNote(
-                                        event.target.value
-                                      )
-                                    }
-                                    placeholder="Bu davaya ait genel not..."
-                                  />
+                              <header className="mobile-case-identity">
+                                <h1>{item.case_title || item.case_type || "Dava dosyası"}</h1>
+                                <p>{item.court_name || "Mahkeme bilgisi yok"}</p>
+                                <dl>
+                                  <div><dt>Esas / Dosya No</dt><dd>{item.case_number || "Bilgi yok"}</dd></div>
+                                  <div><dt>Durum</dt><dd>{enumLabel(CASE_STATUS_LABELS, item.status)}</dd></div>
+                                  <div><dt>Risk</dt><dd>{enumLabel(RISK_LABELS, item.risk_level)}</dd></div>
+                                  {item.case_type && <div><dt>Dosya türü</dt><dd>{item.case_type}</dd></div>}
+                                </dl>
+                              </header>
+                              <section className="mobile-case-section">
+                                <h2>Taraflar / Müvekkiller</h2>
+                                {item.plaintiff && <p>Davacı: {item.plaintiff}</p>}
+                                {item.defendant && <p>Davalı: {item.defendant}</p>}
+                                <CasePartiesEditor caseId={item.id} readOnly />
+                              </section>
+                              <section className="mobile-case-section">
+                                <h2>Duruşmalar</h2>
+                                {(item.manual_calendar_events || []).filter((event) => event.event_type === "hearing").length === 0 ? <p>Kayıtlı duruşma bulunmuyor.</p> : (item.manual_calendar_events || []).filter((event) => event.event_type === "hearing").map((event) => (
+                                  <Link key={event.id} href={`/calendar?event=${encodeURIComponent(event.id)}`} className="mobile-agenda-row">
+                                    <span><strong>{event.title || "Duruşma"}</strong><small>{formatDateTime(event.raw?.hearingAt || event.start_date || event.due_date)}</small></span>
+                                  </Link>
+                                ))}
+                              </section>
 
-                                  <div className="inline-actions">
-                                    <button
-                                      type="button"
-                                      disabled={caseNoteSaving}
-                                      onClick={() =>
-                                        saveCaseNote(
-                                          item.id
-                                        )
-                                      }
-                                    >
-                                      Kaydet
-                                    </button>
-
-                                    <button
-                                      type="button"
-                                      className="danger"
-                                      disabled={caseNoteSaving}
-                                      onClick={() =>
-                                        deleteCaseNote(
-                                          item.id
-                                        )
-                                      }
-                                    >
-                                      Sil
-                                    </button>
-                                  </div>
-
-                                  {caseNoteError && (
-                                    <div className="inline-error">
-                                      {caseNoteError}
-                                    </div>
-                                  )}
-                                </>
-                              )}
                             </>
                           )}
 
-                          {openCaseTab === "mail" && (
+                          {isMobileCasesView && <h2 className="mobile-case-section-title">Kritik tarihler</h2>}
+                          {(isMobileCasesView || openCaseTab === "deadline") && (
                             <>
-                              {(item.case_mails || []).length === 0 ? (
-                                <div className="inline-empty">
-                                  Bu davaya bağlı mail bulunmuyor.
-                                </div>
-                              ) : (
+                              {isMobileCasesView && (item.deemed_service_events || []).map((event) => (
+                                <Link className="mobile-agenda-row" key={event.id} href={`/calendar?event=${encodeURIComponent(event.id)}`}>
+                                  <span><strong>Tebliğ edilmiş sayılma</strong><small>{formatDate(event.due_date || event.start_date)}</small></span>
+                                </Link>
+                              ))}
+                              {(item.payment_reminders || []).length > 0 && (
                                 <div className="case-mail-list">
-                                  {(item.case_mails || []).map(
-                                    (mail) => (
+                                  {(item.payment_reminders || []).map(
+                                    (payment, index) => (
                                       <div
-                                        key={mail.id}
+                                        key={`${payment.sourceDocument || "payment"}-${index}`}
                                         className="case-mail-item"
                                       >
                                         <div>
-                                          <div className="case-mail-timeline-label">
-                                            E-posta alındı
-                                          </div>
-
                                           <div className="case-mail-subject">
-                                            Konu: {mail.subject ||
-                                              "Konu bilgisi yok"}
-                                          </div>
-
-                                          <div className="case-mail-sender">
-                                            Gönderen: {mail.sender ||
-                                              "Gönderen bilgisi yok"}
-                                          </div>
-
-                                          <div className="case-mail-account">
-                                            Hesap: {mail.mail_account_email ||
-                                              "Kaynak hesap bilgisi yok"}
-
-                                            {mail.mail_provider
-                                              ? ` · ${mail.mail_provider}`
+                                            {formatPaymentAmount(payment)}
+                                            {payment.paymentDescription
+                                              ? ` · ${payment.paymentDescription}`
                                               : ""}
                                           </div>
-                                        </div>
-
-                                        <div className="case-mail-date">
-                                          {formatDateTime(
-                                            mail.received_at
-                                          )}
+                                          <div className="case-mail-sender">
+                                            {payment.paymentDueDate
+                                              ? `Son tarih: ${formatDate(payment.paymentDueDate)}`
+                                              : payment.paymentPeriodText ||
+                                                "Son tarih bulunamadı"}
+                                            {" · "}
+                                            {payment.sourceDocument ||
+                                              "Kaynak PDF belirtilmedi"}
+                                          </div>
+                                          {!payment.paymentDueDate &&
+                                            payment.paymentPeriodText && (
+                                              <div className="case-mail-sender">
+                                                Süre metni bulundu; başlangıç tarihi doğrulanamadığı için son tarih oluşturulmadı.
+                                              </div>
+                                            )}
                                         </div>
                                       </div>
                                     )
                                   )}
                                 </div>
                               )}
+
+                              {getLegalDeadlineRecords(item).length === 0 ? (
+                                (item.payment_reminders || []).length === 0 ? (
+                                  <div className="inline-empty">
+                                    Bu davaya ait kayıtlı süre bulunmuyor.
+                                  </div>
+                                ) : null
+                              ) : (
+                                <div className="case-mail-list">
+                                  {getLegalDeadlineRecords(item)
+                                    .filter(
+                                      (deadline) =>
+                                        deadline.calculated_due_date
+                                    )
+                                    .sort(
+                                      (a, b) =>
+                                        new Date(
+                                          a.calculated_due_date as string
+                                        ).getTime() -
+                                        new Date(
+                                          b.calculated_due_date as string
+                                        ).getTime()
+                                    )
+                                    .map((deadline) => {
+                                      const state =
+                                        getDeadlineState(
+                                          deadline.calculated_due_date
+                                        );
+
+                                      return (
+                                        <div
+                                          key={deadline.id}
+                                          className="case-mail-item"
+                                        >
+                                          <div>
+                                            <div className="case-mail-subject">
+                                              {deadline.title ||
+                                                "Hukuki süre"}
+                                            </div>
+
+                                            <div className="case-mail-sender">
+                                              Durum:{" "}
+                                              {enumLabel(
+                                                DEADLINE_STATUS_LABELS,
+                                                deadline.status || "active"
+                                              )}
+                                            </div>
+                                          </div>
+
+                                          <div
+                                            className={`case-mail-date deadline-button ${state}`}
+                                          >
+                                            {formatDate(
+                                              deadline.calculated_due_date
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                </div>
+                              )}
                             </>
                           )}
-
-                          {openCaseTab === "file" && (
+                          {isMobileCasesView && <h2 className="mobile-case-section-title">Belgeler</h2>}
+                          {(isMobileCasesView || openCaseTab === "file") && (
                             <div className="case-file-panel">
                               <div className="case-file-toolbar">
                                 <label className="case-file-upload case-photo-capture">
@@ -9935,7 +9985,8 @@ export default function CasesPage() {
                             </div>
                           )}
 
-                          {openCaseTab === "document" && (
+                          {isMobileCasesView && <h2 className="mobile-case-section-title">Mailden gelen evraklar</h2>}
+                          {(isMobileCasesView || openCaseTab === "document") && (
                             <div className="case-file-panel">
                               {caseDocumentError && (
                                 <div className="inline-error">
@@ -9987,107 +10038,116 @@ export default function CasesPage() {
                             </div>
                           )}
 
-                          {openCaseTab === "deadline" && (
+                          {isMobileCasesView && <h2 className="mobile-case-section-title">Bağlı e-postalar</h2>}
+                          {(isMobileCasesView || openCaseTab === "mail") && (
                             <>
-                              {(item.payment_reminders || []).length > 0 && (
+                              {(item.case_mails || []).length === 0 ? (
+                                <div className="inline-empty">
+                                  Bu davaya bağlı mail bulunmuyor.
+                                </div>
+                              ) : (
                                 <div className="case-mail-list">
-                                  {(item.payment_reminders || []).map(
-                                    (payment, index) => (
+                                  {(item.case_mails || []).map(
+                                    (mail) => (
                                       <div
-                                        key={`${payment.sourceDocument || "payment"}-${index}`}
+                                        key={mail.id}
                                         className="case-mail-item"
                                       >
                                         <div>
+                                          <div className="case-mail-timeline-label">
+                                            E-posta alındı
+                                          </div>
+
                                           <div className="case-mail-subject">
-                                            {formatPaymentAmount(payment)}
-                                            {payment.paymentDescription
-                                              ? ` · ${payment.paymentDescription}`
+                                            Konu: {mail.subject ||
+                                              "Konu bilgisi yok"}
+                                          </div>
+
+                                          <div className="case-mail-sender">
+                                            Gönderen: {mail.sender ||
+                                              "Gönderen bilgisi yok"}
+                                          </div>
+
+                                          <div className="case-mail-account">
+                                            Hesap: {mail.mail_account_email ||
+                                              "Kaynak hesap bilgisi yok"}
+
+                                            {mail.mail_provider
+                                              ? ` · ${mail.mail_provider}`
                                               : ""}
                                           </div>
-                                          <div className="case-mail-sender">
-                                            {payment.paymentDueDate
-                                              ? `Son tarih: ${formatDate(payment.paymentDueDate)}`
-                                              : payment.paymentPeriodText ||
-                                                "Son tarih bulunamadı"}
-                                            {" · "}
-                                            {payment.sourceDocument ||
-                                              "Kaynak PDF belirtilmedi"}
-                                          </div>
-                                          {!payment.paymentDueDate &&
-                                            payment.paymentPeriodText && (
-                                              <div className="case-mail-sender">
-                                                Süre metni bulundu; başlangıç tarihi doğrulanamadığı için son tarih oluşturulmadı.
-                                              </div>
-                                            )}
+                                        </div>
+
+                                        <div className="case-mail-date">
+                                          {formatDateTime(
+                                            mail.received_at
+                                          )}
                                         </div>
                                       </div>
                                     )
                                   )}
                                 </div>
                               )}
+                            </>
+                          )}
 
-                              {getLegalDeadlineRecords(item).length === 0 ? (
-                                (item.payment_reminders || []).length === 0 ? (
-                                  <div className="inline-empty">
-                                    Bu davaya ait kayıtlı süre bulunmuyor.
-                                  </div>
-                                ) : null
-                              ) : (
-                                <div className="case-mail-list">
-                                  {getLegalDeadlineRecords(item)
-                                    .filter(
-                                      (deadline) =>
-                                        deadline.calculated_due_date
-                                    )
-                                    .sort(
-                                      (a, b) =>
-                                        new Date(
-                                          a.calculated_due_date as string
-                                        ).getTime() -
-                                        new Date(
-                                          b.calculated_due_date as string
-                                        ).getTime()
-                                    )
-                                    .map((deadline) => {
-                                      const state =
-                                        getDeadlineState(
-                                          deadline.calculated_due_date
-                                        );
-
-                                      return (
-                                        <div
-                                          key={deadline.id}
-                                          className="case-mail-item"
-                                        >
-                                          <div>
-                                            <div className="case-mail-subject">
-                                              {deadline.title ||
-                                                "Hukuki süre"}
-                                            </div>
-
-                                            <div className="case-mail-sender">
-                                              Durum:{" "}
-                                              {enumLabel(
-                                                DEADLINE_STATUS_LABELS,
-                                                deadline.status || "active"
-                                              )}
-                                            </div>
-                                          </div>
-
-                                          <div
-                                            className={`case-mail-date deadline-button ${state}`}
-                                          >
-                                            {formatDate(
-                                              deadline.calculated_due_date
-                                            )}
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
+                          {isMobileCasesView && <h2 className="mobile-case-section-title">Notlar</h2>}
+                          {(isMobileCasesView || openCaseTab === "note") && (
+                            <>
+                              {caseNoteLoading ? (
+                                <div className="inline-empty">
+                                  Dava notu yükleniyor...
                                 </div>
+                              ) : (
+                                <>
+                                  <textarea
+                                    className="case-note-area"
+                                    value={caseNote}
+                                    onChange={(event) =>
+                                      setCaseNote(
+                                        event.target.value
+                                      )
+                                    }
+                                    placeholder="Bu davaya ait genel not..."
+                                  />
+
+                                  <div className="inline-actions">
+                                    <button
+                                      type="button"
+                                      disabled={caseNoteSaving}
+                                      onClick={() =>
+                                        saveCaseNote(
+                                          item.id
+                                        )
+                                      }
+                                    >
+                                      Kaydet
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      className="danger"
+                                      disabled={caseNoteSaving}
+                                      onClick={() =>
+                                        deleteCaseNote(
+                                          item.id
+                                        )
+                                      }
+                                    >
+                                      Sil
+                                    </button>
+                                  </div>
+
+                                  {caseNoteError && (
+                                    <div className="inline-error">
+                                      {caseNoteError}
+                                    </div>
+                                  )}
+                                </>
                               )}
                             </>
                           )}
+
                         </CaseDetailHost>
                       )}
                     </article>

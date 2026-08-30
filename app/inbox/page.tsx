@@ -2250,6 +2250,9 @@ ${selectedMail.body || ""}`,
         >
           <section
             className="composer"
+            role="dialog"
+            aria-modal="true"
+            aria-label="E-posta yaz"
             style={{
               transform:
                 `translate(${composerPosition.x}px, ${composerPosition.y}px)`,

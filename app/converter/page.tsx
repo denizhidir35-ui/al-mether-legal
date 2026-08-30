@@ -1083,6 +1083,34 @@ export default function ConverterPage() {
     setRotateAngle(90);
   }
 
+  function mobileToolSupports(tool: Tool, selected: File[]) {
+    if (!selected.length) return true;
+    if (selected.length > 1 && tool !== "merge_pdf" && tool !== "image_pdf") return false;
+    return selected.every((file) => {
+      const name = file.name.toLowerCase();
+      if (tool === "word_pdf") return /\.(doc|docx)$/.test(name);
+      if (tool === "image_pdf") return /\.(jpe?g|png)$/.test(name) || ["image/jpeg", "image/png"].includes(file.type);
+      if (tool === "image_text" || tool === "image_word") return /\.(jpe?g|png|webp|heic|heif)$/.test(name) || file.type.startsWith("image/");
+      return name.endsWith(".pdf") || file.type === "application/pdf";
+    });
+  }
+
+  function selectMobileFiles(next: FileList | null) {
+    if (!next?.length) return;
+    const selected = Array.from(next);
+    const supported = TOOLS.filter((tool) => mobileToolSupports(tool.id, selected));
+    if (!supported.length) {
+      setError("Aynı türde PDF veya görsel dosyaları ya da tek bir Word belgesi seçin.");
+      return;
+    }
+    clearResult();
+    setTextResult("");
+    setTextCopied(false);
+    setError("");
+    setFiles(selected);
+    setActiveTool(supported.some((tool) => tool.id === activeTool) ? activeTool : supported[0].id);
+  }
+
   function selectFiles(
     nextFiles:
       FileList | null
@@ -2406,6 +2434,11 @@ export default function ConverterPage() {
         </aside>
 
         <section className="workspace">
+          <label className="mobile-converter-upload">
+            <strong>1. Dosya seç</strong>
+            <span>PDF, Word veya görsel</span>
+            <input type="file" accept=".pdf,.doc,.docx,image/jpeg,image/png,image/webp,image/heic,image/heif" multiple disabled={working} onChange={(event) => selectMobileFiles(event.target.files)} />
+          </label>
           <div className="workspace-head">
             <div>
               <span>
@@ -2521,6 +2554,20 @@ export default function ConverterPage() {
               )}
             </div>
           )}
+
+          <label className="mobile-converter-target">
+            <strong>2. Dönüştürme işlemi</strong>
+            <select value={activeTool} disabled={working} onChange={(event) => {
+              clearResult();
+              setTextResult("");
+              setTextCopied(false);
+              setError("");
+              setActiveTool(event.target.value as Tool);
+            }}>
+              {TOOLS.filter((tool) => mobileToolSupports(tool.id, files)).map((tool) => <option key={tool.id} value={tool.id}>{tool.title}</option>)}
+            </select>
+            <span>{activeMeta.short}</span>
+          </label>
 
           {(activeTool ===
             "extract_pdf" ||

@@ -42,6 +42,16 @@ export default function LegalDock() {
   const documentInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    const openNotifications = () => {
+      setMobileNotificationsOpen(true);
+      setMobileMenuOpen(false);
+      setMobileActionsOpen(false);
+    };
+    window.addEventListener("al-mether-open-notifications", openNotifications);
+    return () => window.removeEventListener("al-mether-open-notifications", openNotifications);
+  }, []);
+
+  useEffect(() => {
     setTheme(
       window.localStorage.getItem("legal-theme") === "dark"
         ? "dark"
@@ -340,6 +350,7 @@ export default function LegalDock() {
             key={`bottom-${item.href}`}
             href={item.href}
             className={item.href === "/" ? isDashboard ? "active" : "" : pathname === item.href ? "active" : ""}
+            aria-current={(item.href === "/" ? isDashboard : pathname === item.href) ? "page" : undefined}
           >
             <span aria-hidden="true">{item.icon}</span>
             <strong>{item.label}</strong>
@@ -347,7 +358,7 @@ export default function LegalDock() {
         ))}
         <button
           type="button"
-          className={mobileMenuOpen ? "active" : ""}
+          className={mobileMenuOpen || mobileMenuItems.some((item) => item.href === pathname) ? "active" : ""}
           aria-label="Menüyü aç"
           aria-expanded={mobileMenuOpen}
           onClick={() => {
