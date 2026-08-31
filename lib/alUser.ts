@@ -4,8 +4,9 @@ import { getServerSession } from "next-auth";
 
 import { authOptions } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { getSubscriptionAccess } from "@/lib/subscriptionServer";
+import { subscriptionMessage, type SubscriptionStatus } from "@/lib/subscription";
 import {
-  appUserAccessMessage,
   notifyAdminsOfPendingUser,
   PENDING_APPROVAL_STATUS,
 } from "@/lib/userApproval";
@@ -19,6 +20,8 @@ export type AppUserRecord = {
   status?: string | null;
   created_at?: string;
   updated_at?: string;
+  subscription_status?: SubscriptionStatus;
+  is_license_owner?: boolean;
 };
 
 export type AppSessionUser = {
@@ -88,11 +91,12 @@ export async function getOrCreateAppUser(): Promise<GetOrCreateAppUserResult> {
       const currentUser =
         existing.data as AppUserRecord;
 
-      if (currentUser.status !== "active") {
+      const access = await getSubscriptionAccess(email);
+      if (!access?.allowed) {
         return {
           user: sessionUser,
           appUser: currentUser,
-          error: appUserAccessMessage(currentUser.status),
+          error: access ? subscriptionMessage(access) : "Hesap erişimi doğrulanamadı.",
         };
       }
 
@@ -145,6 +149,7 @@ export async function getOrCreateAppUser(): Promise<GetOrCreateAppUserResult> {
         name: sessionUser.name,
         role: "lawyer",
         status: PENDING_APPROVAL_STATUS,
+        subscription_status: "TRIAL_PENDING",
       })
       .select("*")
       .single();
@@ -163,7 +168,7 @@ export async function getOrCreateAppUser(): Promise<GetOrCreateAppUserResult> {
       user: sessionUser,
       appUser:
         created.data as AppUserRecord,
-      error: null,
+      error: "Demo talebiniz inceleniyor.",
     };
   } catch (error: unknown) {
     return {

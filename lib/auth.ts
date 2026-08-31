@@ -547,6 +547,7 @@ export const authOptions:
         if (
           existingUser.data &&
           existingUser.data.status !== "active" &&
+          !["TRIAL_PENDING", "TRIAL_ACTIVE", "TRIAL_EXPIRED", "ACTIVE", "SUSPENDED"].includes(existingUser.data.subscription_status) &&
           !isPendingApprovalStatus(
             existingUser.data.status
           )
@@ -582,6 +583,7 @@ export const authOptions:
 
                 status:
                   PENDING_APPROVAL_STATUS,
+                subscription_status: "TRIAL_PENDING",
               })
               .select("*")
               .single();

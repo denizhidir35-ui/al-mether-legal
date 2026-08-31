@@ -4,6 +4,8 @@ import { useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { isPrivacyPath } from "@/lib/publicRoutes";
+import SubscriptionAccessScreen from "@/components/SubscriptionAccessScreen";
+import { setAccountStorageScope } from "@/lib/accountStorage";
 
 type AccountState = "checking" | "active" | "pending" | "blocked";
 type BootstrapState = "checking" | "authenticated" | "unauthenticated";
@@ -13,6 +15,8 @@ const PUBLIC_PATHS = [
   "/auth/accept-invite",
   "/auth/reset-password",
   "/auth/set-password",
+  "/auth/forgot-password",
+  "/account/access",
   "/download",
 ];
 
@@ -38,6 +42,8 @@ export default function AccountApprovalGate({
     useState<BootstrapState>("checking");
   const [bootstrapEmail, setBootstrapEmail] = useState("");
   const [message, setMessage] = useState("");
+  const [expired, setExpired] = useState(false);
+  const [verifiedIdentity, setVerifiedIdentity] = useState("");
   const checkedAccountRef = useRef("");
 
   useEffect(() => {
@@ -107,23 +113,24 @@ export default function AccountApprovalGate({
   }, [effectiveSessionStatus, pathname, router]);
 
   useEffect(() => {
+    if (isPublicPath(pathname)) return;
     if (effectiveSessionStatus === "checking") {
       return;
     }
 
     if (effectiveSessionStatus !== "authenticated") {
+      setAccountStorageScope(null);
+      setVerifiedIdentity("");
       checkedAccountRef.current = "";
       setAccountState("checking");
       return;
     }
 
-    const accountKey = session?.user?.email || bootstrapEmail || "authenticated";
-
-    if (checkedAccountRef.current === accountKey) {
-      return;
-    }
+    const accountKey = `${session?.user?.email || bootstrapEmail}:${pathname}`;
 
     checkedAccountRef.current = accountKey;
+    setAccountState("checking");
+    let alive = true;
 
     async function checkAccount() {
       const controller = new AbortController();
@@ -137,7 +144,7 @@ export default function AccountApprovalGate({
         });
         const data = await response.json();
 
-        if (checkedAccountRef.current !== accountKey) return;
+        if (!alive || checkedAccountRef.current !== accountKey) return;
 
         if (response.status === 401) {
           setBootstrapState("unauthenticated");
@@ -150,15 +157,18 @@ export default function AccountApprovalGate({
           return;
         }
 
-        if (data?.status === "active") {
+        if (response.ok && data?.allowed === true) {
+          setAccountStorageScope(data.user_id);
+          setVerifiedIdentity(session?.user?.email || bootstrapEmail);
           setAccountState("active");
           return;
         }
 
         setMessage(data?.message || "Hesap erişimi doğrulanamadı.");
+        setExpired(data?.subscription_status === "TRIAL_EXPIRED");
         setAccountState(data?.pending ? "pending" : "blocked");
       } catch {
-        if (checkedAccountRef.current !== accountKey) return;
+        if (!alive || checkedAccountRef.current !== accountKey) return;
 
         setMessage("Hesap erişimi zaman aşımına uğradı. Lütfen yeniden deneyin.");
         setAccountState("blocked");
@@ -168,7 +178,12 @@ export default function AccountApprovalGate({
     }
 
     void checkAccount();
+    const timer = window.setInterval(checkAccount, 30_000);
+    window.addEventListener("focus", checkAccount);
+    return () => { alive = false; window.clearInterval(timer); window.removeEventListener("focus", checkAccount); };
   }, [bootstrapEmail, effectiveSessionStatus, pathname, router, session?.user?.email]);
+
+  if (isPublicPath(pathname)) return children;
 
   if (effectiveSessionStatus === "unauthenticated") {
     return isPublicPath(pathname)
@@ -176,17 +191,13 @@ export default function AccountApprovalGate({
       : <main className="account-approval-screen">Giriş ekranına yönlendiriliyor...</main>;
   }
 
-  if (accountState === "checking") {
+  if (accountState === "checking" || (accountState === "active" && verifiedIdentity !== (session?.user?.email || bootstrapEmail))) {
     return <main className="account-approval-screen">Hesap doğrulanıyor...</main>;
   }
 
   if (accountState !== "active") {
     return (
-      <main className="account-approval-screen">
-        {accountState === "pending"
-          ? "Hesabınız yönetici onayı bekliyor."
-          : message}
-      </main>
+      <SubscriptionAccessScreen message={message} expired={expired} />
     );
   }
 

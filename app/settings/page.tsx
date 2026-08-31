@@ -14,6 +14,7 @@ import { useSession } from "next-auth/react";
 import LegalDock from "@/components/LegalDock";
 import LegalSessionControl from "@/components/LegalSessionControl";
 import PasswordUpdateForm from "@/components/PasswordUpdateForm";
+import SubscriptionSummary from "@/components/SubscriptionSummary";
 import { markSafeAppNavigation } from "@/lib/navigation/backNavigation";
 
 type Theme =
@@ -27,6 +28,9 @@ type AdminUser = {
   role?: string | null;
   status?: string | null;
   created_at?: string;
+  subscription_status?: string;
+  is_license_owner?: boolean;
+  trial_started_at?: string | null;
 };
 
 type AdminNotification = {
@@ -60,6 +64,8 @@ export default function SettingsPage() {
 
   const [adminNotifications, setAdminNotifications] =
     useState<AdminNotification[]>([]);
+
+  const [ownerMode, setOwnerMode] = useState(false);
 
   const [adminMode, setAdminMode] =
     useState(false);
@@ -173,6 +179,7 @@ export default function SettingsPage() {
       }
 
       setAdminMode(true);
+      setOwnerMode(data.isOwner === true);
 
       setUsers(
         Array.isArray(
@@ -195,65 +202,6 @@ export default function SettingsPage() {
       );
     } finally {
       setLoadingUsers(false);
-    }
-  }
-
-  async function changeUserStatus(
-    user: AdminUser,
-    nextStatus?: "active" | "inactive" | "rejected"
-  ) {
-    const targetStatus =
-      nextStatus ||
-      (user.status === "active" ? "inactive" : "active");
-
-    try {
-      setChangingId(user.id);
-      setUserError("");
-
-      const response =
-        await fetch(
-          "/api/admin/users",
-          {
-            method: "PATCH",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify({
-              userId: user.id,
-              status: targetStatus,
-            }),
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data?.error ||
-            "Kullanıcı durumu güncellenemedi."
-        );
-      }
-
-      setUsers(
-        (current) =>
-          current.map(
-            (item) =>
-              item.id ===
-              data.user.id
-                ? data.user
-                : item
-          )
-      );
-    } catch (error) {
-      setUserError(
-        error instanceof Error
-          ? error.message
-          : "Kullanıcı durumu güncellenemedi."
-      );
-    } finally {
-      setChangingId("");
     }
   }
 
@@ -526,6 +474,7 @@ export default function SettingsPage() {
 
               <span className="account-status">Aktif oturum</span>
             </div>
+            <SubscriptionSummary />
           </div>
 
         {adminMode && (
@@ -660,7 +609,7 @@ export default function SettingsPage() {
                             : "user-status passive"
                         }
                       >
-                        {user.status ===
+                        {user.subscription_status || (user.status ===
                         "active"
                           ? "Aktif"
                           : user.status === "pending" ||
@@ -668,38 +617,13 @@ export default function SettingsPage() {
                             ? "Onay Bekliyor"
                             : user.status === "rejected"
                               ? "Reddedildi"
-                              : "Pasif"}
+                              : "Pasif")}
                       </div>
 
                       <div className="user-actions">
-                        <button
-                          type="button"
-                          className="status-button"
-                          disabled={changingId === user.id || user.role === "admin"}
-                          onClick={() => changeUserStatus(user)}
-                        >
-                          {changingId === user.id
-                            ? "Kaydediliyor..."
-                            : user.role === "admin"
-                              ? "Yönetici"
-                              : user.status === "active"
-                                ? "Pasif Yap"
-                                : "Aktif Et"}
-                        </button>
+                        {ownerMode ? <a className="status-button" href="/settings/licenses">Demo / Lisans Yönetimi</a> : <span>OWNER onayı gerekir</span>}
 
-                        {(user.status === "pending" ||
-                          user.status === "pending_approval") && (
-                          <button
-                            type="button"
-                            className="status-button reject"
-                            disabled={changingId === user.id}
-                            onClick={() => changeUserStatus(user, "rejected")}
-                          >
-                            Reddet
-                          </button>
-                        )}
-
-                        {user.role !== "admin" &&
+                        {user.role !== "admin" && !user.is_license_owner && !user.trial_started_at && user.subscription_status === "TRIAL_PENDING" &&
                           (user.status === "pending" ||
                             user.status === "pending_approval" ||
                             user.status === "rejected" ||

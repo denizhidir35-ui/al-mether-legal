@@ -9,7 +9,6 @@ import {
 
 import {
   createInvitedAppUser,
-  verifyAuthUserBeforeActivation,
 } from "@/lib/adminUserLifecycle";
 
 import {
@@ -136,7 +135,7 @@ async function requireAdmin() {
 
   if (
     result.appUser.role !==
-    "admin"
+    "admin" && !result.appUser.is_license_owner
   ) {
     return {
       appUser: null,
@@ -174,7 +173,7 @@ export async function GET() {
     await supabase
       .from("app_users")
       .select(
-        "id,email,name,role,status,created_at"
+        "id,email,name,role,status,created_at,subscription_status,is_license_owner,trial_started_at"
       )
       .order(
         "created_at",
@@ -205,6 +204,7 @@ export async function GET() {
 
   return NextResponse.json({
     ok: true,
+    isOwner: auth.appUser?.is_license_owner === true,
     users:
       result.data || [],
     notifications: notifications.error ? [] : notifications.data || [],
@@ -329,9 +329,10 @@ export async function POST(
               role: "lawyer",
               status:
                 PENDING_APPROVAL_STATUS,
+              subscription_status: "TRIAL_PENDING",
             })
             .select(
-              "id,email,name,role,status,created_at"
+              "id,email,name,role,status,created_at,subscription_status,is_license_owner,trial_started_at"
             )
             .single(),
       deleteAuthUser:
@@ -367,205 +368,12 @@ export async function POST(
   );
 }
 
-export async function PATCH(
-  request: NextRequest
-) {
-  const auth =
-    await requireAdmin();
-
-  if (
-    auth.response ||
-    !auth.appUser
-  ) {
-    return auth.response;
-  }
-
-  let body: any = {};
-
-  try {
-    body =
-      await request.json();
-  } catch {
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          "Geçersiz istek.",
-      },
-      { status: 400 }
-    );
-  }
-
-  const userId =
-    String(
-      body?.userId || ""
-    ).trim();
-
-  const status =
-    String(
-      body?.status || ""
-    ).trim();
-
-  if (!userId) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          "Kullanıcı seçilmedi.",
-      },
-      { status: 400 }
-    );
-  }
-
-  if (
-    status !== "active" &&
-    status !== "inactive" &&
-    status !== "passive" &&
-    status !== "rejected"
-  ) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          "Geçersiz kullanıcı durumu.",
-      },
-      { status: 400 }
-    );
-  }
-
-  /*
-   * Admin kendi hesabını yanlışlıkla
-   * pasif yapamasın.
-   */
-  if (
-    userId ===
-      auth.appUser.id &&
-    status !== "active"
-  ) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          "Kendi yönetici hesabınızı pasif yapamazsınız.",
-      },
-      { status: 400 }
-    );
-  }
-
-  const supabase =
-    getSupabaseAdmin();
-
-  const existing =
-    await supabase
-      .from("app_users")
-      .select(
-        "id,email,name,role,status"
-      )
-      .eq(
-        "id",
-        userId
-      )
-      .maybeSingle();
-
-  if (existing.error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          existing.error.message,
-      },
-      { status: 500 }
-    );
-  }
-
-  if (!existing.data) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          "Kullanıcı bulunamadı.",
-      },
-      { status: 404 }
-    );
-  }
-
-  /*
-   * Başka bir admin hesabını da
-   * bu basit ekrandan pasif etmiyoruz.
-   */
-  if (
-    existing.data.role ===
-      "admin" &&
-    status !== "active"
-  ) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          "Yönetici hesabı bu ekrandan pasif yapılamaz.",
-      },
-      { status: 400 }
-    );
-  }
-
-  const activationCheck =
-    await verifyAuthUserBeforeActivation({
-      email:
-        String(
-          existing.data.email || ""
-        )
-          .trim()
-          .toLowerCase(),
-      status,
-      findAuthUser:
-        findAuthUserByEmail,
-    });
-
-  if (!activationCheck.ok) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          activationCheck.error,
-      },
-      {
-        status:
-          activationCheck.status,
-      }
-    );
-  }
-
-  const updated =
-    await supabase
-      .from("app_users")
-      .update({
-        status,
-      })
-      .eq(
-        "id",
-        userId
-      )
-      .select(
-        "id,email,name,role,status,created_at"
-      )
-      .single();
-
-  if (updated.error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          updated.error.message,
-      },
-      { status: 500 }
-    );
-  }
-
-  return NextResponse.json({
-    ok: true,
-    user:
-      updated.data,
-  });
+export async function PATCH() {
+  const auth = await requireAdmin();
+  if (auth.response) return auth.response;
+  return NextResponse.json({ ok: false,
+    error: "Demo ve lisans durumunu OWNER, Ayarlar > Demo ve lisans yönetimi ekranından değiştirmelidir."
+  }, { status: 409 });
 }
 
 export async function DELETE(
@@ -621,7 +429,7 @@ export async function DELETE(
       {
         ok: false,
         error:
-          "Yönetici hesabı silinemez.",
+          "Yönetici, demo veya lisans geçmişi olan hesaplar bu ekrandan silinemez.",
       },
       { status: 403 }
     );
@@ -633,7 +441,7 @@ export async function DELETE(
     await supabase
       .from("app_users")
       .select(
-        "id,email,name,role,status"
+        "id,email,name,role,status,is_license_owner,subscription_status,trial_started_at"
       )
       .eq("id", userId)
       .maybeSingle();
@@ -681,6 +489,9 @@ export async function DELETE(
       .toLowerCase();
 
   if (
+    existing.data.is_license_owner ||
+    existing.data.trial_started_at ||
+    existing.data.subscription_status !== "TRIAL_PENDING" ||
     existing.data.role ===
       "admin" ||
     email ===
@@ -690,7 +501,7 @@ export async function DELETE(
       {
         ok: false,
         error:
-          "Yönetici hesabı silinemez.",
+          "Yönetici, demo veya lisans geçmişi olan hesaplar bu ekrandan silinemez.",
       },
       { status: 403 }
     );
